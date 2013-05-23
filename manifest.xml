@@ -1,0 +1,18 @@
+<package>
+  <description brief="dogsim">
+
+     dogsim
+
+  </description>
+  <author>Joshua Lurz</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/dogsim</url>
+  <depend package="gazebo" />
+
+   <export>
+    <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
+  </export>
+</package>
+
+
