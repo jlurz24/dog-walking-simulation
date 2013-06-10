@@ -23,6 +23,8 @@ link_directories(${GAZEBO_LIBRARY_DIRS})
 include_directories(${roscpp_INCLUDE_DIRS})
 link_directories(${roscpp_LIBRARY_DIRS})
 set(CMAKE_INSTALL_RPATH "${roscpp_LIBRARY_DIRS}")
+
+# Dog model plugin
 add_library(dog_model_plugin SHARED src/dog_model_plugin.cpp)
 set_target_properties(dog_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
 set_target_properties(dog_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
@@ -31,4 +33,14 @@ install (TARGETS dog_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo
 
 rosbuild_add_executable(dog_model_plugin_driver src/dog_model_plugin_driver.cpp)
 target_link_libraries(dog_model_plugin_driver dog_model_plugin)
+
+# Leash plugin
+add_library(leash_world_plugin SHARED src/leash_world_plugin.cpp)
+set_target_properties(leash_world_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
+set_target_properties(leash_world_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
+target_link_libraries(leash_world_plugin ${roscpp_LIBRARIES})
+install (TARGETS leash_world_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
+
+rosbuild_add_executable(leash_world_plugin_driver src/leash_world_plugin_driver.cpp)
+target_link_libraries(leash_world_plugin_driver leash_world_plugin)
 

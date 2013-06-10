@@ -109,30 +109,13 @@ namespace gazebo {
       static const double B = 1.5;
       static const double b = 2 * a;
       static const double SLOWING_FACTOR = 250.0;
-      static const double GAUSS_MEAN = 0.0;
-      static const double GAUSS_VARIANCE = 0.025;
 
       math::Vector3 goal;
       goal.z = 0.0;
       goal.x = A * sin(a * t / SLOWING_FACTOR + DELTA);
       goal.y = B * sin(b * t / SLOWING_FACTOR);
 
-      goal.x += gaussianNoise(GAUSS_MEAN, GAUSS_VARIANCE);
-      goal.y += gaussianNoise(GAUSS_MEAN, GAUSS_VARIANCE);
       return goal;
-    }
-
-    private: static double gaussianNoise(const double mean, const double variance){
-      const unsigned int N = 20;
-      double X = 0.0;
-      
-      for(unsigned int i = 0; i < N; ++i){
-        X += rand() / double(RAND_MAX);
-      }
-      X = X - N / 2.0;
-      X = X * sqrt(12.0 / N);
-      X = mean + sqrt(variance) * X;
-      return X;
     }
 
     // Pointer to the model
