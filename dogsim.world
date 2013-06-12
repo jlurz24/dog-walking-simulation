@@ -7,7 +7,7 @@
         <shadows enabled="false"/>
        </scene>
 
-    <physics type="ode">
+    <physics type="ode" update_rate="1000">
       <gravity xyz="0 0 -9.8"/>
       <ode>
         <solver type="quick" dt="0.001" iters="10" sor="1.3"/>
@@ -75,7 +75,7 @@
   <model name="robot" static="false">
     <origin pose="8 0 0.1 0 0 0"/>
     <link name="hand">
-    <inertial mass="10.0">
+    <inertial mass="10">
       <origin pose="0 0 0 0 0 0" />
       <inertia ixx="1" ixy="0" ixz="0.0" iyy="1" iyz="0.0" izz="1"/>
     </inertial>

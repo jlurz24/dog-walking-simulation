@@ -99,7 +99,7 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Length of the leash
-    private: static const double LEASH_LENGTH = 5.0;
+    private: static const double LEASH_LENGTH = 15.0;
 
     // Amount of force the leash can apply at its maximum
     private: static const double SPRING_FORCE = 50.0;
