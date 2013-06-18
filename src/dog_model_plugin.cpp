@@ -225,10 +225,10 @@ namespace gazebo {
     private: static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
 
     // KP term
-    private: static const double KP = 0.05;
+    private: static const double KP = 0.005;
 
     // KD term
-    private: static const double KD = 0.0125;
+    private: static const double KD = 0.025;
 
     // Max force
     private: static const double MAX_FORCE = 50.0;
