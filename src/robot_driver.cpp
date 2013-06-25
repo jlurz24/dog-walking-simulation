@@ -1,11 +1,9 @@
 #include <iostream>
-#include <dogsim/lissajous.h>
+#include <dogsim/utils.h>
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <tf/transform_listener.h>
 #include <visualization_msgs/MarkerArray.h>
-
-static const double PI = boost::math::constants::pi<double>();
 
 class RobotDriver {
 private:
@@ -60,7 +58,8 @@ public:
       geometry_msgs::PointStamped goal;
 
       // TODO: Be smarter about making time scale based on velocity.
-      gazebo::math::Vector3 gazeboGoal = lissajous::lissajous(startTime.toSec() / 50.0);
+      gazebo::math::Vector3 gazeboGoal = utils::lissajous(startTime.toSec() / 50.0);
+
       goal.point.x = gazeboGoal.x;
       goal.point.y = gazeboGoal.y;
       goal.point.z = gazeboGoal.z;
@@ -88,8 +87,15 @@ public:
 
       tf_.transformPoint("/base_footprint", goal, normalStamped);
 
+      // Now calculate a point that is 1 meter behind the dog on the vector
+      // between the robot and the dog. This is the desired position of 
+      // the robot.
+      btVector3 goalVector(normalStamped.point.x, normalStamped.point.y, 0);
+      goalVector -= btScalar(1.0) * goalVector.normalized();
+ 
+      // Now calculate the point.
       // atan gives us the yaw between the positive x axis and the point.
-      double yaw = atan2(normalStamped.point.y, normalStamped.point.x);
+      btScalar yaw = btAtan2(goalVector.y(), goalVector.x());
       
       geometry_msgs::Twist baseCmd;
 
@@ -98,19 +104,20 @@ public:
       const double DEACC_DISTANCE = 1.0;
       const double DISTANCE_THRESH = 0.01;
 
-      // TODO: This should use real distance, not x which won't account
-      //       for y distance.
-      // if(abs(normalStamped.vector.x) > DEACC_DISTANCE){
-      //   baseCmd.linear.x = MAX_V;
-      //}
+      // Robot location is at the root of frame.
+      double distance = goalVector.distance(btVector3(0, 0, 0));
+      if(distance > DEACC_DISTANCE){
+        baseCmd.linear.x = MAX_V;
+      }
       // Don't attempt to close on the target
-      //else if(abs(normalStamped.vector.x) < DISTANCE_THRESH){
-      //  shouldMove = false;
-      //}
-      //else {
-      //  baseCmd.linear.x = abs(normalStamped.vector.x) / DEACC_DISTANCE * MAX_V;
-      //}
-      baseCmd.linear.x = MAX_V;
+      else if(distance < DISTANCE_THRESH){
+        shouldMove = false;
+      }
+      else {
+        baseCmd.linear.x = distance / DEACC_DISTANCE * MAX_V;
+      }
+      
+      // TODO: Use y for leash adjustments
       baseCmd.linear.y = 0;
       baseCmd.angular.z = yaw;
       
@@ -131,7 +138,6 @@ public:
         arrow.color.g = 1;
         arrow.color.b = 0;
 
-        // TODO: Show velocity as arrow length
         movePub_.publish(arrow);
         cmdVelocityPub_.publish(baseCmd);
       }

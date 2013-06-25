@@ -6,6 +6,7 @@
 #include <boost/math/constants/constants.hpp>
 #include <boost/random/uniform_real.hpp>
 #include <stdlib.h>
+#include <dogsim/utils.h>
 
 using namespace std;
 
@@ -101,7 +102,7 @@ namespace gazebo {
       // Slow the pathway down
       double scaledT = t / TIME_SCALE_FACTOR;
 
-      math::Vector3 base = lissajous(scaledT);
+      math::Vector3 base = utils::lissajous(scaledT);
       math::Vector3 result = addGaussians(base, this->previousBase, scaledT);
       this->previousBase = base;
       return result;
@@ -168,21 +169,6 @@ namespace gazebo {
       }
 
       return result;
-    }
-
-    private: math::Vector3 lissajous(const double t){
-      // Lissajous parameters.
-      static const double a = sqrt(2);
-      static const double delta = boost::math::constants::pi<long double>() / 2.0;
-      static const double A = 5.0;
-      static const double B = 1.5;
-      static const double b = 2 * a;
-
-      math::Vector3 goal;
-      goal.x = A * sin(a * t + delta);
-      goal.y = B * sin(b * t);
-      goal.z = 0.0;
-      return goal;
     }
 
     // Pointer to the model
