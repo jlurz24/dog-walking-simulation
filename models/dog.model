@@ -1,0 +1,24 @@
+<?xml version="1.0"?> 
+<gazebo version="1.0">
+  <model name="dog" static="false">
+    <origin pose="0 0 0 0 0 0 0"/>
+    <link name="body">
+    <inertial mass="0.1">
+      <origin pose="0 0 -0.05 0 0 0" />
+      <inertia ixx="0.00060416667" ixy="0" ixz="0.0" iyy="0.00060416667" iyz="0.0" izz="0.00016666667"/>
+    </inertial>
+    <collision name="collision">
+      <geometry>
+        <box size="0.25 0.1 0.1"/>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <material script="Gazebo/Yellow"/>
+      <geometry>
+        <box size="0.25 0.1 0.1"/>
+      </geometry>
+    </visual>
+  </link>
+  <plugin name="dog_model_plugin" filename="libdog_model_plugin.so"/>
+  </model>
+</gazebo>

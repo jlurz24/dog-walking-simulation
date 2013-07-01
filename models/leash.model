@@ -1,0 +1,7 @@
+<?xml version="1.0"?> 
+<gazebo version="1.0">
+  <model name="leash" static="true">
+    <origin pose="-10 -10 0.1 0 0 0"/>
+    <plugin name="leash_model_plugin" filename="libleash_model_plugin.so"/>
+  </model>
+</gazebo>

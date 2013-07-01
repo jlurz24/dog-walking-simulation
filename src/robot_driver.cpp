@@ -4,7 +4,10 @@
 #include <geometry_msgs/Twist.h>
 #include <tf/transform_listener.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <gazebo_msgs/GetModelState.h>
 
+namespace {
+  using namespace std;
 class RobotDriver {
 private:
   //! The node handle we'll be using
@@ -19,6 +22,9 @@ private:
   //! Publisher for goals
   ros::Publisher goalPub_;
 
+  //! Publisher for the dog position.
+  ros::Publisher dogPub_;
+
   //! Publisher for movement
   ros::Publisher movePub_;
 
@@ -32,12 +38,54 @@ public:
     cmdVelocityPub_ = nh_.advertise<geometry_msgs::Twist>("base_controller/command", 1);
 
     // Setup a visualization publisher for our goals.
-    goalPub_ = nh.advertise<visualization_msgs::Marker>("path_goal", 1);
-    movePub_ = nh.advertise<visualization_msgs::Marker>("planned_move", 1);
+    goalPub_ = nh_.advertise<visualization_msgs::Marker>("path_goal", 1);
+    movePub_ = nh_.advertise<visualization_msgs::Marker>("planned_move", 1);
+    dogPub_ = nh_.advertise<visualization_msgs::Marker>("dog_position", 1);
 
-    driverTimer = nh.createTimer(ros::Duration(0.25), &RobotDriver::callback, this);
+    driverTimer = nh_.createTimer(ros::Duration(0.25), &RobotDriver::callback, this);
+    // Wait for the service that will provide us simulated object locations.
+    ros::service::waitForService("/gazebo/get_model_state");
+
     driverTimer.start();
   }
+
+  static visualization_msgs::Marker createMarker(const geometry_msgs::Point& position, const std_msgs::Header& header, std_msgs::ColorRGBA& color){
+
+      visualization_msgs::Marker marker;
+      marker.header = header;
+      marker.ns = "dogsim";
+      marker.id = 0;
+      marker.type = visualization_msgs::Marker::SPHERE;
+      marker.action = visualization_msgs::Marker::ADD;
+      marker.pose.position = position;
+      marker.color = color;
+      marker.scale.x = marker.scale.y = marker.scale.z = 0.2;
+      return marker;
+  }
+
+  static std_msgs::ColorRGBA createColor(float r, float g, float b){
+    std_msgs::ColorRGBA color;
+    color.r = r;
+    color.g = g;
+    color.b = b;
+    color.a = 1;
+    return color;
+  }
+
+  static visualization_msgs::Marker createArrow(const double yaw, const std_msgs::Header& header, const std_msgs::ColorRGBA& color){
+     // Publish a visualization arrow.
+     visualization_msgs::Marker arrow;
+     arrow.header = header;
+     arrow.ns = "dogsim";
+     arrow.id = 0;
+     arrow.type = visualization_msgs::Marker::ARROW;
+     arrow.action = visualization_msgs::Marker::ADD;
+     arrow.pose.position.x = arrow.pose.position.y = arrow.pose.position.z = 0;
+     arrow.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
+     arrow.scale.x = arrow.scale.y = arrow.scale.z = 1.0;
+     arrow.color = color;
+     return arrow;
+ }
 
   void callback(const ros::TimerEvent& event){
       ROS_DEBUG("Received callback @ %f", event.current_real.toSec());
@@ -54,7 +102,21 @@ public:
         return;
       }
       
-      // Calculate our goal.
+      // Lookup the current position of the dog.
+      ros::ServiceClient modelStateServ = nh_.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
+      gazebo_msgs::GetModelState modelState;
+      modelState.request.model_name = "dog";
+      modelStateServ.call(modelState);
+      geometry_msgs::PoseStamped dogPose;
+      dogPose.header.stamp = startTime;
+      dogPose.header.frame_id = "/map";
+      dogPose.pose = modelState.response.pose;
+    
+      // Visualize the dog.
+      std_msgs::ColorRGBA BLUE = createColor(0, 0, 1);
+      dogPub_.publish(createMarker(dogPose.pose.position, dogPose.header, BLUE));
+
+      // Determine the goal.
       geometry_msgs::PointStamped goal;
 
       // TODO: Be smarter about making time scale based on velocity.
@@ -65,27 +127,18 @@ public:
       goal.point.z = gazeboGoal.z;
       goal.header.stamp = startTime;
       goal.header.frame_id = "/map";
-    
+      
       // Visualize the goal.
-      visualization_msgs::Marker marker;
-      marker.header = goal.header;
-      marker.ns = "dogsim";
-      marker.id = 0;
-      marker.type = visualization_msgs::Marker::SPHERE;
-      marker.action = visualization_msgs::Marker::ADD;
-      marker.pose.position = goal.point;
-      marker.color.a = 1;
-      marker.color.r = 0;
-      marker.color.g = 0;
-      marker.color.b = 1;
-      marker.scale.x = marker.scale.y = marker.scale.z = 0.2;
-
-      goalPub_.publish(marker);
+      std_msgs::ColorRGBA RED = createColor(1, 0, 0);
+      goalPub_.publish(createMarker(goal.point, goal.header, RED));
 
       // Determine the angle from the robot to the target.
       geometry_msgs::PointStamped normalStamped;
-
       tf_.transformPoint("/base_footprint", goal, normalStamped);
+
+      // Determine the relative dog position
+      geometry_msgs::PoseStamped dogInBaseFrame;
+      tf_.transformPose("/base_footprint", dogPose, dogInBaseFrame);
 
       // Now calculate a point that is 1 meter behind the dog on the vector
       // between the robot and the dog. This is the desired position of 
@@ -101,6 +154,8 @@ public:
 
       bool shouldMove = true;
       const double MAX_V = 2.0;
+      const double AVOIDANCE_V = 0.5;
+      const double AVOIDANCE_THRESHOLD = 1.0;
       const double DEACC_DISTANCE = 1.0;
       const double DISTANCE_THRESH = 0.01;
 
@@ -116,29 +171,26 @@ public:
       else {
         baseCmd.linear.x = distance / DEACC_DISTANCE * MAX_V;
       }
+     
+      // Check if we are likely to collide with the dog and go around it.
+      if(abs(dogInBaseFrame.pose.position.y) < AVOIDANCE_THRESHOLD && (dogInBaseFrame.pose.position.x > 0 && dogInBaseFrame.pose.position.x < AVOIDANCE_THRESHOLD)){
+        ROS_INFO("Attempting to avoid dog");
+        // Move in the opposite direction of the position of the dog.
+        baseCmd.linear.y = -1.0 * copysign(AVOIDANCE_V, dogInBaseFrame.pose.position.y);
+      }
+      // We will naturally correct back to the goal.
       
-      // TODO: Use y for leash adjustments
-      baseCmd.linear.y = 0;
       baseCmd.angular.z = yaw;
       
       if(shouldMove){
-        // Publish a visualization arrow.
-        visualization_msgs::Marker arrow;
-        arrow.header.frame_id = "base_footprint";
-        arrow.header.stamp = startTime;
-        arrow.ns = "dogsim";
-        arrow.id = 0;
-        arrow.type = visualization_msgs::Marker::ARROW;
-        arrow.action = visualization_msgs::Marker::ADD;
-        arrow.pose.position.x = arrow.pose.position.y = arrow.pose.position.z = 0;
-        arrow.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
-        arrow.scale.x = arrow.scale.y = arrow.scale.z = 1.0;
-        arrow.color.a = 1;
-        arrow.color.r = 1;
-        arrow.color.g = 1;
-        arrow.color.b = 0;
-
-        movePub_.publish(arrow);
+        // Visualize the movement.
+        std_msgs::Header arrowHeader;
+        arrowHeader.frame_id = "base_footprint";
+        arrowHeader.stamp = startTime;
+        const std_msgs::ColorRGBA GREEN = createColor(0, 1, 0);
+        movePub_.publish(createArrow(yaw, arrowHeader, GREEN));
+        
+        // Publish the command to the base
         cmdVelocityPub_.publish(baseCmd);
       }
       else {
@@ -146,6 +198,7 @@ public:
       } 
     }
 };
+}
 
 int main(int argc, char** argv){
   ros::init(argc, argv, "robot_driver");

@@ -2,9 +2,9 @@
  * Driver to test linking plugin
  */
 #include <stdio.h>
-#include "leash_world_plugin.cpp"
+#include "leash_model_plugin.cpp"
 
 int main(int argc, const char* argv[]){
-   gazebo::LeashWorldPlugin* plugin = new gazebo::LeashWorldPlugin();
+   gazebo::LeashModelPlugin* plugin = new gazebo::LeashModelPlugin();
    delete plugin;  
 }

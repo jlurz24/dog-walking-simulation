@@ -11,36 +11,36 @@
 using namespace std;
 
 namespace gazebo {
-  class LeashWorldPlugin : public WorldPlugin {
-    public: LeashWorldPlugin() {
-      cout << "Creating Leash World Plugin" << endl;
+  class LeashModelPlugin : public ModelPlugin {
+    public: LeashModelPlugin() {
+      cout << "Creating Leash Model Plugin" << endl;
     }
     
-    public: ~LeashWorldPlugin() {
-      cout << "Destroying Leash World Plugin" << endl;
+    public: ~LeashModelPlugin() {
+      cout << "Destroying Leash Model Plugin" << endl;
     }
 
-    public: void Load(physics::WorldPtr _world, sdf::ElementPtr /*_sdf*/) {
-      cout << "Loading plugin" << endl;
+    public: void Load(physics::ModelPtr _leash, sdf::ElementPtr /*_sdf*/) {
+      cout << "Loading Leash Model Plugin" << endl;
 
       // Store the pointer to the world
-      this->world = _world;
+      this->world = _leash->GetWorld();
 
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateStart(
-          boost::bind(&LeashWorldPlugin::OnUpdate, this));
+          boost::bind(&LeashModelPlugin::OnUpdate, this));
     }
 
     // Called by the world update start event
     public: void OnUpdate() {
       // Find the robots hand
-      const physics::ModelPtr robot = this->world->GetModel("robot");
+      const physics::ModelPtr robot = this->world->GetModel("pr2");
       if(!robot){
         cout << "Could not locate robot." << endl;
         return;
       }
-      const physics::LinkPtr robotHand = robot->GetLink("hand");
+      const physics::LinkPtr robotHand = robot->GetLink("r_gripper_l_finger_tip_link");
       if(!robotHand){
         cout << "Could not locate robot hand link." << endl;
         return;
@@ -106,5 +106,5 @@ namespace gazebo {
   };
 
   // Register this plugin with the simulator
-  GZ_REGISTER_WORLD_PLUGIN(LeashWorldPlugin)
+  GZ_REGISTER_MODEL_PLUGIN(LeashModelPlugin)
 }

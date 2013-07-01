@@ -223,7 +223,7 @@ namespace gazebo {
     private: static const double WAIT_TIME = 5.0;
 
     // Scaling factor to slow growth of t.
-    private: static const double TIME_SCALE_FACTOR = 5.0;
+    private: static const double TIME_SCALE_FACTOR = 50.0;
     
     // Probability of starting a new gaussian in a given second.
     private: static const double P_NEW_GAUSS = 0.80;
