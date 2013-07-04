@@ -44,3 +44,6 @@ install (TARGETS leash_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gaze
 rosbuild_add_executable(leash_model_plugin_driver src/leash_model_plugin_driver.cpp)
 target_link_libraries(leash_model_plugin_driver leash_model_plugin)
 rosbuild_add_executable(robot_driver src/robot_driver.cpp)
+
+rosbuild_add_executable(total_force_measurer src/total_force_measurer.cpp)
+rosbuild_add_executable(path_scorer src/path_scorer.cpp)
