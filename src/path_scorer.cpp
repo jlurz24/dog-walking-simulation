@@ -40,6 +40,11 @@ class PathScorer {
     void callback(const ros::TimerEvent& timerEvent){
       ROS_DEBUG("Received a message @ %f", timerEvent.current_real.toSec());
     
+      if(timerEvent.current_real.toSec() / utils::TIMESCALE_FACTOR > 15.0){
+        ROS_DEBUG("End of scoring time reached");
+        return;
+      }
+
       ros::service::waitForService("/gazebo/get_model_state");
       ros::ServiceClient modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
       gazebo_msgs::GetModelState modelState;
@@ -48,7 +53,7 @@ class PathScorer {
      
       // Check the goal for the current time.
       // TODO: Be smarter about making time scale based on velocity.
-      gazebo::math::Vector3 gazeboGoal = utils::lissajous(timerEvent.current_real.toSec() / 50.0);
+      gazebo::math::Vector3 gazeboGoal = utils::lissajous(timerEvent.current_real.toSec() / utils::TIMESCALE_FACTOR);
       gazebo::math::Vector3 actual(modelState.response.pose.position.x, modelState.response.pose.position.y, modelState.response.pose.position.z);
       double currPositionDeviation = gazeboGoal.Distance(actual);
 

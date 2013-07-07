@@ -120,7 +120,7 @@ public:
       geometry_msgs::PointStamped goal;
 
       // TODO: Be smarter about making time scale based on velocity.
-      gazebo::math::Vector3 gazeboGoal = utils::lissajous(startTime.toSec() / 50.0);
+      gazebo::math::Vector3 gazeboGoal = utils::lissajous(startTime.toSec() / utils::TIMESCALE_FACTOR);
 
       goal.point.x = gazeboGoal.x;
       goal.point.y = gazeboGoal.y;

@@ -5,6 +5,8 @@
 
 namespace utils {
 
+  static const double TIMESCALE_FACTOR = 50.0;
+
   static double pointToPointDistanceSqr(const geometry_msgs::Point &p1, const geometry_msgs::Point &p2){
     return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y) + (p1.z - p2.z) * (p1.z - p2.z);
   }
@@ -14,6 +16,7 @@ namespace utils {
   }
 
   static gazebo::math::Vector3 lissajous(const double t){
+      
       // Lissajous parameters.
       static const double a = sqrt(2);
       static const double delta = boost::math::constants::pi<long double>() / 2.0;

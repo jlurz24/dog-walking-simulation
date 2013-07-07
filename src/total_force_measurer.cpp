@@ -3,6 +3,7 @@
 #include <tf/transform_listener.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <sensor_msgs/JointState.h>
+#include <dogsim/utils.h>
 
 using namespace std;
 
@@ -38,6 +39,12 @@ class TotalForceMeasurer {
         startTime = jointState->header.stamp;
         return;
       }
+
+      if(jointState->header.stamp.toSec() / utils::TIMESCALE_FACTOR > 15.0){
+        ROS_DEBUG("Terminated scoring");
+        return;
+      }
+
       // Determine the time delta
       double deltaSecs = jointState->header.stamp.toSec() - lastJointState->header.stamp.toSec();
 

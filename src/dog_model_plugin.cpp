@@ -100,7 +100,7 @@ namespace gazebo {
 
     private: math::Vector3 calcGoalPosition(const double t){
       // Slow the pathway down
-      double scaledT = t / TIME_SCALE_FACTOR;
+      double scaledT = t / utils::TIMESCALE_FACTOR;
 
       math::Vector3 base = utils::lissajous(scaledT);
       math::Vector3 result = addGaussians(base, this->previousBase, scaledT);
@@ -221,9 +221,6 @@ namespace gazebo {
 
     // Amount of time to wait before starting movement.
     private: static const double WAIT_TIME = 5.0;
-
-    // Scaling factor to slow growth of t.
-    private: static const double TIME_SCALE_FACTOR = 50.0;
     
     // Probability of starting a new gaussian in a given second.
     private: static const double P_NEW_GAUSS = 0.80;
