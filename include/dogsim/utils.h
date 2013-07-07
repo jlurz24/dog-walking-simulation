@@ -4,16 +4,8 @@
 #include <geometry_msgs/Point.h>
 
 namespace utils {
-
-  static const double TIMESCALE_FACTOR = 50.0;
-
-  static double pointToPointDistanceSqr(const geometry_msgs::Point &p1, const geometry_msgs::Point &p2){
-    return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y) + (p1.z - p2.z) * (p1.z - p2.z);
-  }
-
-  static double pointToPointDistance(const geometry_msgs::Point &p1, const geometry_msgs::Point &p2){
-    return sqrt(pointToPointDistanceSqr(p1, p2));
-  }
+  // Factor to slow down the lissajous calculation.
+  static const double TIMESCALE_FACTOR = 10.0;
 
   static gazebo::math::Vector3 lissajous(const double t){
       
@@ -25,7 +17,7 @@ namespace utils {
       static const double b = 2 * a;
 
       gazebo::math::Vector3 goal;
-      goal.x = A * sin(a * t + delta);
+      goal.x = -(A * sin(a * t + delta)) + 6.5; // Offset the start and invert;
       goal.y = B * sin(b * t);
       goal.z = 0.0;
       return goal;

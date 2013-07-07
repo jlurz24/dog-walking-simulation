@@ -70,13 +70,8 @@ namespace gazebo {
       // The hand force is a spring like attractive force between the hand and
       // the dog.
       // Determine the angle between the robot and the dog in the world frame.
-      double a = atan((dogPosition.y - handPosition.y) / (dogPosition.x - handPosition.x));
+      double a = atan2((handPosition.y - dogPosition.y), (handPosition.x - dogPosition.x));
       
-      // Correct the direction of the angle.
-      if(distance < 0){
-        a += boost::math::constants::pi<double>();
-      }
-
       math::Vector3 handForce;
       handForce.x = SPRING_FORCE * cos(a);
       handForce.y = SPRING_FORCE * sin(a);
@@ -85,6 +80,9 @@ namespace gazebo {
       // Reduce the force.
       const math::Vector3 appliedForce = handForce * ratio;
 
+      if(ratio > 0.05){
+        cout << "Applying force x: " << appliedForce.x << " y: " << appliedForce.y << " at angle : " << a << " with ratio: " << ratio << endl;
+      }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
  
@@ -99,7 +97,7 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Length of the leash
-    private: static const double LEASH_LENGTH = 15.0;
+    private: static const double LEASH_LENGTH = 3.0;
 
     // Amount of force the leash can apply at its maximum
     private: static const double SPRING_FORCE = 50.0;

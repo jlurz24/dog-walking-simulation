@@ -15,7 +15,6 @@ class TotalForceMeasurer {
     double totalForce;
     message_filters::Subscriber<sensor_msgs::JointState> jointsSub;
     sensor_msgs::JointStateConstPtr lastJointState;
-    ros::Time startTime;
  public:
     TotalForceMeasurer() : 
        privateHandle("~"), 
@@ -26,7 +25,7 @@ class TotalForceMeasurer {
     }
   
     ~TotalForceMeasurer(){
-      ROS_INFO("Total force measurement ended");
+      ROS_INFO("Total force measurement ended. Total force: %f", totalForce);
     }
     
  private:
@@ -36,12 +35,15 @@ class TotalForceMeasurer {
       // Ignore the first measurement so we can get a clean baseline.
       if(!lastJointState.get()){
         lastJointState = jointState;
-        startTime = jointState->header.stamp;
         return;
       }
 
-      if(jointState->header.stamp.toSec() / utils::TIMESCALE_FACTOR > 15.0){
-        ROS_DEBUG("Terminated scoring");
+      bool isStarted;
+      nh.param<bool>("path/started", isStarted, false);
+      bool isEnded;
+      nh.param<bool>("path/ended", isEnded, false);
+
+      if(!isStarted || isEnded){
         return;
       }
 
@@ -61,7 +63,9 @@ class TotalForceMeasurer {
       // Save off the message.
       lastJointState = jointState;
 
-      ROS_INFO("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / (jointState->header.stamp.toSec() - startTime.toSec()));
+      double startTime;
+      nh.getParam("path/start_time", startTime);
+      ROS_INFO("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / (jointState->header.stamp.toSec() - startTime));
    }
 };
 

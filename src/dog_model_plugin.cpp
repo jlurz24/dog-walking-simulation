@@ -7,6 +7,7 @@
 #include <boost/random/uniform_real.hpp>
 #include <stdlib.h>
 #include <dogsim/utils.h>
+#include <ros/ros.h>
 
 using namespace std;
 
@@ -42,18 +43,24 @@ namespace gazebo {
 
     // Called by the world update start event
     public: void OnUpdate() {
-      // Give the simulator a few seconds to start up.
-      if(this->model->GetWorld()->GetSimTime().Double() < WAIT_TIME){
-        // Save the previous time.
-        this->previousTime = this->model->GetWorld()->GetSimTime();
+  
+      bool isStarted;
+      nh.param<bool>("path/started", isStarted, false);
+      bool isEnded;
+      nh.param<bool>("path/ended", isEnded, false);
+
+      if(!isStarted || isEnded){
         return;
       }
-   
+
       // Fetch the body link.
       physics::LinkPtr body = this->model->GetLink("body");        
        
-        // Calculate the desired position. 
-        math::Vector3 goalPosition = calcGoalPosition(this->model->GetWorld()->GetSimTime().Double() - WAIT_TIME);
+        // Calculate the desired position.
+        double startTime;
+        nh.getParam("path/start_time", startTime); 
+        math::Vector3 goalPosition = calcGoalPosition(this->model->GetWorld()->GetSimTime().Double() - startTime);
+
         // Calculate current errors.
         double errorX = calcError(this->model->GetWorldPose().pos.x, goalPosition.x);
         double errorY = calcError(this->model->GetWorldPose().pos.y, goalPosition.y);
@@ -171,6 +178,9 @@ namespace gazebo {
       return result;
     }
 
+    //! ROS node handle
+    private: ros::NodeHandle nh;
+
     // Pointer to the model
     private: physics::ModelPtr model;
 
@@ -218,9 +228,6 @@ namespace gazebo {
 
     // Max force
     private: static const double MAX_FORCE = 50.0;
-
-    // Amount of time to wait before starting movement.
-    private: static const double WAIT_TIME = 5.0;
     
     // Probability of starting a new gaussian in a given second.
     private: static const double P_NEW_GAUSS = 0.80;

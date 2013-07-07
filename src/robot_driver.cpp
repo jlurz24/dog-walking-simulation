@@ -10,6 +10,12 @@ namespace {
   using namespace std;
 class RobotDriver {
 private:
+  //! Length of the leash. Keep this in-sync with the leash controller.
+  static const double LEASH_LENGTH = 3.0;
+
+  //! Amount of time it takes to perform a full lissajous cycle.
+  static const double LISSAJOUS_FULL_CYCLE_T = 4.45;
+
   //! The node handle we'll be using
   ros::NodeHandle nh_;
 
@@ -30,6 +36,10 @@ private:
 
   //! Drives adjustments
   ros::Timer driverTimer;
+
+  //! Time the driver was initialized
+  ros::Time initTime;
+
 public:
   //! ROS node initialization
   RobotDriver(ros::NodeHandle &nh):nh_(nh){
@@ -42,10 +52,11 @@ public:
     movePub_ = nh_.advertise<visualization_msgs::Marker>("planned_move", 1);
     dogPub_ = nh_.advertise<visualization_msgs::Marker>("dog_position", 1);
 
-    driverTimer = nh_.createTimer(ros::Duration(0.25), &RobotDriver::callback, this);
+    driverTimer = nh_.createTimer(ros::Duration(0.1), &RobotDriver::callback, this);
     // Wait for the service that will provide us simulated object locations.
     ros::service::waitForService("/gazebo/get_model_state");
 
+    initTime = ros::Time::now();
     driverTimer.start();
   }
 
@@ -90,25 +101,52 @@ public:
   void callback(const ros::TimerEvent& event){
       ROS_DEBUG("Received callback @ %f", event.current_real.toSec());
 
+      if(event.current_real.toSec() - initTime.toSec() < 5.0){
+        ROS_DEBUG("Start time not reached");
+        return;
+      }
+
       // Lookup the current position.
       bool gotTransform = false;
-      const ros::Time startTime = event.current_real;
       for(unsigned int i = 0; i < 5 && !gotTransform; ++i){
         gotTransform = tf_.waitForTransform("/base_footprint", "/map", 
-                                            startTime, ros::Duration(1.0));
+                                            event.current_real, ros::Duration(1.0));
       }
       if(!gotTransform){
         ROS_WARN("Failed to get transform. Aborting cycle");
         return;
       }
+
+      // Set the start time of all goals.
+      bool isStarted;
+      nh_.param<bool>("path/started", isStarted, false);
+      double startTime = event.current_real.toSec();
+      if(!isStarted){
+        ROS_INFO("Setting start time to %f", event.current_real.toSec());
+        nh_.setParam("path/start_time", event.current_real.toSec());
+        nh_.setParam("path/started", true);
+      }
+      else {
+        nh_.getParam("path/start_time", startTime);
+      }
       
+      bool isEnded;
+      nh_.param<bool>("path/ended", isEnded, false);
+      if(isEnded){
+        return;
+      }
+      if((event.current_real.toSec() - startTime)/ utils::TIMESCALE_FACTOR > LISSAJOUS_FULL_CYCLE_T){
+        ROS_INFO("Setting end flag");
+        nh_.setParam("path/ended", true);
+        return;
+      }
       // Lookup the current position of the dog.
       ros::ServiceClient modelStateServ = nh_.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
       gazebo_msgs::GetModelState modelState;
       modelState.request.model_name = "dog";
       modelStateServ.call(modelState);
       geometry_msgs::PoseStamped dogPose;
-      dogPose.header.stamp = startTime;
+      dogPose.header.stamp = event.current_real;
       dogPose.header.frame_id = "/map";
       dogPose.pose = modelState.response.pose;
     
@@ -120,12 +158,12 @@ public:
       geometry_msgs::PointStamped goal;
 
       // TODO: Be smarter about making time scale based on velocity.
-      gazebo::math::Vector3 gazeboGoal = utils::lissajous(startTime.toSec() / utils::TIMESCALE_FACTOR);
+      gazebo::math::Vector3 gazeboGoal = utils::lissajous((event.current_real.toSec() - startTime) / utils::TIMESCALE_FACTOR);
 
       goal.point.x = gazeboGoal.x;
       goal.point.y = gazeboGoal.y;
       goal.point.z = gazeboGoal.z;
-      goal.header.stamp = startTime;
+      goal.header.stamp = event.current_real;
       goal.header.frame_id = "/map";
       
       // Visualize the goal.
@@ -140,11 +178,11 @@ public:
       geometry_msgs::PoseStamped dogInBaseFrame;
       tf_.transformPose("/base_footprint", dogPose, dogInBaseFrame);
 
-      // Now calculate a point that is 1 meter behind the dog on the vector
-      // between the robot and the dog. This is the desired position of 
-      // the robot.
+      // Now calculate a point that is the leash/2 length distance behind the dog
+      // on the vector between the robot and the dog. 
+      // This is the desired position of the robot.
       btVector3 goalVector(normalStamped.point.x, normalStamped.point.y, 0);
-      goalVector -= btScalar(1.0) * goalVector.normalized();
+      goalVector -= btScalar(LEASH_LENGTH / 2) * goalVector.normalized();
  
       // Now calculate the point.
       // atan gives us the yaw between the positive x axis and the point.
@@ -153,10 +191,10 @@ public:
       geometry_msgs::Twist baseCmd;
 
       bool shouldMove = true;
-      const double MAX_V = 2.0;
-      const double AVOIDANCE_V = 0.5;
+      const double MAX_V = 5;
+      const double AVOIDANCE_V = 5;
       const double AVOIDANCE_THRESHOLD = 1.0;
-      const double DEACC_DISTANCE = 1.0;
+      const double DEACC_DISTANCE = 0.5;
       const double DISTANCE_THRESH = 0.01;
 
       // Robot location is at the root of frame.
@@ -166,6 +204,7 @@ public:
       }
       // Don't attempt to close on the target
       else if(distance < DISTANCE_THRESH){
+        ROS_INFO("Too close to target. Distance: %f", distance);
         shouldMove = false;
       }
       else {
@@ -183,10 +222,11 @@ public:
       baseCmd.angular.z = yaw;
       
       if(shouldMove){
+        ROS_INFO("Moving base x: %f, y: %f, z: %f", baseCmd.linear.x, baseCmd.linear.y, baseCmd.angular.z);
         // Visualize the movement.
         std_msgs::Header arrowHeader;
         arrowHeader.frame_id = "base_footprint";
-        arrowHeader.stamp = startTime;
+        arrowHeader.stamp = event.current_real;
         const std_msgs::ColorRGBA GREEN = createColor(0, 1, 0);
         movePub_.publish(createArrow(yaw, arrowHeader, GREEN));
         
@@ -194,7 +234,7 @@ public:
         cmdVelocityPub_.publish(baseCmd);
       }
       else {
-        ROS_DEBUG("Skipping movement. Below distance tolerance");
+        ROS_INFO("Skipping movement. Below distance tolerance");
       } 
     }
 };
