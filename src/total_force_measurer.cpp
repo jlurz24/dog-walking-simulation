@@ -55,7 +55,8 @@ class TotalForceMeasurer {
       // TODO: Determine if all force units are compatible.
       for(unsigned int i = 0; i < jointState->effort.size(); ++i){
         ROS_DEBUG("Joint %s is exerting %f", jointState->name[i].c_str(), jointState->effort[i]);
-	deltaForce += deltaSecs * (fabs(jointState->effort[i]) + fabs(lastJointState->effort[i])) / 2.0;
+        // Apply trapezoidal rule
+	deltaForce += utils::square(deltaSecs * (jointState->effort[i] + lastJointState->effort[i]) / 2.0);
       }
 
       totalForce += deltaForce;

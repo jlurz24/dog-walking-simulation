@@ -5,22 +5,18 @@
 
 using namespace std;
 
-inline double square(const double a){
-  return a * a;
-}
-
 class PathScorer {
   private:
     ros::NodeHandle nh;
     ros::NodeHandle privateHandle;
-    double averagePositionDeviation;
+    double totalDistanceDeviation;
     unsigned int iterations;
     ros::Timer timer;
  
  public:
     PathScorer() : 
        privateHandle("~"), 
-       averagePositionDeviation(0),
+       totalDistanceDeviation(0),
        iterations(0){
          timer = nh.createTimer(ros::Duration(0.25), &PathScorer::callback, this);
          // Wait for the service that will provide us simulated object locations.
@@ -31,7 +27,7 @@ class PathScorer {
     }
   
     ~PathScorer(){
-      ROS_INFO("Measurement ended. Average position deviation: %f", averagePositionDeviation);
+      ROS_INFO("Measurement ended. Total position deviation: %f", totalDistanceDeviation);
     }
     
  private:
@@ -61,11 +57,11 @@ class PathScorer {
       gazebo::math::Vector3 actual(modelState.response.pose.position.x, modelState.response.pose.position.y, modelState.response.pose.position.z);
       double currPositionDeviation = gazeboGoal.Distance(actual);
 
-      // Update the moving averages.
-      averagePositionDeviation = (currPositionDeviation + iterations * averagePositionDeviation) / (iterations + 1);
+      // Update the sum squared.
+      totalDistanceDeviation += utils::square(currPositionDeviation);
       iterations++;
       double duration = std::max(ros::Time::now().toSec() - startTime, 0.1);
-      ROS_INFO("Current Position Deviation(m): %f, Average Position Deviation(m): %f, Duration(s): %f", currPositionDeviation, averagePositionDeviation, duration);
+      ROS_INFO("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
    }
 };
 

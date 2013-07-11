@@ -7,7 +7,11 @@ namespace utils {
   // Factor to slow down the lissajous calculation.
   static const double TIMESCALE_FACTOR = 10.0;
 
-  static gazebo::math::Vector3 lissajous(const double t){
+  static inline double square(const double a){
+    return a * a;
+  }
+
+  static inline gazebo::math::Vector3 lissajous(const double t){
       
       // Lissajous parameters.
       static const double a = sqrt(2);

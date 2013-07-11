@@ -16,15 +16,15 @@ namespace gazebo {
 
   class DogModelPlugin : public ModelPlugin {
     public: DogModelPlugin() {
-      cout << "Creating Dog Plugin" << endl;
+      ROS_INFO("Creating Dog Plugin");
     }
     
     public: ~DogModelPlugin() {
-      cout << "Destroying Dog Plugin" << endl;
+      ROS_INFO("Destroying Dog Plugin");
     }
 
     public: void Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/) {
-      cout << "Loading plugin" << endl;
+      ROS_INFO("Loading Dog Plugin");
 
       // Store the pointer to the model
       this->model = _parent;
@@ -58,7 +58,7 @@ namespace gazebo {
        
         // Calculate the desired position.
         double startTime;
-        nh.getParam("path/start_time", startTime); 
+        nh.getParam("path/start_time", startTime);
         math::Vector3 goalPosition = calcGoalPosition(this->model->GetWorld()->GetSimTime().Double() - startTime);
 
         // Calculate current errors.
@@ -126,9 +126,9 @@ namespace gazebo {
       if(randomZeroToOne(rng) < P_NEW_GAUSS / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
         // Create a structure with the parameters.
         GaussParams params;
-        boost::uniform_real<> randomA(-pi/4, pi/4);
+        boost::uniform_real<> randomA(-pi/ 2, pi / 2);
         params.a = randomA(rng);
-
+       
         boost::uniform_real<> randomC(pi / 2, 2 * pi);
         params.c = randomC(rng);
 
@@ -164,7 +164,7 @@ namespace gazebo {
       // Iterate over all gaussians.
       for(unsigned int i = 0; i < gaussParams.size(); ++i){
         double gx = t - gaussParams[i].startTime - GAUSS_HALF_WIDTH * gaussParams[i].c;
-        double gy = gaussParams[i].a * exp(-pow(gx, 2) / (2 * pow(gaussParams[i].a, 2)));
+        double gy = gaussParams[i].a * exp(-(utils::square(gx) / (2 * utils::square(gaussParams[i].c))));
 
         // Calculate the normal vector.
         double nx = rux * gy;
@@ -214,7 +214,8 @@ namespace gazebo {
     // Parameters for all operating gaussians
     private: vector<GaussParams> gaussParams;
 
-    // Pseudo random number generator.
+    // Pseudo random number generator. This will always use the same seed
+    // so that every run is the same.
     private: boost::mt19937 rng;
 
     // Number of simulator iterations per second.

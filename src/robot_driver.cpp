@@ -16,6 +16,9 @@ private:
   //! Amount of time it takes to perform a full lissajous cycle.
   static const double LISSAJOUS_FULL_CYCLE_T = 4.45;
 
+  //! Amount of time before starting walk
+  static const double DELAY_TIME = 1.0;
+
   //! The node handle we'll be using
   ros::NodeHandle nh_;
 
@@ -34,6 +37,9 @@ private:
   //! Publisher for movement
   ros::Publisher movePub_;
 
+  //! Publisher for the trailing point
+  ros::Publisher trailingPointPub_;
+
   //! Drives adjustments
   ros::Timer driverTimer;
 
@@ -51,6 +57,7 @@ public:
     goalPub_ = nh_.advertise<visualization_msgs::Marker>("path_goal", 1);
     movePub_ = nh_.advertise<visualization_msgs::Marker>("planned_move", 1);
     dogPub_ = nh_.advertise<visualization_msgs::Marker>("dog_position", 1);
+    trailingPointPub_ = nh_.advertise<visualization_msgs::Marker>("trailing_point", 1);
 
     driverTimer = nh_.createTimer(ros::Duration(0.1), &RobotDriver::callback, this);
     // Wait for the service that will provide us simulated object locations.
@@ -101,14 +108,14 @@ public:
   void callback(const ros::TimerEvent& event){
       ROS_DEBUG("Received callback @ %f", event.current_real.toSec());
 
-      if(event.current_real.toSec() - initTime.toSec() < 5.0){
+      if(event.current_real.toSec() - initTime.toSec() < DELAY_TIME){
         ROS_DEBUG("Start time not reached");
         return;
       }
 
       // Lookup the current position.
       bool gotTransform = false;
-      for(unsigned int i = 0; i < 5 && !gotTransform; ++i){
+      for(unsigned int i = 0; i < 2 && !gotTransform; ++i){
         gotTransform = tf_.waitForTransform("/base_footprint", "/map", 
                                             event.current_real, ros::Duration(1.0));
       }
@@ -183,34 +190,45 @@ public:
       // This is the desired position of the robot.
       btVector3 goalVector(normalStamped.point.x, normalStamped.point.y, 0);
       goalVector -= btScalar(LEASH_LENGTH / 2) * goalVector.normalized();
- 
-      // Now calculate the point.
+
+      // Publish the trailing point.
+      std_msgs::ColorRGBA PURPLE = createColor(0.5, 0.0, 0.5);
+      geometry_msgs::PointStamped trailingPoint;
+      trailingPoint.header.frame_id = "/base_footprint";
+      trailingPoint.header.stamp = event.current_real;
+      trailingPoint.point.x = goalVector.x();
+      trailingPoint.point.y = goalVector.y();
+      trailingPoint.point.z = 0;
+      trailingPointPub_.publish(createMarker(trailingPoint.point, trailingPoint.header, PURPLE));
+
       // atan gives us the yaw between the positive x axis and the point.
       btScalar yaw = btAtan2(goalVector.y(), goalVector.x());
       
+      // Calculate the movement.
       geometry_msgs::Twist baseCmd;
 
       bool shouldMove = true;
-      const double MAX_V = 5;
+      const double MAX_V = 3;
       const double AVOIDANCE_V = 5;
       const double AVOIDANCE_THRESHOLD = 1.0;
       const double DEACC_DISTANCE = 0.5;
-      const double DISTANCE_THRESH = 0.01;
+      const double MIN_V = 0.6;
 
       // Robot location is at the root of frame.
       double distance = goalVector.distance(btVector3(0, 0, 0));
       if(distance > DEACC_DISTANCE){
         baseCmd.linear.x = MAX_V;
       }
-      // Don't attempt to close on the target
-      else if(distance < DISTANCE_THRESH){
-        ROS_INFO("Too close to target. Distance: %f", distance);
-        shouldMove = false;
-      }
       else {
         baseCmd.linear.x = distance / DEACC_DISTANCE * MAX_V;
       }
-     
+      
+      // Check if the velocity would be below our minimum. This prevents very
+      // small movements that might cause us to switch directions.
+      if(baseCmd.linear.x < MIN_V){
+        shouldMove = false;
+      }
+      
       // Check if we are likely to collide with the dog and go around it.
       if(abs(dogInBaseFrame.pose.position.y) < AVOIDANCE_THRESHOLD && (dogInBaseFrame.pose.position.x > 0 && dogInBaseFrame.pose.position.x < AVOIDANCE_THRESHOLD)){
         ROS_INFO("Attempting to avoid dog");
