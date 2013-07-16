@@ -18,7 +18,7 @@ class PathScorer {
        privateHandle("~"), 
        totalDistanceDeviation(0),
        iterations(0){
-         timer = nh.createTimer(ros::Duration(0.25), &PathScorer::callback, this);
+         timer = nh.createTimer(ros::Duration(0.1), &PathScorer::callback, this);
          // Wait for the service that will provide us simulated object locations.
          ros::service::waitForService("/gazebo/get_model_state");
 
@@ -39,11 +39,15 @@ class PathScorer {
       bool isEnded;
       nh.param<bool>("path/ended", isEnded, false);
     
-      if(!isStarted || isEnded){
+      if(!isStarted){
         return;
       }
 
-      ros::service::waitForService("/gazebo/get_model_state");
+      if(isEnded){
+        // Write out the final result
+        ROS_INFO("Total Position Deviation squared(m): %f", totalDistanceDeviation);
+      }
+
       ros::ServiceClient modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
       gazebo_msgs::GetModelState modelState;
       modelState.request.model_name = "dog";

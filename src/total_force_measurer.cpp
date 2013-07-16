@@ -13,15 +13,15 @@ class TotalForceMeasurer {
     ros::NodeHandle privateHandle;
     tf::TransformListener tf;
     double totalForce;
-    message_filters::Subscriber<sensor_msgs::JointState> jointsSub;
     sensor_msgs::JointStateConstPtr lastJointState;
+    ros::Timer timer;
+    
  public:
     TotalForceMeasurer() : 
        privateHandle("~"), 
-       totalForce(0.0),
-       jointsSub(nh, "joint_states", 1){
-      jointsSub.registerCallback(boost::bind(&TotalForceMeasurer::callback, this, _1));
+       totalForce(0.0){
       ROS_INFO("Total Force measurement initiated");
+      timer = nh.createTimer(ros::Duration(0.1), &TotalForceMeasurer::callback, this);
     }
   
     ~TotalForceMeasurer(){
@@ -29,9 +29,12 @@ class TotalForceMeasurer {
     }
     
  private:
-    void callback(const sensor_msgs::JointStateConstPtr jointState){
-      ROS_DEBUG("Received a message @ %f", ros::Time::now().toSec());
+    void callback(const ros::TimerEvent& timerEvent){
+      ROS_DEBUG("Received a message @ %f", timerEvent.current_real.toSec());
 
+      // Get the current joint state
+      sensor_msgs::JointStateConstPtr jointState = ros::topic::waitForMessage<sensor_msgs::JointState>("joint_states", nh, ros::Duration(0.5));
+      
       // Ignore the first measurement so we can get a clean baseline.
       if(!lastJointState.get()){
         lastJointState = jointState;
@@ -43,8 +46,12 @@ class TotalForceMeasurer {
       bool isEnded;
       nh.param<bool>("path/ended", isEnded, false);
 
-      if(!isStarted || isEnded){
+      if(!isStarted){
         return;
+      }
+      if(isEnded){
+        // Print out the final measurements
+        ROS_INFO("Total force(N): %f", totalForce);
       }
 
       // Determine the time delta
@@ -52,7 +59,6 @@ class TotalForceMeasurer {
 
       // Iterate over all the joints.
       double deltaForce = 0.0;
-      // TODO: Determine if all force units are compatible.
       for(unsigned int i = 0; i < jointState->effort.size(); ++i){
         ROS_DEBUG("Joint %s is exerting %f", jointState->name[i].c_str(), jointState->effort[i]);
         // Apply trapezoidal rule

@@ -22,6 +22,9 @@ private:
   //! The node handle we'll be using
   ros::NodeHandle nh_;
 
+  //! Private nh
+  ros::NodeHandle pnh_;
+
   //! We will be publishing to the "cmd_vel" topic to issue commands
   ros::Publisher cmdVelocityPub_;
 
@@ -46,9 +49,12 @@ private:
   //! Time the driver was initialized
   ros::Time initTime;
 
+  //! Whether this is a walk without the dog
+  bool soloWalk;
+
 public:
   //! ROS node initialization
-  RobotDriver(ros::NodeHandle &nh):nh_(nh){
+  RobotDriver(ros::NodeHandle &nh):nh_(nh), pnh_("~"){
 
     // Set up the publisher for the cmd_vel topic
     cmdVelocityPub_ = nh_.advertise<geometry_msgs::Twist>("base_controller/command", 1);
@@ -60,8 +66,14 @@ public:
     trailingPointPub_ = nh_.advertise<visualization_msgs::Marker>("trailing_point", 1);
 
     driverTimer = nh_.createTimer(ros::Duration(0.1), &RobotDriver::callback, this);
-    // Wait for the service that will provide us simulated object locations.
-    ros::service::waitForService("/gazebo/get_model_state");
+
+    pnh_.getParam("solo_walk", soloWalk);
+    ROS_INFO("Solo walk set to: %s", soloWalk ? "true" : "false");
+
+    if(!soloWalk){
+      // Wait for the service that will provide us simulated object locations.
+      ros::service::waitForService("/gazebo/get_model_state");
+    }
 
     initTime = ros::Time::now();
     driverTimer.start();
@@ -106,7 +118,7 @@ public:
  }
 
   void callback(const ros::TimerEvent& event){
-      ROS_DEBUG("Received callback @ %f", event.current_real.toSec());
+      ROS_INFO("Received callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
 
       if(event.current_real.toSec() - initTime.toSec() < DELAY_TIME){
         ROS_DEBUG("Start time not reached");
@@ -147,24 +159,28 @@ public:
         nh_.setParam("path/ended", true);
         return;
       }
-      // Lookup the current position of the dog.
-      ros::ServiceClient modelStateServ = nh_.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
-      gazebo_msgs::GetModelState modelState;
-      modelState.request.model_name = "dog";
-      modelStateServ.call(modelState);
+
       geometry_msgs::PoseStamped dogPose;
-      dogPose.header.stamp = event.current_real;
-      dogPose.header.frame_id = "/map";
-      dogPose.pose = modelState.response.pose;
+      if(!soloWalk){
+        // Lookup the current position of the dog.
+        ros::ServiceClient modelStateServ = nh_.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
+        gazebo_msgs::GetModelState modelState;
+        modelState.request.model_name = "dog";
+        modelStateServ.call(modelState);
+        dogPose.header.stamp = event.current_real;
+        dogPose.header.frame_id = "/map";
+        dogPose.pose = modelState.response.pose;
     
-      // Visualize the dog.
-      std_msgs::ColorRGBA BLUE = createColor(0, 0, 1);
-      dogPub_.publish(createMarker(dogPose.pose.position, dogPose.header, BLUE));
+        // Visualize the dog.
+        std_msgs::ColorRGBA BLUE = createColor(0, 0, 1);
+        dogPub_.publish(createMarker(dogPose.pose.position, dogPose.header, BLUE));
+      }
 
       // Determine the goal.
       geometry_msgs::PointStamped goal;
 
       // TODO: Be smarter about making time scale based on velocity.
+      ROS_INFO("Calling lj with %f", event.current_real.toSec() - startTime);
       gazebo::math::Vector3 gazeboGoal = utils::lissajous((event.current_real.toSec() - startTime) / utils::TIMESCALE_FACTOR);
 
       goal.point.x = gazeboGoal.x;
@@ -181,10 +197,12 @@ public:
       geometry_msgs::PointStamped normalStamped;
       tf_.transformPoint("/base_footprint", goal, normalStamped);
 
-      // Determine the relative dog position
       geometry_msgs::PoseStamped dogInBaseFrame;
-      tf_.transformPose("/base_footprint", dogPose, dogInBaseFrame);
-
+      if(!soloWalk){
+        // Determine the relative dog position
+        tf_.transformPose("/base_footprint", dogPose, dogInBaseFrame);
+      }
+        
       // Now calculate a point that is the leash/2 length distance behind the dog
       // on the vector between the robot and the dog. 
       // This is the desired position of the robot.
@@ -194,7 +212,7 @@ public:
       // Publish the trailing point.
       std_msgs::ColorRGBA PURPLE = createColor(0.5, 0.0, 0.5);
       geometry_msgs::PointStamped trailingPoint;
-      trailingPoint.header.frame_id = "/base_footprint";
+      trailingPoint.header.frame_id = "/base_footprint";       
       trailingPoint.header.stamp = event.current_real;
       trailingPoint.point.x = goalVector.x();
       trailingPoint.point.y = goalVector.y();
@@ -229,16 +247,18 @@ public:
         shouldMove = false;
       }
       
-      // Check if we are likely to collide with the dog and go around it.
-      if(abs(dogInBaseFrame.pose.position.y) < AVOIDANCE_THRESHOLD && (dogInBaseFrame.pose.position.x > 0 && dogInBaseFrame.pose.position.x < AVOIDANCE_THRESHOLD)){
-        ROS_INFO("Attempting to avoid dog");
-        // Move in the opposite direction of the position of the dog.
-        baseCmd.linear.y = -1.0 * copysign(AVOIDANCE_V, dogInBaseFrame.pose.position.y);
+      if(!soloWalk){
+        // Check if we are likely to collide with the dog and go around it.
+        if(abs(dogInBaseFrame.pose.position.y) < AVOIDANCE_THRESHOLD && (dogInBaseFrame.pose.position.x > 0 && dogInBaseFrame.pose.position.x < AVOIDANCE_THRESHOLD)){
+          ROS_INFO("Attempting to avoid dog");
+          // Move in the opposite direction of the position of the dog.
+          baseCmd.linear.y = -1.0 * copysign(AVOIDANCE_V, dogInBaseFrame.pose.position.y);
+        }
+        // We will naturally correct back to the goal.
       }
-      // We will naturally correct back to the goal.
-      
-      baseCmd.angular.z = yaw;
-      
+
+      baseCmd.angular.z = yaw;      
+
       if(shouldMove){
         ROS_INFO("Moving base x: %f, y: %f, z: %f", baseCmd.linear.x, baseCmd.linear.y, baseCmd.angular.z);
         // Visualize the movement.

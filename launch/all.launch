@@ -1,5 +1,5 @@
 <launch>
-  <param name="dog" textfile="$(find dogsim)/models/dog.model" />
+ <param name="dog" textfile="$(find dogsim)/models/dog.model" />
   <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.5" respawn="false" output="screen" />
 
   <param name="leash" textfile="$(find dogsim)/models/leash.model" />
@@ -10,7 +10,6 @@
   <include file="$(find pr2_navigation_global)/amcl_node.xml" />
 
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
-  <node pkg="dogsim" type="path_scorer" name="path_scorer" output="screen"/>
   <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
   
 </launch>
