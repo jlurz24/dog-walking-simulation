@@ -46,6 +46,7 @@ class PathScorer {
       if(isEnded){
         // Write out the final result
         ROS_INFO("Total Position Deviation squared(m): %f", totalDistanceDeviation);
+        return;
       }
 
       ros::ServiceClient modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
@@ -62,9 +63,9 @@ class PathScorer {
       double currPositionDeviation = gazeboGoal.Distance(actual);
 
       // Update the sum squared.
-      totalDistanceDeviation += utils::square(currPositionDeviation);
+      double duration = ros::Time::now().toSec() - startTime;
+      totalDistanceDeviation += utils::square(currPositionDeviation) * duration;
       iterations++;
-      double duration = std::max(ros::Time::now().toSec() - startTime, 0.1);
       ROS_INFO("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
    }
 };

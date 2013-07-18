@@ -52,6 +52,7 @@ class TotalForceMeasurer {
       if(isEnded){
         // Print out the final measurements
         ROS_INFO("Total force(N): %f", totalForce);
+        return;
       }
 
       // Determine the time delta

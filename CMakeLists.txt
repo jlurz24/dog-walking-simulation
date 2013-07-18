@@ -47,3 +47,4 @@ rosbuild_add_executable(robot_driver src/robot_driver.cpp)
 
 rosbuild_add_executable(total_force_measurer src/total_force_measurer.cpp)
 rosbuild_add_executable(path_scorer src/path_scorer.cpp)
+rosbuild_add_executable(set_max_update_rate src/set_max_update_rate.cpp)

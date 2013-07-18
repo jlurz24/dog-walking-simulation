@@ -1,0 +1,20 @@
+<launch>
+  <include file="$(find pr2_machine)/$(env ROBOT).machine" />
+
+  <param name="settings" textfile="$(find dogsim)/models/settings.model" />
+  <node name="spawn_settings" pkg="gazebo" type="spawn_model" args="-param settings -gazebo -model settings" respawn="false" output="screen" />
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
+  <include file="$(find pr2_navigation_global)/amcl_node.xml" />
+
+  <node pkg="dogsim" type="set_max_update_rate" name="set_max_update_rate" output="screen">
+    <param name="max_update_rate" value="250"/>
+  </node>
+
+  <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen">
+    <param name="solo_walk" value="true"/>
+  </node>
+
+  <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
+  <!-- Path score is meaningless in solo mode -->
+</launch>
