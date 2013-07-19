@@ -56,37 +56,37 @@ namespace gazebo {
       // Fetch the body link.
       physics::LinkPtr body = this->model->GetLink("body");        
        
-        // Calculate the desired position.
-        double startTime;
-        nh.getParam("path/start_time", startTime);
-        math::Vector3 goalPosition = calcGoalPosition(this->model->GetWorld()->GetSimTime().Double() - startTime);
+      // Calculate the desired position.
+      double startTime;
+      nh.getParam("path/start_time", startTime);
+      math::Vector3 goalPosition = calcGoalPosition(this->model->GetWorld()->GetSimTime().Double() - startTime);
 
-        // Calculate current errors.
-        double errorX = calcError(this->model->GetWorldPose().pos.x, goalPosition.x);
-        double errorY = calcError(this->model->GetWorldPose().pos.y, goalPosition.y);
+      // Calculate current errors.
+      double errorX = calcError(this->model->GetWorldPose().pos.x, goalPosition.x);
+      double errorY = calcError(this->model->GetWorldPose().pos.y, goalPosition.y);
 
-        common::Time deltat = this->model->GetWorld()->GetSimTime() - this->previousTime;
+      common::Time deltat = this->model->GetWorld()->GetSimTime() - this->previousTime;
 
-        double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
-        double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
+      double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
+      double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
 
-        double outputX = calcPDOutput(errorX, errorDerivativeX);
-        double outputY = calcPDOutput(errorY, errorDerivativeY);
+      double outputX = calcPDOutput(errorX, errorDerivativeX);
+      double outputY = calcPDOutput(errorY, errorDerivativeY);
 
-        this->forceX += outputX;
-        this->forceY += outputY;
+      this->forceX += outputX;
+      this->forceY += outputY;
  
-        // Prevent excessive force.
-        this->forceX = this->forceX > 0 ? min(this->forceX, MAX_FORCE) : max(this->forceX, -MAX_FORCE);
-        this->forceY = this->forceY > 0 ? min(this->forceY, MAX_FORCE) : max(this->forceY, -MAX_FORCE);
-        body->AddForce(math::Vector3(this->forceX, this->forceY, 0.0));
+      // Prevent excessive force.
+      this->forceX = this->forceX > 0 ? min(this->forceX, MAX_FORCE) : max(this->forceX, -MAX_FORCE);
+      this->forceY = this->forceY > 0 ? min(this->forceY, MAX_FORCE) : max(this->forceY, -MAX_FORCE);
+      body->AddForce(math::Vector3(this->forceX, this->forceY, 0.0));
 
-        // Save the current error for the next iteration.
-        this->previousErrorX = errorX;
-        this->previousErrorY = errorY;
+      // Save the current error for the next iteration.
+      this->previousErrorX = errorX;
+      this->previousErrorY = errorY;
 
-        // Save the previous time.
-        this->previousTime = this->model->GetWorld()->GetSimTime();
+      // Save the previous time.
+      this->previousTime = this->model->GetWorld()->GetSimTime();
     }
 
     private: static double calcError(const double _currentPosition, const double _goalPosition) {
@@ -110,7 +110,9 @@ namespace gazebo {
       double scaledT = t / utils::TIMESCALE_FACTOR;
 
       math::Vector3 base = utils::lissajous(scaledT);
-      math::Vector3 result = addGaussians(base, this->previousBase, scaledT);
+
+      // Gaussian function is tuned for input = [1:700]
+      math::Vector3 result = addGaussians(base, this->previousBase, t);
       this->previousBase = base;
       return result;
     }
@@ -132,6 +134,7 @@ namespace gazebo {
         boost::uniform_real<> randomC(pi / 2, 2 * pi);
         params.c = randomC(rng);
 
+        ROS_INFO("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
         params.startTime = t;
         gaussParams.push_back(params);
       }
@@ -219,7 +222,7 @@ namespace gazebo {
     private: boost::mt19937 rng;
 
     // Number of simulator iterations per second.
-    private: static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
+    private: static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 100;
 
     // KP term
     private: static const double KP = 0.005;
@@ -230,8 +233,8 @@ namespace gazebo {
     // Max force
     private: static const double MAX_FORCE = 50.0;
     
-    // Probability of starting a new gaussian in a given second.
-    private: static const double P_NEW_GAUSS = 0.80;
+    // Probability of starting a new gaussian in each iteration
+    private: static const double P_NEW_GAUSS = 0.08;
 
     // Multiple of sigma that captures nearly half of a gaussians width.
     private: static const double GAUSS_HALF_WIDTH = 3;

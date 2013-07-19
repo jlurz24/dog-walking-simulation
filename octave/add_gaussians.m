@@ -14,9 +14,9 @@ function x, y = add_gaussians(xorig, yorig)
 
     if(unifrnd(0,1) <= pNewGauss)
       # Start a new gaussian
-      g(end + 1, :) = [unifrnd(-pi/2, pi/2), unifrnd(pi / 2, 2 * pi), i];
+      g(end + 1, :) = [unifrnd(-pi/2, pi/2), unifrnd(pi / 2, 2 * pi), i]
     endif;
-
+    
     # Now iterate over all the gaussians.
     for(gi = 1:rows(g))
       # Start each gaussian shifted over to capture the full width.

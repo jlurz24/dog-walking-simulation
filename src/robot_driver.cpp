@@ -11,7 +11,7 @@ namespace {
 class RobotDriver {
 private:
   //! Length of the leash. Keep this in-sync with the leash controller.
-  static const double LEASH_LENGTH = 3.0;
+  static const double LEASH_LENGTH = 2.0;
 
   //! Amount of time it takes to perform a full lissajous cycle.
   static const double LISSAJOUS_FULL_CYCLE_T = 4.45;
@@ -79,12 +79,12 @@ public:
     driverTimer.start();
   }
 
-  static visualization_msgs::Marker createMarker(const geometry_msgs::Point& position, const std_msgs::Header& header, std_msgs::ColorRGBA& color){
-
+  static visualization_msgs::Marker createMarker(const geometry_msgs::Point& position, const std_msgs::Header& header, std_msgs::ColorRGBA& color, bool persist){
+      static unsigned int uniqueId = 0;
       visualization_msgs::Marker marker;
       marker.header = header;
       marker.ns = "dogsim";
-      marker.id = 0;
+      marker.id = persist ? uniqueId++ : 0;
       marker.type = visualization_msgs::Marker::SPHERE;
       marker.action = visualization_msgs::Marker::ADD;
       marker.pose.position = position;
@@ -173,14 +173,13 @@ public:
     
         // Visualize the dog.
         std_msgs::ColorRGBA BLUE = createColor(0, 0, 1);
-        dogPub_.publish(createMarker(dogPose.pose.position, dogPose.header, BLUE));
+        dogPub_.publish(createMarker(dogPose.pose.position, dogPose.header, BLUE, true));
       }
 
       // Determine the goal.
       geometry_msgs::PointStamped goal;
 
       // TODO: Be smarter about making time scale based on velocity.
-      ROS_INFO("Calling lj with %f", event.current_real.toSec() - startTime);
       gazebo::math::Vector3 gazeboGoal = utils::lissajous((event.current_real.toSec() - startTime) / utils::TIMESCALE_FACTOR);
 
       goal.point.x = gazeboGoal.x;
@@ -191,7 +190,7 @@ public:
       
       // Visualize the goal.
       std_msgs::ColorRGBA RED = createColor(1, 0, 0);
-      goalPub_.publish(createMarker(goal.point, goal.header, RED));
+      goalPub_.publish(createMarker(goal.point, goal.header, RED, true));
 
       // Determine the angle from the robot to the target.
       geometry_msgs::PointStamped normalStamped;
@@ -217,7 +216,7 @@ public:
       trailingPoint.point.x = goalVector.x();
       trailingPoint.point.y = goalVector.y();
       trailingPoint.point.z = 0;
-      trailingPointPub_.publish(createMarker(trailingPoint.point, trailingPoint.header, PURPLE));
+      trailingPointPub_.publish(createMarker(trailingPoint.point, trailingPoint.header, PURPLE, false));
 
       // atan gives us the yaw between the positive x axis and the point.
       btScalar yaw = btAtan2(goalVector.y(), goalVector.x());

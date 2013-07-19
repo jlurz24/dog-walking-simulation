@@ -65,7 +65,11 @@ namespace gazebo {
 
       // Now determine the ratio of force to apply using a sigmeud smoothing
       // function.
-      const double ratio = 1.0 / (1.0 + exp(-12.0 * (abs(distance) - LEASH_LENGTH)));
+      // Octave function:
+      // x = [0:0.01:2.5];
+      // y = 1 ./ (1 + e.^(-24*(x - 2)));
+
+      const double ratio = 1.0 / (1.0 + exp(-18.0 * (abs(distance) - LEASH_LENGTH)));
 
       // The hand force is a spring like attractive force between the hand and
       // the dog.
@@ -81,7 +85,7 @@ namespace gazebo {
       const math::Vector3 appliedForce = handForce * ratio;
 
       if(ratio > 0.05){
-        cout << "Applying force x: " << appliedForce.x << " y: " << appliedForce.y << " at angle : " << a << " with ratio: " << ratio << endl;
+        cout << "Applying force x: " << appliedForce.x << " y: " << appliedForce.y << " at angle : " << a << " with ratio: " << ratio <<  " at distance: " << distance << endl;
       }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
@@ -96,11 +100,11 @@ namespace gazebo {
     // Pointer to the update event connection
     private: event::ConnectionPtr updateConnection;
 
-    // Length of the leash
-    private: static const double LEASH_LENGTH = 3.0;
+    // Length of the leash. Keep in sync with robot_driver
+    private: static const double LEASH_LENGTH = 2.0;
 
     // Amount of force the leash can apply at its maximum
-    private: static const double SPRING_FORCE = 50.0;
+    private: static const double SPRING_FORCE = 250.0;
   };
 
   // Register this plugin with the simulator

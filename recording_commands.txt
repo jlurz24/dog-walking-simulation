@@ -1,7 +1,10 @@
 #/bin/bash
-startworld gui:=false
+# For capturing gazebo
+# startworld gui:=false
 # Capture the video
-glc-capture -o ~/naive_walk.glc /opt/ros/fuerte/stacks/simulator_gazebo/gazebo/gazebo/bin/gzclient -g /opt/ros/fuerte/stacks/simulator_gazebo/gazebo/lib/libgazebo_ros_paths_plugin.so
+# glc-capture -o ~/naive_walk.glc /opt/ros/fuerte/stacks/simulator_gazebo/gazebo/gazebo/bin/gzclient -g /opt/ros/fuerte/stacks/simulator_gazebo/gazebo/lib/libgazebo_ros_paths_plugin.so
+# For rviz
+glc-capture -o ~/naive_walk.glc rosrun rviz rviz
 # Encode it
 glc-play naive_walk.glc -y 1 -o - | mencoder -demuxer y4m - -ovc lavc -lavcopts vcodec=mjpeg -o naive_walk.avi
 # Compress it
