@@ -206,7 +206,7 @@ public:
       // on the vector between the robot and the dog. 
       // This is the desired position of the robot.
       btVector3 goalVector(normalStamped.point.x, normalStamped.point.y, 0);
-      goalVector -= btScalar(LEASH_LENGTH / 2) * goalVector.normalized();
+      goalVector -= btScalar(1.5) * goalVector.normalized();
 
       // Publish the trailing point.
       std_msgs::ColorRGBA PURPLE = createColor(0.5, 0.0, 0.5);
