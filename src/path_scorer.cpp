@@ -2,6 +2,9 @@
 #include <tf/transform_listener.h>
 #include <gazebo_msgs/GetModelState.h>
 #include <dogsim/utils.h>
+#include <dogsim/GetPath.h>
+#include <common/common.hh>
+#include <physics/physics.hh>
 
 using namespace std;
 
@@ -10,17 +13,16 @@ class PathScorer {
     ros::NodeHandle nh;
     ros::NodeHandle privateHandle;
     double totalDistanceDeviation;
-    unsigned int iterations;
     ros::Timer timer;
- 
+    ros::Time lastTime;
  public:
     PathScorer() : 
        privateHandle("~"), 
-       totalDistanceDeviation(0),
-       iterations(0){
+       totalDistanceDeviation(0){
          timer = nh.createTimer(ros::Duration(0.1), &PathScorer::callback, this);
          // Wait for the service that will provide us simulated object locations.
          ros::service::waitForService("/gazebo/get_model_state");
+         ros::service::waitForService("/dogsim/get_path");
 
          timer.start();
          ROS_INFO("Measurement initiated");
@@ -33,17 +35,18 @@ class PathScorer {
  private:
     void callback(const ros::TimerEvent& timerEvent){
       ROS_DEBUG("Received a message @ %f", timerEvent.current_real.toSec());
-
-      bool isStarted;
-      nh.param<bool>("path/started", isStarted, false);
-      bool isEnded;
-      nh.param<bool>("path/ended", isEnded, false);
-    
-      if(!isStarted){
+ 
+      ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
+      dogsim::GetPath getPath;
+      getPath.request.time = timerEvent.current_real.toSec();
+      getPath.request.start = false;
+      getPathClient.call(getPath);
+     
+      if(!getPath.response.started){
         return;
       }
 
-      if(isEnded){
+      if(getPath.response.ended){
         // Write out the final result
         ROS_INFO("Total Position Deviation squared(m): %f", totalDistanceDeviation);
         return;
@@ -55,17 +58,18 @@ class PathScorer {
       modelStateServ.call(modelState);
      
       // Check the goal for the current time.
-      double startTime;
-      nh.getParam("path/start_time", startTime); 
-      gazebo::math::Vector3 gazeboGoal = utils::lissajous((timerEvent.current_real.toSec() - startTime) / utils::TIMESCALE_FACTOR);
+      gazebo::math::Vector3 gazeboGoal;
+      gazeboGoal.x = getPath.response.point.point.x;
+      gazeboGoal.y = getPath.response.point.point.y;
+      gazeboGoal.z = getPath.response.point.point.z;
 
       gazebo::math::Vector3 actual(modelState.response.pose.position.x, modelState.response.pose.position.y, modelState.response.pose.position.z);
       double currPositionDeviation = gazeboGoal.Distance(actual);
 
       // Update the sum squared.
-      double duration = ros::Time::now().toSec() - startTime;
+      double duration = timerEvent.current_real.toSec() - lastTime.toSec();
       totalDistanceDeviation += utils::square(currPositionDeviation) * duration;
-      iterations++;
+	  lastTime = timerEvent.current_real;
       ROS_INFO("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
    }
 };

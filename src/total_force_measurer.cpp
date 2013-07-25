@@ -4,6 +4,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <sensor_msgs/JointState.h>
 #include <dogsim/utils.h>
+#include <dogsim/GetPath.h>
 
 using namespace std;
 
@@ -21,6 +22,7 @@ class TotalForceMeasurer {
        privateHandle("~"), 
        totalForce(0.0){
       ROS_INFO("Total Force measurement initiated");
+	  ros::service::waitForService("/dogsim/get_path");
       timer = nh.createTimer(ros::Duration(0.1), &TotalForceMeasurer::callback, this);
     }
   
@@ -41,15 +43,16 @@ class TotalForceMeasurer {
         return;
       }
 
-      bool isStarted;
-      nh.param<bool>("path/started", isStarted, false);
-      bool isEnded;
-      nh.param<bool>("path/ended", isEnded, false);
+      ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
+      dogsim::GetPath getPath;
+      getPath.request.time = timerEvent.current_real.toSec();
+      getPath.request.start = false;
+      getPathClient.call(getPath);
 
-      if(!isStarted){
+      if(!getPath.response.started){
         return;
       }
-      if(isEnded){
+      if(getPath.response.ended){
         // Print out the final measurements
         ROS_INFO("Total force(N): %f", totalForce);
         return;
@@ -63,7 +66,7 @@ class TotalForceMeasurer {
       for(unsigned int i = 0; i < jointState->effort.size(); ++i){
         ROS_DEBUG("Joint %s is exerting %f", jointState->name[i].c_str(), jointState->effort[i]);
         // Apply trapezoidal rule
-	deltaForce += utils::square(deltaSecs * (jointState->effort[i] + lastJointState->effort[i]) / 2.0);
+	    deltaForce += utils::square(deltaSecs * (jointState->effort[i] + lastJointState->effort[i]) / 2.0);
       }
 
       totalForce += deltaForce;
@@ -71,9 +74,7 @@ class TotalForceMeasurer {
       // Save off the message.
       lastJointState = jointState;
 
-      double startTime;
-      nh.getParam("path/start_time", startTime);
-      ROS_INFO("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / (jointState->header.stamp.toSec() - startTime));
+      ROS_INFO("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / (jointState->header.stamp.toSec() - getPath.response.elapsedTime));
    }
 };
 

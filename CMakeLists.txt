@@ -10,7 +10,9 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #set(ROS_BUILD_TYPE RelWithDebInfo)
 
 rosbuild_init()
-
+rosbuild_check_for_sse()
+rosbuild_genmsg()
+rosbuild_gensrv()
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
@@ -48,3 +50,5 @@ rosbuild_add_executable(robot_driver src/robot_driver.cpp)
 rosbuild_add_executable(total_force_measurer src/total_force_measurer.cpp)
 rosbuild_add_executable(path_scorer src/path_scorer.cpp)
 rosbuild_add_executable(set_max_update_rate src/set_max_update_rate.cpp)
+rosbuild_add_executable(dog_position_detector src/dog_position_detector.cpp)
+rosbuild_add_executable(get_path_server src/get_path_server.cpp)

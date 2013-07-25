@@ -11,10 +11,9 @@
     <param name="max_update_rate" value="250"/>
   </node>
 
-  <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen">
-    <param name="solo_walk" value="true"/>
-  </node>
+  <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
 
   <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
   <!-- Path score is meaningless in solo mode -->
+  <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen"/>
 </launch>

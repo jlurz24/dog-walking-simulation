@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <dogsim/utils.h>
 #include <ros/ros.h>
+#include <dogsim/GetPath.h>
 
 using namespace std;
 
@@ -17,6 +18,7 @@ namespace gazebo {
   class DogModelPlugin : public ModelPlugin {
     public: DogModelPlugin() {
       ROS_INFO("Creating Dog Plugin");
+	  ros::service::waitForService("/dogsim/get_path");
     }
     
     public: ~DogModelPlugin() {
@@ -44,22 +46,27 @@ namespace gazebo {
     // Called by the world update start event
     public: void OnUpdate() {
   
-      bool isStarted;
-      nh.param<bool>("path/started", isStarted, false);
-      bool isEnded;
-      nh.param<bool>("path/ended", isEnded, false);
-
-      if(!isStarted || isEnded){
+      ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
+      dogsim::GetPath getPath;
+      getPath.request.time = this->model->GetWorld()->GetSimTime().Double();
+      getPath.request.start = false;
+      getPathClient.call(getPath);
+     
+      if(!getPath.response.started || getPath.response.ended){
         return;
       }
+     
+      // Check the goal for the current time.
+      gazebo::math::Vector3 goal;
+      goal.x = getPath.response.point.point.x;
+      goal.y = getPath.response.point.point.y;
+      goal.z = getPath.response.point.point.z;
 
       // Fetch the body link.
       physics::LinkPtr body = this->model->GetLink("body");        
        
       // Calculate the desired position.
-      double startTime;
-      nh.getParam("path/start_time", startTime);
-      math::Vector3 goalPosition = calcGoalPosition(this->model->GetWorld()->GetSimTime().Double() - startTime);
+      math::Vector3 goalPosition = calcGoalPosition(goal, getPath.response.elapsedTime);
 
       // Calculate current errors.
       double errorX = calcError(this->model->GetWorldPose().pos.x, goalPosition.x);
@@ -105,14 +112,10 @@ namespace gazebo {
       return KP * _error + KD * _errorDerivative;
     }
 
-    private: math::Vector3 calcGoalPosition(const double t){
-      // Slow the pathway down
-      double scaledT = t / utils::TIMESCALE_FACTOR;
-
-      math::Vector3 base = utils::lissajous(scaledT);
+    private: math::Vector3 calcGoalPosition(const gazebo::math::Vector3& base, const double elapsedTime){
 
       // Gaussian function is tuned for input = [1:700]
-      math::Vector3 result = addGaussians(base, this->previousBase, t);
+      math::Vector3 result = addGaussians(base, this->previousBase, elapsedTime);
       this->previousBase = base;
       return result;
     }

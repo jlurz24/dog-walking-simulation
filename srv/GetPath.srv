@@ -1,0 +1,7 @@
+float64 time
+bool start
+---
+bool started
+bool ended
+float64 elapsedTime
+geometry_msgs/PointStamped point
