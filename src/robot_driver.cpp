@@ -154,7 +154,7 @@ public:
       geometry_msgs::Twist baseCmd;
 
       bool shouldMove = true;
-      const double MAX_V = 3;
+      const double MAX_V = 1.5;
       const double DEACC_DISTANCE = 0.75;
       const double MIN_V = 0.6;
 

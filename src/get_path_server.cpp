@@ -11,7 +11,9 @@ namespace {
   static const double TIMESCALE_FACTOR = 10.0;
 
   //! Amount of time it takes to perform a full lissajous cycle.
-  static const double LISSAJOUS_FULL_CYCLE_T = 4.60;
+  //  Note that this amount is slightly longer than the lissajous
+  //  cycle time because the robot trails the goal point.
+  static const double LISSAJOUS_FULL_CYCLE_T = 4.85;
 
   class GetPathServer {
     private:
