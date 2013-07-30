@@ -1,5 +1,7 @@
 <launch>
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
+  <param name="leash-length" value="2.0"/>
+
   <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen"/>
 
  <param name="settings" textfile="$(find dogsim)/models/settings.model" />
@@ -18,4 +20,5 @@
   <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
   <node pkg="dogsim" type="path_scorer" name="path_scorer" output="screen"/>
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
+  <node pkg="dogsim" type="adjust_dog_position_action" name="adjust_dog_position_action" output="screen"/>
 </launch>

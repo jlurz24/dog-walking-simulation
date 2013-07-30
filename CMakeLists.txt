@@ -7,10 +7,16 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-#set(ROS_BUILD_TYPE RelWithDebInfo)
+set(ROS_BUILD_TYPE RelWithDebInfo)
+
+# For action lib
+rosbuild_find_ros_package(actionlib_msgs)
+include(${actionlib_msgs_PACKAGE_PATH}/cmake/actionbuild.cmake)
+genaction()
 
 rosbuild_init()
 rosbuild_check_for_sse()
+rosbuild_add_boost_directories()
 rosbuild_genmsg()
 rosbuild_gensrv()
 #set the default path for built executables to the "bin" directory
@@ -52,3 +58,4 @@ rosbuild_add_executable(path_scorer src/path_scorer.cpp)
 rosbuild_add_executable(set_max_update_rate src/set_max_update_rate.cpp)
 rosbuild_add_executable(dog_position_detector src/dog_position_detector.cpp)
 rosbuild_add_executable(get_path_server src/get_path_server.cpp)
+rosbuild_add_executable(adjust_dog_position_action src/adjust_dog_position_action.cpp)

@@ -6,14 +6,23 @@
 #include <dogsim/DogPosition.h>
 #include <dogsim/GetPath.h>
 #include <message_filters/subscriber.h>
+#include <dogsim/AdjustDogPositionAction.h>
+#include <actionlib/client/simple_action_client.h>
 
 namespace {
   using namespace std;
+  typedef actionlib::SimpleActionClient<dogsim::AdjustDogPositionAction> AdjustDogClient;
+ 
+  inline double pointToPointXYDistanceSqr(const geometry_msgs::Point &p1, const geometry_msgs::Point &p2){
+    return ((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y));
+  }
+
+  inline double pointToPointXYDistance(const geometry_msgs::Point &p1, const geometry_msgs::Point &p2){
+    return (sqrt(pointToPointXYDistanceSqr(p1, p2)));
+  }
+
 class RobotDriver {
 private:
-  //! Length of the leash. Keep this in-sync with the leash controller.
-  static const double LEASH_LENGTH = 2.0;
-
   //! Amount of time before starting walk
   static const double DELAY_TIME = 1.0;
 
@@ -46,11 +55,17 @@ private:
 
   //! Dog position subscriber
   auto_ptr<message_filters::Subscriber<dogsim::DogPosition> > dogPositionSub_;
+  
+  //! Client for the arm to attempt to position the dog
+  AdjustDogClient adjustDogClient;
 
+  //! Length of the leash
+  double leashLength;
 public:
   //! ROS node initialization
-  RobotDriver(): pnh_("~"){
+  RobotDriver(): pnh_("~"), adjustDogClient("adjust_dog_position_action", true){
     ROS_INFO("Initializing the robot driver");
+    nh_.param("leash-length", leashLength, 2.0);
     dogPositionSub_.reset(new message_filters::Subscriber<dogsim::DogPosition> (nh_, "/dog_position", 1));
 
     // Set up the publisher for the cmd_vel topic
@@ -66,6 +81,7 @@ public:
     initTime = ros::Time::now();
     dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     driverTimer_ = nh_.createTimer(ros::Duration(0.1), &RobotDriver::steeringCallback, this);
+    adjustDogClient.waitForServer();
     driverTimer_.start();
     ROS_INFO("Robot driver initialization complete");
   }
@@ -76,16 +92,49 @@ public:
     // Check if we are likely to collide with the dog and go around it.
     const double AVOIDANCE_V = 5;
     const double AVOIDANCE_THRESHOLD = 1.0;
+    const double CORRECTION_THRESHOLD = 0.25;
+
+    bool ended = false;
+    const geometry_msgs::PointStamped goal = getDogPosition(ros::Time::now(), ended);
+   
+    if(ended){
+      ROS_INFO("Walk ended");
+      return;
+    }
 
     if(abs(dogPosition->pose.pose.position.y) < AVOIDANCE_THRESHOLD && (dogPosition->pose.pose.position.x > 0 && dogPosition->pose.pose.position.x < AVOIDANCE_THRESHOLD)){
       ROS_INFO("Attempting to avoid dog");
       geometry_msgs::Twist baseCmd;
       // Move in the opposite direction of the position of the dog.
       baseCmd.linear.y = -1.0 * copysign(AVOIDANCE_V, dogPosition->pose.pose.position.y);
-      
       // Publish the command to the base
+      cmdVelocityPub_.publish(baseCmd);
     }
-    // We will naturally correct back to the goal.
+    // Determine if we should correct the dog
+    else if(pointToPointXYDistance(dogPosition->pose.pose.position, goal.point) > CORRECTION_THRESHOLD){
+      if(adjustDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
+        ROS_INFO("Already adjusting position");
+      }
+      else {
+        ROS_INFO("Current state: %s", adjustDogClient.getState().toString().c_str());
+        dogsim::AdjustDogPositionGoal adjustGoal;
+        adjustGoal.dogPose = dogPosition->pose;
+        adjustGoal.goalPosition = goal;
+        adjustDogClient.sendGoal(adjustGoal);
+      }
+    }
+  }
+
+  geometry_msgs::PointStamped getDogPosition(const ros::Time& time, bool& ended){
+          // Determine the goal.
+      ros::ServiceClient getPathClient = nh_.serviceClient<dogsim::GetPath>("/dogsim/get_path");
+      dogsim::GetPath getPath;
+      getPath.request.time = time.toSec();
+      getPath.request.start = true;
+      getPathClient.call(getPath);
+      ended = getPath.response.ended;
+      ROS_DEBUG("Calculated goal @ %f", time.toSec());
+      return getPath.response.point;
   }
 
   void steeringCallback(const ros::TimerEvent& event){
@@ -99,18 +148,13 @@ public:
         return;
       }
 
-      // Determine the goal.
-      ros::ServiceClient getPathClient = nh_.serviceClient<dogsim::GetPath>("/dogsim/get_path");
-      dogsim::GetPath getPath;
-      getPath.request.time = event.current_real.toSec();
-      getPath.request.start = true;
-      getPathClient.call(getPath);
-      if(getPath.response.ended){
+      bool ended = false;
+      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, ended);
+
+      if(ended){
         ROS_INFO("Walk ended");
         return;
-      } 
-      geometry_msgs::PointStamped goal = getPath.response.point;
-      ROS_DEBUG("Calculated goal @ %f", ros::WallTime::now().toSec());
+      }
       
       // Visualize the goal.
       std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);

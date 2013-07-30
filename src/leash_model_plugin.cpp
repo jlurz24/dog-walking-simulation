@@ -1,3 +1,4 @@
+#include <ros/ros.h>
 #include <boost/bind.hpp>
 #include <gazebo/gazebo.hh>
 #include <physics/physics.hh>
@@ -68,8 +69,9 @@ namespace gazebo {
       // Octave function:
       // x = [0:0.01:2.5];
       // y = 1 ./ (1 + e.^(-24*(x - 2)));
-
-      const double ratio = 1.0 / (1.0 + exp(-18.0 * (abs(distance) - LEASH_LENGTH)));
+      double leashLength;
+      nh.param("leash-length", leashLength, 2.0);
+      const double ratio = 1.0 / (1.0 + exp(-18.0 * (abs(distance) - leashLength)));
 
       // The hand force is a spring like attractive force between the hand and
       // the dog.
@@ -100,11 +102,10 @@ namespace gazebo {
     // Pointer to the update event connection
     private: event::ConnectionPtr updateConnection;
 
-    // Length of the leash. Keep in sync with robot_driver
-    private: static const double LEASH_LENGTH = 2.0;
-
     // Amount of force the leash can apply at its maximum
     private: static const double SPRING_FORCE = 250.0;
+
+    ros::NodeHandle nh;
   };
 
   // Register this plugin with the simulator

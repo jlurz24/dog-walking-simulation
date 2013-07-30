@@ -9,7 +9,9 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/dogsim</url>
   <depend package="gazebo" />
-
+  <depend package="actionlib_msgs" />
+  <depend package="actionlib" />
+  <depend package="arm_navigation_msgs" />
    <export>
     <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
   </export>
