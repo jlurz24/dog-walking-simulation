@@ -69,7 +69,7 @@ namespace {
         dogInBaseFrame.header.stamp = event.current_real;
 
         // Publish the event
-        ROS_INFO("Publishing a dog position event");
+        ROS_DEBUG("Publishing a dog position event");
         dogsim::DogPosition dogPositionMsg;
         dogPositionMsg.pose = dogInBaseFrame;
         dogPositionMsg.header = dogInBaseFrame.header;

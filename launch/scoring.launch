@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
+  <node pkg="dogsim" type="path_scorer" name="path_scorer" output="screen"/>
+</launch>
+

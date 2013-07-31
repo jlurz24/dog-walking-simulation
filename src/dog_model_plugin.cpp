@@ -234,7 +234,7 @@ namespace gazebo {
     private: static const double KD = 0.025;
 
     // Max force
-    private: static const double MAX_FORCE = 50.0;
+    private: static const double MAX_FORCE = 10.0;
     
     // Probability of starting a new gaussian in each iteration
     private: static const double P_NEW_GAUSS = 0.08;
