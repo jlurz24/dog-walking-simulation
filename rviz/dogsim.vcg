@@ -1,15 +1,17 @@
 Background\ ColorB=0
 Background\ ColorG=0
 Background\ ColorR=0
-Camera\ Config=0.826001 0.650738 8.15413 0 0 0
+Camera\ Config=0.761001 5.80393 32.4568 0 0 0
 Camera\ Type=rviz::OrbitViewController
 Dog.Enabled=1
 Dog.Marker\ Topic=/dog_position_viz
 Dog.Queue\ Size=100
-Dog.dogsim=1
+End\ Arm\ Goal.Enabled=1
+End\ Arm\ Goal.Marker\ Topic=/adjust_dog_position_action/goal_viz
+End\ Arm\ Goal.Queue\ Size=100
 Fixed\ Frame=/map
 Goal.Enabled=1
-Goal.Marker\ Topic=/path_goal
+Goal.Marker\ Topic=/move_robot_action/move_goal_viz
 Goal.Queue\ Size=100
 Goal.dogsim=1
 Grid.Alpha=0.5
@@ -28,9 +30,8 @@ Grid.Plane=0
 Grid.Plane\ Cell\ Count=50
 Grid.Reference\ Frame=/map
 Path.Enabled=1
-Path.Marker\ Topic=/planned_move
+Path.Marker\ Topic=/move_robot_action/planned_move_viz
 Path.Queue\ Size=100
-Path.dogsim=1
 Planning.Alpha=0.6
 Planning.Collision\ Enabled=1
 Planning.Enabled=1
@@ -55,9 +56,9 @@ Planning3.Robot\ Description=
 Planning3.State\ Display\ Time=0.05
 Planning3.Topic=/display_joint_goal
 Planning3.Visual\ Enabled=1
-Property\ Grid\ Splitter=655,78
-Property\ Grid\ State=expanded=.Global Options,Grid.Enabled,Wide Stereo.Enabled,Goal.Enabled,Goal.Status,Path.Enabled,Dog.Enabled,Dog.Namespaces,Trailing Point.Enabled,Planning.Enabled,Planning2.Enabled,Planning3.Enabled;splitterratio=0.501873
-QMainWindow=000000ff00000000fd00000003000000000000011d0000032ffc0200000003fb000000100044006900730070006c006100790073010000001d0000032f000000ee00fffffffb0000000c0049006d0061006700650032010000024e000000da0000000000000000fb000000160057006900640065002000530074006500720065006f00000002ee0000015a0000001900ffffff000000010000013100000253fc0200000004fb0000000a0049006d0061006700650200000329000000810000013100000101fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000001d000000670000006700fffffffb0000000a00560069006500770073000000001d00000101000000bb00fffffffb0000001200530065006c0065006300740069006f006e000000001d000001950000006700ffffff000000030000056f0000003efc0100000001fb0000000800540069006d006501000000000000056f000002bf00ffffff0000044c0000032f00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+Property\ Grid\ Splitter=727,78
+Property\ Grid\ State=expanded=.Global Options,Grid.Enabled,Wide Stereo.Enabled,Goal.Enabled,Goal.Status,Path.Enabled,Dog.Enabled,Trailing Point.Enabled,Planning.Enabled,Planning2.Enabled,Planning3.Enabled,Start Arm Goal.Enabled,End Arm Goal.Enabled;splitterratio=0.501873
+QMainWindow=000000ff00000000fd00000003000000000000011d00000377fc0200000003fb000000100044006900730070006c006100790073010000001d00000377000000ee00fffffffb0000000c0049006d0061006700650032010000024e000000da0000000000000000fb000000160057006900640065002000530074006500720065006f00000002ee0000015a0000001900ffffff000000010000013100000253fc0200000004fb0000000a0049006d0061006700650200000329000000810000013100000101fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000001d000000670000006700fffffffb0000000a00560069006500770073000000001d00000101000000bb00fffffffb0000001200530065006c0065006300740069006f006e000000001d000001950000006700ffffff000000030000058f0000003efc0100000001fb0000000800540069006d006501000000000000058f000002bf00ffffff0000046c0000037700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
 Robot\ Model.Alpha=0.5
 Robot\ Model.Collision\ Enabled=0
 Robot\ Model.Enabled=1
@@ -289,11 +290,14 @@ Robot\:\ Robot\ Model\ Link\ torso_lift_linkAlpha=1
 Robot\:\ Robot\ Model\ Link\ torso_lift_linkEnabled=1
 Robot\:\ Robot\ Model\ Link\ torso_lift_linkShow\ Axes=0
 Robot\:\ Robot\ Model\ Link\ torso_lift_linkShow\ Trail=0
+Start\ Arm\ Goal.Enabled=1
+Start\ Arm\ Goal.Marker\ Topic=/adjust_dog_position_action/start_viz
+Start\ Arm\ Goal.Queue\ Size=100
 Target\ Frame=/base_link
 Tool\ 2D\ Nav\ GoalTopic=move_base_simple/goal
 Tool\ 2D\ Pose\ EstimateTopic=initialpose
 Trailing\ Point.Enabled=1
-Trailing\ Point.Marker\ Topic=/trailing_point
+Trailing\ Point.Marker\ Topic=/move_robot_action/move_goal_viz
 Trailing\ Point.Queue\ Size=100
 Trailing\ Point.dogsim=1
 Wide\ Stereo.Enabled=0
@@ -306,6 +310,12 @@ Name=Grid
 [Display1]
 ClassName=rviz::RobotModelDisplay
 Name=Robot Model
+[Display10]
+ClassName=rviz::MarkerDisplay
+Name=Start Arm Goal
+[Display11]
+ClassName=rviz::MarkerDisplay
+Name=End Arm Goal
 [Display2]
 ClassName=rviz::ImageDisplay
 Name=Wide Stereo
@@ -331,7 +341,7 @@ Name=Planning2
 ClassName=motion_planning_rviz_plugin::PlanningDisplay
 Name=Planning3
 [Window]
-Height=948
-Width=1407
-X=350
-Y=339
+Height=1020
+Width=1439
+X=321
+Y=283

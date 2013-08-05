@@ -19,6 +19,7 @@
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
   <node pkg="dogsim" type="adjust_dog_position_action" name="adjust_dog_position_action" output="screen"/>
+  <node pkg="dogsim" type="move_robot_action" name="move_robot_action"/>
 
   <!-- For arm navigation -->
   <include file="$(find pr2_3dnav)/right_arm_navigation.launch" />

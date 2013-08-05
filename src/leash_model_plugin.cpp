@@ -103,7 +103,7 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Amount of force the leash can apply at its maximum
-    private: static const double SPRING_FORCE = 37.5;
+    private: static const double SPRING_FORCE = 32.5;
 
     ros::NodeHandle nh;
   };

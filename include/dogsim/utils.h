@@ -20,7 +20,7 @@ namespace utils {
   }
 
 
-  static inline visualization_msgs::Marker createMarker(const geometry_msgs::Point& position, const std_msgs::Header& header, std_msgs::ColorRGBA& color, bool persist){
+  static inline visualization_msgs::Marker createMarker(const geometry_msgs::Point& position, const std_msgs::Header& header, const std_msgs::ColorRGBA& color, bool persist){
       static unsigned int uniqueId = 0;
       visualization_msgs::Marker marker;
       marker.header = header;
