@@ -49,6 +49,7 @@ class PathScorer {
       if(getPath.response.ended){
         // Write out the final result
         ROS_INFO("Total Position Deviation squared(m): %f", totalDistanceDeviation);
+        timer.stop();
         return;
       }
 

@@ -26,14 +26,16 @@ namespace {
         moveRobot("move_robot_action", true){
     
         rightArm.waitForServer(ros::Duration(5.0));
-  
+        moveRobot.waitForServer(ros::Duration(5.0));
+        
         as.registerPreemptCallback(boost::bind(&AdjustDogPositionAction::preemptCB, this));
+        
         nh.param("leash_length", leashLength, 2.0);
       
         startPub = nh.advertise<visualization_msgs::Marker>("adjust_dog_position_action/start_viz", 1);
         goalPub = nh.advertise<visualization_msgs::Marker>("adjust_dog_position_action/goal_viz", 1);
     
-        ROS_INFO("Starting init of the adjust dog position action");
+        ROS_INFO("Ending init of the adjust dog position action");
         as.start();
   }
   
@@ -46,25 +48,31 @@ namespace {
     }
 
     if(rightArm.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-      rightArm.cancelGoal();
+        rightArm.cancelGoal();
+    }
+    if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
+        // moveRobot.cancelGoal();
     }
     as.setPreempted();
   }
 
   void adjust(const dogsim::AdjustDogPositionGoalConstPtr& goal){
-    if(!as.isActive()){
-      ROS_INFO("Adjust dog position action cancelled prior to start");
-      return;
-    }
+      ROS_INFO("Adjusting dog position");
+      
+      if(!as.isActive()){
+          ROS_INFO("Adjust dog position action cancelled prior to start");
+          return;
+      }
 
-    geometry_msgs::PointStamped goalInBaseFrame;
-    try {
-      tf.transformPoint("/base_footprint", ros::Time(0), goal->goalPosition, goal->goalPosition.header.frame_id, goalInBaseFrame);
-    }
-    catch(tf::TransformException& ex){
-      ROS_INFO("Failed to transform point to base footprint");
-      return;
-    }
+      geometry_msgs::PointStamped goalInBaseFrame;
+      try {
+        tf.transformPoint("/base_footprint", ros::Time(0), goal->goalPosition, goal->goalPosition.header.frame_id, goalInBaseFrame);
+      }
+      catch(tf::TransformException& ex){
+        ROS_INFO("Failed to transform point to base footprint");
+        as.setAborted();
+        return;
+      }
 
     // Givens: Dog position + goal position
     // create a line between the dog position and goal position
@@ -74,6 +82,7 @@ namespace {
     // TODO: Should we start by finding a legal position spot? We could
     //       start that work immediately while we find a path from there to
     //       the final position.
+    // TODO: Allow other points on the arc to be acceptable.
     // TODO: Select random acceptable points on z axis.
     
     // Find the angle between the dog and the goal point.
@@ -108,50 +117,45 @@ namespace {
       startPub.publish(startMsg);
     }
     
-    bool success = moveRightArm(start);
-    if(!success){
-      ROS_INFO("Failed to move arm to start position before base movement");
+    // Pre-emptively start moving the base into position
       
-      // Start moving the base to that position and then retry.
-      // Select a point along the line between the robot and the goal
-      const double XY_OFFSET_FROM_START = 0.25;
-      double baseDistanceForArm = sqrt(utils::square(XY_OFFSET_FROM_START) + utils::square(XY_OFFSET_FROM_START));
+    // Start moving the base to that position and then retry.
+    // Select a point along the line between the robot and the goal
+    const double XY_OFFSET_FROM_START = 0.25;
+    double baseDistanceForArm = sqrt(utils::square(XY_OFFSET_FROM_START) + utils::square(XY_OFFSET_FROM_START));
       
-      // Robot position is 0,0 because movement is in the base frame.
-      // Calculate the unit vector given:
-      // x1, y1 = start position
-      // x2, y2 = robot position.
-      double sLength = sqrt(utils::square(0 - start.point.x) + utils::square(0 - start.point.y));
+    // Robot position is 0,0 because movement is in the base frame.
+    // Calculate the unit vector given:
+    // x1, y1 = start position
+    // x2, y2 = robot position.
+    double sLength = sqrt(utils::square(0 - start.point.x) + utils::square(0 - start.point.y));
       
-      double sx = 0 - start.point.x;
-      double sy = 0 - start.point.y;
-      if(sLength > numeric_limits<double>::min()){
+    double sx = 0 - start.point.x;
+    double sy = 0 - start.point.y;
+    if(sLength > numeric_limits<double>::min()){
         sx /= sLength;
         sy /= sLength;
-      }
+    }
       
-      geometry_msgs::PointStamped baseGoal;
-      baseGoal.header = start.header;
-      baseGoal.point.z = 0;
-      baseGoal.point.x = start.point.x + baseDistanceForArm * sx;
-      baseGoal.point.y = start.point.y + baseDistanceForArm * sy;
+    geometry_msgs::PointStamped baseGoal;
+    baseGoal.header = start.header;
+    baseGoal.point.z = 0;
+    baseGoal.point.x = start.point.x + baseDistanceForArm * sx;
+    baseGoal.point.y = start.point.y + baseDistanceForArm * sy;
       
-      // The caller will abort the movement if it takes too long.
-      dogsim::MoveRobotGoal moveGoal;
-      moveGoal.position = baseGoal;
-      success = utils::sendGoal(&moveRobot, moveGoal, nh, 5.0 /** Timeout **/);
+    // The caller will abort the movement if it takes too long.
+    dogsim::MoveRobotGoal moveGoal;
+    moveGoal.position = baseGoal;
+    moveRobot.sendGoal(moveGoal);
       
-      // Try to move the arm again if we were successful in moving the base.
-      if(success){
-          ROS_INFO("Attempting to move the arm after base movement");
-          success = moveRightArm(start);
-      }
+    // Now try and move the arm.
+    ROS_INFO("Attempting to move the arm after base movement");
+    bool success = moveRightArm(start);
       
-      if(!success){
+    if(!success){
         ROS_INFO("Failed to move arm to start position after base movement");
         as.setAborted();
         return;
-      }
     }
 
     // Now update the goal to move to the dog to the goal point.
@@ -188,8 +192,9 @@ namespace {
      goal.motion_plan_request.num_planning_attempts = 1;
      goal.motion_plan_request.planner_id = "";
      goal.planner_service_name = "ompl_planning/plan_kinematic_path";
-     goal.motion_plan_request.allowed_planning_time = ros::Duration(1.0);
-
+     goal.motion_plan_request.allowed_planning_time = ros::Duration(0.5);
+     goal.motion_plan_request.expected_path_duration = ros::Duration(1.0);
+     goal.motion_plan_request.expected_path_dt = ros::Duration(0.25);
      arm_navigation_msgs::SimplePoseConstraint desiredPos;
      desiredPos.header.frame_id = goalPoint.header.frame_id;
      desiredPos.header.stamp = ros::Time::now();
@@ -207,7 +212,9 @@ namespace {
      arm_navigation_msgs::addGoalConstraintToMoveArmGoal(desiredPos, goal);
 
      goal.disable_collision_monitoring = true;
-     return utils::sendGoal(&rightArm, goal, nh, 5.0 /** Timeout **/);
+     goal.accept_invalid_goals = true;
+     goal.accept_partial_plans = true;
+     return utils::sendGoal(&rightArm, goal, nh, 2.0 /** Timeout **/);
   }
   
   protected:

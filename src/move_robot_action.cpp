@@ -92,7 +92,9 @@ namespace {
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 
-        const double MAX_V = 2.0;
+        // TODO: This value was good for solo, but not dog walking
+        // const double MAX_V = 2.0;
+        const double MAX_V = 4.0;
         const double DEACC_DISTANCE = 1.75;
 
         // Robot location is at the root of frame.

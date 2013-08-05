@@ -55,6 +55,7 @@ class TotalForceMeasurer {
       if(getPath.response.ended){
         // Print out the final measurements
         ROS_INFO("Total force(N): %f", totalForce);
+        timer.stop();
         return;
       }
 

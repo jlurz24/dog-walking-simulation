@@ -25,6 +25,9 @@ private:
 
   //! Publisher for command velocities
   ros::Publisher cmdVelocityPub_;
+
+  //! Publisher for goals
+  ros::Publisher goalPub_;
     
   //! Time the driver was initialized
   ros::Time initTime;
@@ -52,6 +55,7 @@ public:
 
     // Set up the publisher for the cmd_vel topic
     cmdVelocityPub_ = nh_.advertise<geometry_msgs::Twist>("base_controller/command", 1);
+    goalPub_ = nh_.advertise<visualization_msgs::Marker>("robot_driver/walk_goal_viz", 1);
     
     ros::service::waitForService("/dogsim/get_path");
 
@@ -67,17 +71,23 @@ public:
     if(soloMode){
         ROS_INFO("Running solo move");
         driverTimer_ = nh_.createTimer(ros::Duration(1.0), &RobotDriver::steeringCallback, this);
-        driverTimer_.start();
     }
     else {
       ROS_INFO("Running regular mode");
+      driverTimer_ = nh_.createTimer(ros::Duration(1.0), &RobotDriver::displayCallback, this);
     }
-
+    driverTimer_.start();
     ROS_INFO("Robot driver initialization complete");
   }
 
   void dogPositionCallback(const dogsim::DogPositionConstPtr& dogPosition){
     ROS_DEBUG("Received a dog position callback");
+    
+    if(ros::Time::now().toSec() - initTime.toSec() < DELAY_TIME){
+        ROS_DEBUG("Start time not reached");
+        return;
+    }
+      
     // Assumes messages is in robot frame
     // Check if we are likely to collide with the dog and go around it.
     const double AVOIDANCE_V = 2.5;
@@ -85,10 +95,11 @@ public:
 
     bool ended = false;
     bool started = false;
-    const geometry_msgs::PointStamped goal = getDogPosition(ros::Time::now(), false /* should start */, started, ended);
+    const geometry_msgs::PointStamped goal = getDogPosition(ros::Time::now(), true /* should start */, started, ended);
    
-    if(!started || ended){
-      return;
+    if(ended){
+        // TODO: Unsubscribe here.
+        return;
     }
 
     // Determine if our base movement should be to avoid the dog. First priority.
@@ -101,21 +112,22 @@ public:
       // Publish the command to the base
       cmdVelocityPub_.publish(baseCmd);
       adjustDogClient.cancelGoal();
+      return;
     }
     
     // Only adjust dog position if the last dog adjustment is completed.
     // TODO: Is this really the right behavior?
     if(adjustDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-      ROS_DEBUG("Already adjusting position");
+      ROS_INFO("Already adjusting position");
       return;
     }
     
-    ROS_DEBUG("Adjusting dog position");
+    ROS_INFO("Adjusting dog position");
     dogsim::AdjustDogPositionGoal adjustGoal;
     adjustGoal.dogPose = dogPosition->pose;
     adjustGoal.goalPosition = goal;
     adjustDogClient.sendGoal(adjustGoal);
-    ROS_DEBUG("Completed adjusting dog position");
+    ROS_INFO("Completed adjusting dog position");
   }
 
   geometry_msgs::PointStamped getDogPosition(const ros::Time& time, bool shouldStart, bool& started, bool& ended){
@@ -130,6 +142,30 @@ public:
       return getPath.response.point;
   }
 
+  void displayCallback(const ros::TimerEvent& event){
+      ROS_DEBUG("Received display callback");
+      bool started;
+      bool ended;
+      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, false /* should start */, started, ended);
+      
+      if(!started){
+          ROS_INFO("Walk has not started yet");
+          return;
+      }
+      if(ended){
+          ROS_INFO("Walk is ended");
+          driverTimer_.stop();
+          return;
+      }
+
+      // Visualize the goal.
+      if(goalPub_.getNumSubscribers() > 0){
+          ROS_DEBUG("Publishing the goal position");
+          std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
+          goalPub_.publish(utils::createMarker(goal.point, goal.header, RED, true));
+      }
+  }
+  
   void steeringCallback(const ros::TimerEvent& event){
       ROS_DEBUG("Received callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
 
@@ -150,6 +186,7 @@ public:
           if(moveRobotClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
               moveRobotClient.cancelGoal();
           }
+          driverTimer_.stop();
           return;
       }
       
