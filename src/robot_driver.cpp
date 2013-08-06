@@ -108,6 +108,7 @@ public:
       ROS_INFO("Attempting to avoid dog");
       geometry_msgs::Twist baseCmd;
       // Move in the opposite direction of the position of the dog.
+      // TODO: This needs to take dog velocity into account.
       baseCmd.linear.y = -1.0 * copysign(AVOIDANCE_V, dogPosition->pose.pose.position.y);
       // Publish the command to the base
       cmdVelocityPub_.publish(baseCmd);
