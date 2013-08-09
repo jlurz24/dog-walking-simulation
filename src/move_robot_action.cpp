@@ -44,8 +44,8 @@ namespace {
     
     // Visualize the goal.
     if(goalPub.getNumSubscribers()){
-        std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
-        goalPub.publish(utils::createMarker(goal->position.point, goal->position.header, RED, true));
+        std_msgs::ColorRGBA GREEN = utils::createColor(0, 1, 0);
+        goalPub.publish(utils::createMarker(goal->position.point, goal->position.header, GREEN, false));
     }
     
     // Determine the position in the map frame. This allows us to store
@@ -73,7 +73,7 @@ namespace {
     
     // Loop and move the robot, checking the position of the goal in the base
     // frame after each move.
-    ros::Rate r(10); // 25 hz
+    ros::Rate r(10); // 10hz
     
     // How close to the goal we need to get.
     const double DISTANCE_THRESHOLD = 0.25;
@@ -137,6 +137,9 @@ namespace {
     if(as.isActive()){
         ROS_INFO("Move robot completed. Goal achieved.");
         as.setSucceeded();
+    }
+    else {
+        ROS_INFO("Move aborted prior to completion");
     }
   }
 

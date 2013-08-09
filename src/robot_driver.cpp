@@ -15,7 +15,7 @@ namespace {
 class RobotDriver {
 private:
   //! Amount of time before starting walk
-  static const double DELAY_TIME = 10.0;
+  static const double DELAY_TIME = 5.0;
 
   //! The node handle we'll be using
   ros::NodeHandle nh_;
@@ -44,12 +44,15 @@ private:
   //! Client for the movement of the robot base
   MoveRobotClient moveRobotClient;
   
+  //! Last time we performed an adjustment
+  ros::Time lastAdjustmentTime;
+  
   //! Length of the leash
   double leashLength;
 public:
   //! ROS node initialization
   RobotDriver(): pnh_("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient("move_robot_action", true){
-    ROS_INFO("Initializing the robot driver");
+    ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
     nh_.param("leash_length", leashLength, 2.0);
     dogPositionSub_.reset(new message_filters::Subscriber<dogsim::DogPosition> (nh_, "/dog_position", 1));
 
@@ -59,7 +62,6 @@ public:
     
     ros::service::waitForService("/dogsim/get_path");
 
-    initTime = ros::Time::now();
     dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     adjustDogClient.waitForServer();
     moveRobotClient.waitForServer();
@@ -76,12 +78,13 @@ public:
       ROS_INFO("Running regular mode");
       driverTimer_ = nh_.createTimer(ros::Duration(1.0), &RobotDriver::displayCallback, this);
     }
+    initTime = ros::Time::now();
     driverTimer_.start();
-    ROS_INFO("Robot driver initialization complete");
+    ROS_INFO("Robot driver initialization complete @ %f", ros::Time::now().toSec());
   }
 
   void dogPositionCallback(const dogsim::DogPositionConstPtr& dogPosition){
-    ROS_DEBUG("Received a dog position callback");
+    ROS_DEBUG("Received a dog position callback @ %f and init time is: %f", ros::Time::now().toSec(), initTime.toSec());
     
     if(ros::Time::now().toSec() - initTime.toSec() < DELAY_TIME){
         ROS_DEBUG("Start time not reached");
@@ -91,7 +94,7 @@ public:
     // Assumes messages is in robot frame
     // Check if we are likely to collide with the dog and go around it.
     const double AVOIDANCE_V = 2.5;
-    const double AVOIDANCE_THRESHOLD = 0.5;
+    const double AVOIDANCE_THRESHOLD = 1.25;
 
     bool ended = false;
     bool started = false;
@@ -104,31 +107,33 @@ public:
 
     // Determine if our base movement should be to avoid the dog. First priority.
     // TODO: Move this to separate action so it can more intelligently avoid the dog. Potentially.
-    if(abs(dogPosition->pose.pose.position.y) < AVOIDANCE_THRESHOLD && abs(dogPosition->pose.pose.position.x < AVOIDANCE_THRESHOLD)){
-      ROS_INFO("Attempting to avoid dog");
+    assert(dogPosition->pose.header.frame_id == "/base_footprint");
+    geometry_msgs::Point robotPosition;
+    ROS_INFO("Current distance for avoidance: %f", utils::pointToPointXYDistance(dogPosition->pose.pose.position, robotPosition));
+    if(utils::pointToPointXYDistance(dogPosition->pose.pose.position, robotPosition) < AVOIDANCE_THRESHOLD){
+      ROS_INFO("Attempting to avoid dog @ distance %f", utils::pointToPointXYDistance(dogPosition->pose.pose.position, robotPosition));
+      // Stop any planned movement.
+      adjustDogClient.cancelGoal();
       geometry_msgs::Twist baseCmd;
       // Move in the opposite direction of the position of the dog.
       // TODO: This needs to take dog velocity into account.
+      baseCmd.linear.x = 0.0;
       baseCmd.linear.y = -1.0 * copysign(AVOIDANCE_V, dogPosition->pose.pose.position.y);
       // Publish the command to the base
       cmdVelocityPub_.publish(baseCmd);
-      adjustDogClient.cancelGoal();
       return;
     }
     
-    // Only adjust dog position if the last dog adjustment is completed.
-    // TODO: Is this really the right behavior?
-    if(adjustDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-      ROS_INFO("Already adjusting position");
-      return;
+    // Only adjust dog position if the 
+    if(ros::Time::now().toSec() - lastAdjustmentTime.toSec() > 0.25){
+        ROS_INFO("Adjusting dog position");
+        dogsim::AdjustDogPositionGoal adjustGoal;
+        adjustGoal.dogPose = dogPosition->pose;
+        adjustGoal.goalPosition = goal;
+        adjustDogClient.sendGoal(adjustGoal);
+        lastAdjustmentTime = ros::Time::now();
     }
-    
-    ROS_INFO("Adjusting dog position");
-    dogsim::AdjustDogPositionGoal adjustGoal;
-    adjustGoal.dogPose = dogPosition->pose;
-    adjustGoal.goalPosition = goal;
-    adjustDogClient.sendGoal(adjustGoal);
-    ROS_INFO("Completed adjusting dog position");
+    ROS_DEBUG("Completed dog position callback");
   }
 
   geometry_msgs::PointStamped getDogPosition(const ros::Time& time, bool shouldStart, bool& started, bool& ended){
