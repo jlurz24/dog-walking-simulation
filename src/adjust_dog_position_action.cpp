@@ -86,19 +86,22 @@ namespace {
     ROS_INFO("Dog position in hand frame x: %f y: %f z: %f", dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, dogInBaseFrame.pose.position.z);
     assert(goalInBaseFrame.header.frame_id == dogInBaseFrame.header.frame_id);
     
+    
     // Determine the position of the base in the hand frame
-    geometry_msgs::PointStamped baseInBaseFrame;
-    baseInBaseFrame.header.frame_id = "/base_footprint";
-    geometry_msgs::PointStamped baseInHandFrame;
-    try {
-        tf.transformPoint("/r_wrist_roll_link", ros::Time(0), baseInBaseFrame, baseInBaseFrame.header.frame_id, baseInHandFrame);
+    geometry_msgs::PointStamped handInBaseFrame;
+    {
+        geometry_msgs::PointStamped handInHandFrame;
+        handInHandFrame.header.frame_id = "/r_wrist_roll_link";
+        try {
+            tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame, handInHandFrame.header.frame_id, handInBaseFrame);
+        }
+        catch(tf::TransformException& ex){
+            ROS_INFO("Failed to transform base position to r_wrist_roll_link");
+            as.setAborted();
+            return;
+        }
+        ROS_INFO("Hand position in base frame x: %f y: %f z: %f", handInBaseFrame.point.x, handInBaseFrame.point.y, handInBaseFrame.point.z);
     }
-    catch(tf::TransformException& ex){
-        ROS_INFO("Failed to transform base position to r_wrist_roll_link");
-        as.setAborted();
-        return;
-    }
-    ROS_INFO("Base position in hand frame x: %f y: %f z: %f", baseInHandFrame.point.x, baseInHandFrame.point.y, baseInHandFrame.point.z);
     
     // Givens: Dog position + goal position
     // create a line between the dog position and goal position
@@ -128,23 +131,31 @@ namespace {
     start.point.y = goalInBaseFrame.point.x + planarLeashLength * uy;
     start.point.z = armHeight;
     start.header = dogInBaseFrame.header;
-
-    if(startPub.getNumSubscribers() > 0){
-      static const std_msgs::ColorRGBA ORANGE = utils::createColor(1, 0.5, 0);
-      geometry_msgs::Point visualizationGoal = start.point;
-      visualizationGoal.z += baseInHandFrame.point.z;
-      visualization_msgs::Marker startMsg = utils::createMarker(start.point, start.header, ORANGE, false);
-      startPub.publish(startMsg);
-    }
     
     ROS_INFO("Start position in hand frame x: %f y: %f z: %f", start.point.x, start.point.y, start.point.z);   
     
+    // Convert to the base frame.
+    geometry_msgs::PointStamped startInBaseFrame;
+    try {
+        tf.transformPoint("/base_footprint", ros::Time(0), start, start.header.frame_id, startInBaseFrame);
+    }
+    catch(tf::TransformException& ex){
+        ROS_INFO("Failed to transform dog pose to r_wrist_roll_link");
+        as.setAborted();
+        return;
+    }
+    
+    if(startPub.getNumSubscribers() > 0){
+      static const std_msgs::ColorRGBA ORANGE = utils::createColor(1, 0.5, 0);
+      visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrame.point, startInBaseFrame.header, ORANGE, false);
+      startPub.publish(startMsg);
+    }
     // The base to the start position
     geometry_msgs::PointStamped baseGoal;
-    baseGoal.header = start.header;
-    baseGoal.point.z = baseInHandFrame.point.z;
-    baseGoal.point.x = start.point.x + baseInHandFrame.point.x;
-    baseGoal.point.y = start.point.y + baseInHandFrame.point.y;
+    baseGoal.header = startInBaseFrame.header;
+    baseGoal.point.z = 0;
+    baseGoal.point.x = startInBaseFrame.point.x - handInBaseFrame.point.x;
+    baseGoal.point.y = startInBaseFrame.point.y - handInBaseFrame.point.y;
       
     // Check if we are still active
     if(!as.isActive()){
