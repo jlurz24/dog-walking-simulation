@@ -1,6 +1,8 @@
 # goal definition
 geometry_msgs/PoseStamped dogPose
 geometry_msgs/PointStamped goalPosition
+geometry_msgs/PoseStamped futureDogPose
+geometry_msgs/PointStamped futureGoalPosition
 ---
 ---
 

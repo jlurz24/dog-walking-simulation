@@ -63,29 +63,37 @@ namespace {
         return;
     }
 
+    // Transform the goal position
     geometry_msgs::PointStamped goalInBaseFrame;
-    try {
-        tf.transformPoint("/r_wrist_roll_link", ros::Time(0), goal->goalPosition, goal->goalPosition.header.frame_id, goalInBaseFrame);
+    if(goal->goalPosition.header.frame_id != "/base_footprint"){
+        try {
+            tf.transformPoint("/base_footprint", ros::Time(0), goal->goalPosition, goal->goalPosition.header.frame_id, goalInBaseFrame);
+        }
+        catch(tf::TransformException& ex){
+            ROS_INFO("Failed to transform goal point to /base_footprint");
+            as.setAborted();
+            return;
+        }
     }
-    catch(tf::TransformException& ex){
-        ROS_INFO("Failed to transform goal point to r_wrist_roll_link");
-        as.setAborted();
-        return;
+    else {
+        goalInBaseFrame = goal->goalPosition;
     }
-    ROS_INFO("Goal in hand frame x: %f y: %f z: %f", goalInBaseFrame.point.x, goalInBaseFrame.point.y, goalInBaseFrame.point.z);
 
+    // Transform the dog position.
     geometry_msgs::PoseStamped dogInBaseFrame;
-    try {
-        tf.transformPose("/r_wrist_roll_link", ros::Time(0), goal->dogPose, goal->dogPose.header.frame_id, dogInBaseFrame);
+    if(goal->dogPose.header.frame_id != "/base_footprint"){
+        try {
+            tf.transformPose("/base_footprint", ros::Time(0), goal->dogPose, goal->dogPose.header.frame_id, dogInBaseFrame);
+        }
+        catch(tf::TransformException& ex){
+            ROS_INFO("Failed to transform dog pose to /base_footprint");
+            as.setAborted();
+            return;
+        }
     }
-    catch(tf::TransformException& ex){
-        ROS_INFO("Failed to transform dog pose to r_wrist_roll_link");
-        as.setAborted();
-        return;
+    else {
+        dogInBaseFrame = goal->dogPose;
     }
-    ROS_INFO("Dog position in hand frame x: %f y: %f z: %f", dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, dogInBaseFrame.pose.position.z);
-    assert(goalInBaseFrame.header.frame_id == dogInBaseFrame.header.frame_id);
-    
     
     // Determine the position of the base in the hand frame
     geometry_msgs::PointStamped handInBaseFrame;
@@ -96,7 +104,7 @@ namespace {
             tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame, handInHandFrame.header.frame_id, handInBaseFrame);
         }
         catch(tf::TransformException& ex){
-            ROS_INFO("Failed to transform base position to r_wrist_roll_link");
+            ROS_INFO("Failed to transform hand position to /base_footprint");
             as.setAborted();
             return;
         }
@@ -111,9 +119,9 @@ namespace {
     // TODO: Select random acceptable points on z axis.
     
     // Determine the horizontal position assuming the desired height of the arm is 1.
-    double armHeight = -dogInBaseFrame.pose.position.z; // Height of the robot hand relative to the dog.
+    double armHeight = handInBaseFrame.point.z; // Height of the robot hand relative to base (approximately the height of the dog).
     double planarLeashLength = sqrt(utils::square(leashLength) - utils::square(armHeight));
-    ROS_DEBUG("Arm height: %f planar leash length: %f", armHeight, planarLeashLength);
+    ROS_INFO("Arm height: %f planar leash length: %f", armHeight, planarLeashLength);
 
     // Find the angle between the dog and the goal point.
     // Calculate the unit vector given x1, y1 = dog and x2, y2 = goal
@@ -125,37 +133,36 @@ namespace {
         uy /= length;
     }
     
+    double distanceFromDogToGoal = utils::pointToPointXYDistance(goalInBaseFrame.point, dogInBaseFrame.pose.position);
+    ROS_INFO("Distance from dog to goal %f", distanceFromDogToGoal);
+    
     // Now update the goal to move to the dog to the goal point.
     geometry_msgs::PointStamped start;
-    start.point.x = goalInBaseFrame.point.x + planarLeashLength * ux;
-    start.point.y = goalInBaseFrame.point.x + planarLeashLength * uy;
+    start.point.x = dogInBaseFrame.pose.position.x + (planarLeashLength + distanceFromDogToGoal) * ux;
+    start.point.y = dogInBaseFrame.pose.position.x + (planarLeashLength + distanceFromDogToGoal) * uy;
     start.point.z = armHeight;
     start.header = dogInBaseFrame.header;
     
-    ROS_INFO("Start position in hand frame x: %f y: %f z: %f", start.point.x, start.point.y, start.point.z);   
-    
-    // Convert to the base frame.
-    geometry_msgs::PointStamped startInBaseFrame;
-    try {
-        tf.transformPoint("/base_footprint", ros::Time(0), start, start.header.frame_id, startInBaseFrame);
-    }
-    catch(tf::TransformException& ex){
-        ROS_INFO("Failed to transform dog pose to r_wrist_roll_link");
-        as.setAborted();
-        return;
-    }
+    ROS_INFO("Start position in base frame x: %f y: %f z: %f", start.point.x, start.point.y, start.point.z);
     
     if(startPub.getNumSubscribers() > 0){
       static const std_msgs::ColorRGBA ORANGE = utils::createColor(1, 0.5, 0);
-      visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrame.point, startInBaseFrame.header, ORANGE, false);
+      geometry_msgs::PointStamped startInBaseFrameViz = start;
+      startInBaseFrameViz.point.z = 0;
+      visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, ORANGE, false);
       startPub.publish(startMsg);
     }
     // The base to the start position
     geometry_msgs::PointStamped baseGoal;
-    baseGoal.header = startInBaseFrame.header;
+    baseGoal.header = start.header;
     baseGoal.point.z = 0;
-    baseGoal.point.x = startInBaseFrame.point.x - handInBaseFrame.point.x;
-    baseGoal.point.y = startInBaseFrame.point.y - handInBaseFrame.point.y;
+    
+    // Determine distance from base to hand in XY space.
+    geometry_msgs::PointStamped base;
+    double xyDistanceFromBaseToHand = utils::pointToPointXYDistance(base.point, handInBaseFrame.point);
+    
+    baseGoal.point.x = start.point.x - ux * xyDistanceFromBaseToHand;
+    baseGoal.point.y = start.point.y - uy * xyDistanceFromBaseToHand;
       
     // Check if we are still active
     if(!as.isActive()){
@@ -168,7 +175,7 @@ namespace {
     
     // The caller should abort the movement if it takes too long.
     moveRightArm(start);
-    moveRobot.waitForResult(ros::Duration(1.0));
+    moveRobot.waitForResult(ros::Duration(0.5));
     if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
         moveRobot.cancelGoal();
     }
@@ -179,7 +186,7 @@ namespace {
   }
 
   bool moveRightArm(const geometry_msgs::PointStamped goalPoint){
-     ROS_DEBUG("Moving arm to position %f %f %f in frame %s", goalPoint.point.x, goalPoint.point.y, goalPoint.point.z, goalPoint.header.frame_id.c_str());
+     ROS_INFO("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.point.x, goalPoint.point.y, goalPoint.point.z, goalPoint.header.frame_id.c_str(), ros::Time::now().toSec());
 
      arm_navigation_msgs::MoveArmGoal goal;
      goal.motion_plan_request.group_name = "right_arm";
@@ -187,8 +194,8 @@ namespace {
      goal.motion_plan_request.planner_id = "";
      goal.planner_service_name = "ompl_planning/plan_kinematic_path";
      goal.motion_plan_request.allowed_planning_time = ros::Duration(0.25);
-     goal.motion_plan_request.expected_path_duration = ros::Duration(1.0);
-     goal.motion_plan_request.expected_path_dt = ros::Duration(0.25);
+     goal.motion_plan_request.expected_path_duration = ros::Duration(0.5);
+     goal.motion_plan_request.expected_path_dt = ros::Duration(0.1);
      arm_navigation_msgs::SimplePoseConstraint desiredPos;
      desiredPos.header.frame_id = goalPoint.header.frame_id;
      desiredPos.header.stamp = ros::Time::now();

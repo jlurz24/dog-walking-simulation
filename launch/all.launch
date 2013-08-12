@@ -1,6 +1,6 @@
 <launch>
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
-  <param name="leash_length" value="2.0"/>
+  <param name="leash_length" value="1.5"/>
 
   <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen"/>
 

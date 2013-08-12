@@ -88,7 +88,9 @@ namespace {
         // Move the robot.
         btVector3 goalVector(goalPosition.point.x, goalPosition.point.y, 0);
         btScalar yaw = btAtan2(goalVector.y(), goalVector.x());
-         
+        
+        ROS_INFO("yaw = %f" , yaw);
+        
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 
@@ -99,7 +101,13 @@ namespace {
 
         // Robot location is at the root of frame.
         double distance = goalVector.distance(btVector3(0, 0, 0));
-        if(distance > DEACC_DISTANCE){
+        if(goalPosition.point.x < 0){
+            // If the point is behind us, rotate but do not move.
+            // TODO: We could also try to move backwards
+            // TODO: We may want to use an even tighter range for forward movement.
+            baseCmd.linear.x = 0;
+        }
+        else if(distance > DEACC_DISTANCE){
           baseCmd.linear.x = MAX_V;
         }
         else {
