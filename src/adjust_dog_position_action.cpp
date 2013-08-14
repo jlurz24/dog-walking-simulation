@@ -48,6 +48,7 @@ namespace {
     }
 
     if(rightArm.getState() == actionlib::SimpleClientGoalState::ACTIVE){
+        ROS_INFO("Preempting the move arm action externally");
         rightArm.cancelGoal();
     }
     if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
@@ -177,15 +178,16 @@ namespace {
     // The caller should abort the movement if it takes too long.
     moveRightArm(handStart);
     
-    // TODO: This isn't really right because we should wait for either the robot
-    // or the hand.
-    // TODO: This design is bad
-    moveRobot.waitForResult(ros::Duration(1.0));
+    // TODO: This design is not great.
+    ros::Time actionStart = ros::Time::now();
+    moveRobot.waitForResult(ros::Duration(0.5));
+    rightArm.waitForResult(ros::Duration(0.5 - (actionStart.toSec() - ros::Time::now().toSec())));
     
     if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
         moveRobot.cancelGoal();
     }
     if(rightArm.getState() == actionlib::SimpleClientGoalState::ACTIVE){
+        ROS_INFO("Preempting the move arm action inside AdjustDogPosition");
         rightArm.cancelGoal();
     }
     as.setSucceeded();

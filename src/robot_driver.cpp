@@ -58,9 +58,6 @@ private:
   //! Client for moving the dog out of the way
   MoveDogAwayClient moveDogAwayClient;
   
-  //! Last time we performed an adjustment
-  ros::Time lastAdjustmentTime;
-  
   //! Cached service client.
   ros::ServiceClient getPathClient;
   
@@ -151,8 +148,8 @@ public:
       
     // Determine if our base movement should be to avoid the dog. First priority.
     // TODO: Move this to separate action so it can more intelligently avoid the dog. Potentially.
-    if(dogPosition->pose.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPosition->pose.pose.position.x >= BASE_RADIUS - AVOIDANCE_BUFFER && abs(dogPosition->pose.pose.position.y) < SIDE_AVOIDANCE_THRESHOLD){
-      ROS_DEBUG("Attempting to avoid dog");
+    if(dogPosition->pose.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPosition->pose.pose.position.x >= (BASE_RADIUS - AVOIDANCE_BUFFER) && abs(dogPosition->pose.pose.position.y) < SIDE_AVOIDANCE_THRESHOLD){
+      ROS_INFO("Attempting to avoid dog @ %f %f", dogPosition->pose.pose.position.x, dogPosition->pose.pose.position.y);
       
       // Allow current movement to continue.
       dogsim::MoveDogAwayGoal goal;
@@ -161,16 +158,14 @@ public:
       return;
     }
     
-    // Only adjust dog position if the adjustment has not occurred with 0.25 seconds.
-    // TODO: This still feels hackish
-    if(ros::Time::now().toSec() - lastAdjustmentTime.toSec() > 0.25){
+    // Only adjust dog position if the last adjustment finished
+    if(adjustDogClient.getState() != actionlib::SimpleClientGoalState::ACTIVE){
         dogsim::AdjustDogPositionGoal adjustGoal;
         adjustGoal.dogPose = dogPosition->pose;
         adjustGoal.goalPosition = goalCurrent;
         adjustGoal.futureDogPose = expectedDogPosition;
         adjustGoal.futureGoalPosition = futureGoal;
         adjustDogClient.sendGoal(adjustGoal);
-        lastAdjustmentTime = ros::Time::now();
     }
     ROS_DEBUG("Completed dog position callback");
   }
