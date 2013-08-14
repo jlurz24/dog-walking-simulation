@@ -33,6 +33,9 @@ namespace {
       //! Last dog position
       geometry_msgs::PoseStamped lastDogPose;
       
+      //! Velocity history
+      deque<geometry_msgs::TwistStamped> velocityHistory;
+      
    public:
       //! ROS node initialization
       DogPositionDetector():pnh_("~"){
@@ -65,16 +68,34 @@ namespace {
         geometry_msgs::PoseStamped dogPose = getDogPose(event.current_real);
         
         // Lookup the previous position for velocity calculations.
-        geometry_msgs::TwistStamped dogV;
-        dogV.header = dogPose.header;
+        geometry_msgs::TwistStamped newDogV;
+        newDogV.header = dogPose.header;
         
         double deltaT = dogPose.header.stamp.toSec() - lastDogPose.header.stamp.toSec();
         if(deltaT > numeric_limits<double>::min()){
-            dogV.twist.linear.x = (dogPose.pose.position.x - lastDogPose.pose.position.x) / deltaT;
-            dogV.twist.linear.y = (dogPose.pose.position.y - lastDogPose.pose.position.y) / deltaT;
-            dogV.twist.linear.z = (dogPose.pose.position.z - lastDogPose.pose.position.z) / deltaT;
+            newDogV.twist.linear.x = (dogPose.pose.position.x - lastDogPose.pose.position.x) / deltaT;
+            newDogV.twist.linear.y = (dogPose.pose.position.y - lastDogPose.pose.position.y) / deltaT;
+            newDogV.twist.linear.z = (dogPose.pose.position.z - lastDogPose.pose.position.z) / deltaT;
         }
         lastDogPose = dogPose;
+        
+        // Direct velocity measurements are too noisy. Use a windowed moving average.
+        velocityHistory.push_back(newDogV);
+        if(velocityHistory.size() > 10){
+            velocityHistory.pop_front();
+        }
+        
+        geometry_msgs::TwistStamped dogV;
+        dogV.header = dogPose.header;
+        for(unsigned int i = 0; i < velocityHistory.size(); ++i){
+            dogV.twist.linear.x += velocityHistory[i].twist.linear.x;
+            dogV.twist.linear.y += velocityHistory[i].twist.linear.y;
+            dogV.twist.linear.z += velocityHistory[i].twist.linear.z;
+        }
+        
+        dogV.twist.linear.x /= static_cast<double>(velocityHistory.size());
+        dogV.twist.linear.y /= static_cast<double>(velocityHistory.size());
+        dogV.twist.linear.z /= static_cast<double>(velocityHistory.size());
         
         // Visualize the dog.
         std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);

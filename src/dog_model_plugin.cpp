@@ -37,6 +37,11 @@ namespace gazebo {
       this->previousErrorX = this->previousErrorY = 0;
       this->forceX = this->forceY = 0.0;
 
+      getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path", true);
+      
+      // Fetch the body link.
+      body = this->model->GetLink("body");  
+      
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateStart(
@@ -45,13 +50,12 @@ namespace gazebo {
 
     // Called by the world update start event
     public: void OnUpdate() {
-  
-      ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
+       
       dogsim::GetPath getPath;
-      getPath.request.time = this->model->GetWorld()->GetSimTime().Double();
+      common::Time currTime = this->model->GetWorld()->GetSimTime();
+      getPath.request.time = currTime.Double();
       getPath.request.start = false;
       getPathClient.call(getPath);
-     
       if(!getPath.response.started || getPath.response.ended){
         return;
       }
@@ -60,23 +64,20 @@ namespace gazebo {
       gazebo::math::Vector3 goal;
       goal.x = getPath.response.point.point.x;
       goal.y = getPath.response.point.point.y;
-      goal.z = getPath.response.point.point.z;
+      goal.z = getPath.response.point.point.z;      
 
-      // Fetch the body link.
-      physics::LinkPtr body = this->model->GetLink("body");        
-       
       // Calculate the desired position.
       math::Vector3 goalPosition = calcGoalPosition(goal, getPath.response.elapsedTime);
 
-      // Calculate current errors.
-      double errorX = calcError(this->model->GetWorldPose().pos.x, goalPosition.x);
-      double errorY = calcError(this->model->GetWorldPose().pos.y, goalPosition.y);
-
-      common::Time deltat = this->model->GetWorld()->GetSimTime() - this->previousTime;
+      // Calculate current errors
+      math::Vector3 worldPose = this->model->GetWorldPose().pos;
+      double errorX = calcError(worldPose.x, goalPosition.x);
+      double errorY = calcError(worldPose.y, goalPosition.y);
+      common::Time deltat = currTime - this->previousTime;
 
       double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
       double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
-
+      
       double outputX = calcPDOutput(errorX, errorDerivativeX);
       double outputY = calcPDOutput(errorY, errorDerivativeY);
 
@@ -93,7 +94,7 @@ namespace gazebo {
       this->previousErrorY = errorY;
 
       // Save the previous time.
-      this->previousTime = this->model->GetWorld()->GetSimTime();
+      this->previousTime = currTime;
     }
 
     private: static double calcError(const double _currentPosition, const double _goalPosition) {
@@ -121,7 +122,7 @@ namespace gazebo {
     }
 
     private: math::Vector3 addGaussians(const math::Vector3& base, const math::Vector3& previousBase, const double t){
-      
+
       // Start with the base vector      
       math::Vector3 result = base;
 
@@ -137,7 +138,7 @@ namespace gazebo {
         boost::uniform_real<> randomC(pi / 2, 2 * pi);
         params.c = randomC(rng);
 
-        ROS_INFO("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
+        ROS_DEBUG("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
         params.startTime = t;
         gaussParams.push_back(params);
       }
@@ -147,7 +148,7 @@ namespace gazebo {
       double dy = 0;
       if(t > 0){
         dx = base.x - previousBase.x;
-        dy = base.y - previousBase.y;        
+        dy = base.y - previousBase.y;
       }
 
       // Calculate the normal
@@ -155,7 +156,7 @@ namespace gazebo {
       double ry = -dx;
 
       // Calculate the unit vector.
-      double rl = sqrt(pow(rx, 2) + pow(ry, 2));
+      double rl = sqrt(utils::square(rx) + utils::square(ry));
       double rux;
       double ruy;
       if(rl > 0){
@@ -180,7 +181,6 @@ namespace gazebo {
         result.x += nx;
         result.y += ny;
       }
-
       return result;
     }
 
@@ -217,6 +217,10 @@ namespace gazebo {
       double startTime;
     };
 
+    private: ros::ServiceClient getPathClient;
+    
+    private: physics::LinkPtr body;
+    
     // Parameters for all operating gaussians
     private: vector<GaussParams> gaussParams;
 
@@ -228,13 +232,13 @@ namespace gazebo {
     private: static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 100;
 
     // KP term
-    private: static const double KP = 0.005;
+    private: static const double KP = 0.125;
 
     // KD term
-    private: static const double KD = 0.025;
+    private: static const double KD = 0.800;
 
     // Max force
-    private: static const double MAX_FORCE = 10.0;
+    private: static const double MAX_FORCE = 300.0;
     
     // Probability of starting a new gaussian in each iteration
     private: static const double P_NEW_GAUSS = 0.08;

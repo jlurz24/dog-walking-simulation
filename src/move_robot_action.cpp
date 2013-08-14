@@ -89,8 +89,6 @@ namespace {
         btVector3 goalVector(goalPosition.point.x, goalPosition.point.y, 0);
         btScalar yaw = btAtan2(goalVector.y(), goalVector.x());
         
-        ROS_INFO("yaw = %f" , yaw);
-        
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 

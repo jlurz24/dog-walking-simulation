@@ -53,7 +53,9 @@ namespace {
         }
 
         if(!started){
-          if(!req.start){
+          bool isSoloDog = false;
+          nh.param<bool>("solo_dog", isSoloDog, false);
+          if(!isSoloDog && !req.start){
             // Not started yet.
             res.ended = false;
             res.started = false;

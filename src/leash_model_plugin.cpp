@@ -27,6 +27,8 @@ namespace gazebo {
       // Store the pointer to the world
       this->world = _leash->GetWorld();
 
+      nh.param("leash_length", leashLength, 1.5);
+      
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateStart(
@@ -69,8 +71,6 @@ namespace gazebo {
       // Octave function:
       // x = [0:0.01:2.5];
       // y = 1 ./ (1 + e.^(-24*(x - 2)));
-      double leashLength;
-      nh.param("leash_length", leashLength, 2.0);
       const double ratio = 1.0 / (1.0 + exp(-18.0 * (abs(distance) - leashLength)));
 
       // The hand force is a spring like attractive force between the hand and
@@ -93,7 +93,8 @@ namespace gazebo {
       dogBody->AddForce(appliedForce);
  
       // Apply the opposite force to the hand.
-      robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, 0.0));
+      // TODO: We should do this, but it can get the arm to a position where it can't move easily.
+      // robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, 0.0));
     }
     
     // Pointer to the world
@@ -103,8 +104,10 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Amount of force the leash can apply at its maximum
-    private: static const double SPRING_FORCE = 30.0;
-
+    private: static const double SPRING_FORCE = 800.0;
+    
+    double leashLength;
+    
     ros::NodeHandle nh;
   };
 
