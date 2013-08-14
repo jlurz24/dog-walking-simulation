@@ -8,7 +8,7 @@ namespace {
   using namespace std;
 
   //! Factor to slow down the lissajous calculation.
-  static const double TIMESCALE_FACTOR = 10.0;
+  static const double TIMESCALE_FACTOR = 30.0;
 
   //! Amount of time it takes to perform a full lissajous cycle.
   //  Note that this amount is slightly longer than the lissajous
@@ -32,13 +32,13 @@ namespace {
         // Lissajous parameters.
         static const double a = sqrt(2);
         static const double delta = boost::math::constants::pi<long double>() / 2.0;
-        static const double A = 5.0;
-        static const double B = 1.5;
+        static const double A = 15.0;
+        static const double B = 6.0;
         static const double b = 2 * a;
 
         geometry_msgs::PointStamped goal;
         goal.header.frame_id = "/map";
-        goal.point.x = -(A * sin(a * t + delta)) + 6.5; // Offset the start and invert;
+        goal.point.x = -(A * sin(a * t + delta)) + 15.5; // Offset the start and invert;
         goal.point.y = B * sin(b * t);
         goal.point.z = 0.0;
         return goal;

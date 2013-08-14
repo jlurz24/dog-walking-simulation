@@ -132,13 +132,13 @@ namespace gazebo {
       if(randomZeroToOne(rng) < P_NEW_GAUSS / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
         // Create a structure with the parameters.
         GaussParams params;
-        boost::uniform_real<> randomA(-pi/ 2, pi / 2);
+        boost::uniform_real<> randomA(-pi, pi);
         params.a = randomA(rng);
        
-        boost::uniform_real<> randomC(pi / 2, 2 * pi);
+        boost::uniform_real<> randomC(pi / 2.0, 8.0 * pi);
         params.c = randomC(rng);
 
-        ROS_DEBUG("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
+        ROS_INFO("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
         params.startTime = t;
         gaussParams.push_back(params);
       }

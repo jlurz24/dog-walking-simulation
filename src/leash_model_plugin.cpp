@@ -71,7 +71,7 @@ namespace gazebo {
       // Octave function:
       // x = [0:0.01:2.5];
       // y = 1 ./ (1 + e.^(-24*(x - 2)));
-      const double ratio = 1.0 / (1.0 + exp(-18.0 * (abs(distance) - leashLength)));
+      const double ratio = 1.0 / (1.0 + exp(-24.0 * (abs(distance) - leashLength)));
 
       // The hand force is a spring like attractive force between the hand and
       // the dog.
@@ -86,9 +86,9 @@ namespace gazebo {
       // Reduce the force.
       const math::Vector3 appliedForce = handForce * ratio;
 
-      if(ratio > 0.05){
-        cout << "Applying force x: " << appliedForce.x << " y: " << appliedForce.y << " at angle : " << a << " with ratio: " << ratio <<  " at distance: " << distance << endl;
-      }
+      // if(ratio > 0.05){
+      //  cout << "Applying force x: " << appliedForce.x << " y: " << appliedForce.y << " at angle : " << a << " with ratio: " << ratio <<  " at distance: " << distance << endl;
+      // }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
  

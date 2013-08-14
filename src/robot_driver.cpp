@@ -127,11 +127,10 @@ public:
     // Assumes message is in robot frame
     assert(dogPosition->pose.header.frame_id == "/base_footprint");
     
-    const double FRONT_AVOIDANCE_THRESHOLD = 1.0;
-    const double AVOIDANCE_BUFFER = 0.05;
+    const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
     
     // Add 5 centimeters to width of robot.
-    const double SIDE_AVOIDANCE_THRESHOLD = BASE_RADIUS + AVOIDANCE_BUFFER;
+    const double SIDE_AVOIDANCE_THRESHOLD = BASE_RADIUS;
     
     // Calculate the future position.
     geometry_msgs::PoseStamped expectedDogPosition;
@@ -148,8 +147,8 @@ public:
       
     // Determine if our base movement should be to avoid the dog. First priority.
     // TODO: Move this to separate action so it can more intelligently avoid the dog. Potentially.
-    if(dogPosition->pose.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPosition->pose.pose.position.x >= (BASE_RADIUS - AVOIDANCE_BUFFER) && abs(dogPosition->pose.pose.position.y) < SIDE_AVOIDANCE_THRESHOLD){
-      ROS_INFO("Attempting to avoid dog @ %f %f", dogPosition->pose.pose.position.x, dogPosition->pose.pose.position.y);
+    if(dogPosition->pose.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPosition->pose.pose.position.x >= BASE_RADIUS && abs(dogPosition->pose.pose.position.y) < BASE_RADIUS){
+      ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPosition->pose.pose.position.x, dogPosition->pose.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
       
       // Allow current movement to continue.
       dogsim::MoveDogAwayGoal goal;

@@ -7,8 +7,8 @@ function x, y = lissajous(tmax)
   # Lissajous parameters
   a = sqrt(2);
   delta = pi / 2;
-  A = 5;
-  B = 1.5;
+  A = 15;
+  B = 6;
   b = 2 * a;
 
   # Iterate over timestep
