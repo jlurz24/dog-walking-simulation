@@ -53,7 +53,8 @@ namespace utils {
      arrow.action = visualization_msgs::Marker::ADD;
      arrow.pose.position.x = arrow.pose.position.y = arrow.pose.position.z = 0;
      arrow.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
-     arrow.scale.x = arrow.scale.y = arrow.scale.z = 1.0;
+     arrow.scale.x = 1.0;
+     arrow.scale.y = arrow.scale.z = 0.01;
      arrow.color = color;
      return arrow;
  }

@@ -8,7 +8,7 @@ namespace {
   using namespace std;
 
   //! Factor to slow down the lissajous calculation.
-  static const double TIMESCALE_FACTOR = 30.0;
+  static const double TIMESCALE_FACTOR = 90.0;
 
   //! Amount of time it takes to perform a full lissajous cycle.
   //  Note that this amount is slightly longer than the lissajous

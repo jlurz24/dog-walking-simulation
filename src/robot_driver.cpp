@@ -40,8 +40,11 @@ private:
   //! Publisher for future dog position
   ros::Publisher futureDogPosPub_;
 
-  //! Timer that controls movement of the robot
+  //! Timer that controls movement of the robot (in solo mode only)
   ros::Timer driverTimer_;
+  
+  //! Timer that display the goal
+  ros::Timer displayTimer_;
   
   //! One shot timer that performs delayed start
   ros::Timer initTimer_;
@@ -63,16 +66,22 @@ private:
   
   //! Length of the leash
   double leashLength;
+  
+  //! Whether the robot is operating on its own
+  bool soloMode_;
+  
 public:
   //! ROS node initialization
   RobotDriver(): pnh_("~"), adjustDogClient("adjust_dog_position_action", true),
                             moveRobotClient("move_robot_action", true),
-                            moveDogAwayClient("move_dog_away_action", true){
+                            moveDogAwayClient("move_dog_away_action", true){      
     ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
+    
     nh_.param("leash_length", leashLength, 2.0);
+    
     dogPositionSub_.reset(new message_filters::Subscriber<dogsim::DogPosition> (nh_, "/dog_position", 1));
 
-    // Set up the publisher for the cmd_vel topic
+    // Set up the publisher
     cmdVelocityPub_ = nh_.advertise<geometry_msgs::Twist>("base_controller/command", 1);
     goalPub_ = nh_.advertise<visualization_msgs::Marker>("robot_driver/walk_goal_viz", 1);
     futureDogPosPub_ = nh_.advertise<visualization_msgs::Marker>("robot_driver/future_dog_position_viz", 1);
@@ -80,23 +89,19 @@ public:
     ros::service::waitForService("/dogsim/get_path");
     getPathClient = nh_.serviceClient<dogsim::GetPath>("/dogsim/get_path", true /* persist */);
     dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
-    adjustDogClient.waitForServer();
+    
     moveRobotClient.waitForServer();
-    moveDogAwayClient.waitForServer();
     
     // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
     // move the arm.
-    bool soloMode;
-    pnh_.param<bool>("solo_mode", soloMode, false);
-    if(soloMode){
+    pnh_.param<bool>("solo_mode", soloMode_, false);
+    if(soloMode_){
         ROS_INFO("Running solo mode");
-        driverTimer_ = nh_.createTimer(ros::Duration(1.0), &RobotDriver::steeringCallback, this);
-        driverTimer_.stop();
     }
     else {
       ROS_INFO("Running regular mode");
-      driverTimer_ = nh_.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
-      driverTimer_.stop();
+      adjustDogClient.waitForServer();
+      moveDogAwayClient.waitForServer();
     }
 
     initTimer_ = nh_.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
@@ -104,11 +109,16 @@ public:
   }
 
   void init(const ros::TimerEvent& event){
-    ROS_DEBUG("Entering delayed init");
+    ROS_INFO("Entering delayed init");
     bool started, ended;
     // TODO: Don't use common function here and eliminate parameter.
     getDogPosition(ros::Time::now(), true /* should start */, started, ended);
-    driverTimer_.start();
+    displayTimer_ = nh_.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
+    
+    if(soloMode_){
+        driverTimer_ = nh_.createTimer(ros::Duration(1.0), &RobotDriver::steeringCallback, this);
+    }
+    ROS_INFO("Delayed init complete");
   }
   
   void dogPositionCallback(const dogsim::DogPositionConstPtr& dogPosition){
@@ -128,9 +138,6 @@ public:
     assert(dogPosition->pose.header.frame_id == "/base_footprint");
     
     const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
-    
-    // Add 5 centimeters to width of robot.
-    const double SIDE_AVOIDANCE_THRESHOLD = BASE_RADIUS;
     
     // Calculate the future position.
     geometry_msgs::PoseStamped expectedDogPosition;
@@ -210,9 +217,6 @@ public:
 
       if(ended){
           ROS_INFO("Walk ended");
-          if(adjustDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-              adjustDogClient.cancelGoal();
-          }
           if(moveRobotClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
               moveRobotClient.cancelGoal();
           }

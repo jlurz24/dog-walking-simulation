@@ -6,6 +6,7 @@
 #include <arm_navigation_msgs/utils.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Twist.h>
+#include <tf2/LinearMath/btVector3.h>
 
 // Generated messages
 #include <dogsim/MoveRobotAction.h>
@@ -92,10 +93,8 @@ namespace {
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 
-        // TODO: This value was good for solo, but not dog walking
-        // const double MAX_V = 2.0;
         const double MAX_V = 4.0;
-        const double DEACC_DISTANCE = 1.75;
+        const double DEACC_DISTANCE = 1.0;
 
         // Robot location is at the root of frame.
         double distance = goalVector.distance(btVector3(0, 0, 0));
@@ -171,7 +170,6 @@ namespace {
 }
 
 int main(int argc, char** argv){
-  ROS_INFO("Main function for move_robot_action");
   ros::init(argc, argv, "move_robot_action");
   MoveRobotAction action(ros::this_node::getName());
   ROS_INFO("Waiting for move_robot actions");
