@@ -14,6 +14,8 @@
 namespace {
   using namespace std;
 
+  static const double PI = boost::math::constants::pi<double>();
+  
   class MoveRobotAction {
     public:
       MoveRobotAction(const string& name): as(nh, name, boost::bind(&MoveRobotAction::move, this, _1), false), actionName(name) {
@@ -34,9 +36,17 @@ namespace {
       ROS_INFO("Move robot position action cancelled prior to start");
       return;
     }
+    // Stop the robot.
+    stop();
     as.setPreempted();
   }
 
+  void stop(){
+    geometry_msgs::Twist baseCmd;
+    // Publish the command to the base
+    cmdVelocityPub.publish(baseCmd);
+  }
+  
   void move(const dogsim::MoveRobotGoalConstPtr& goal){
     if(!as.isActive()){
       ROS_INFO("Move robot action cancelled prior to start");
@@ -95,24 +105,37 @@ namespace {
 
         const double MAX_V = 4.0;
         const double DEACC_DISTANCE = 1.0;
-
+        const double MAX_REVERSE_DISTANCE = 1.0;
+        
         // Robot location is at the root of frame.
         double distance = goalVector.distance(btVector3(0, 0, 0));
-        if(goalPosition.point.x < 0){
-            // If the point is behind us, rotate but do not move.
-            // TODO: We could also try to move backwards
-            // TODO: We may want to use an even tighter range for forward movement.
-            baseCmd.linear.x = 0;
-        }
-        else if(distance > DEACC_DISTANCE){
+        if(distance > DEACC_DISTANCE){
           baseCmd.linear.x = MAX_V;
         }
         else {
           baseCmd.linear.x = distance / DEACC_DISTANCE * MAX_V;
         }
 
-        baseCmd.angular.z = yaw;      
-
+        // Determine if we should go backwards.
+        // TODO: Might need to tune this further to perform the least amount of turning.
+        if(goalPosition.point.x < 0){
+            if(goalPosition.point.x > -MAX_REVERSE_DISTANCE){
+                if(yaw > PI){
+                    baseCmd.angular.z = yaw - PI;
+                } else {
+                    baseCmd.angular.z = yaw + PI;
+                }
+                baseCmd.linear.x *= -1;
+                ROS_INFO("Moving in reverse at angle %f at velocity %f", baseCmd.angular.z, baseCmd.linear.x);
+            }
+            else {
+                ROS_INFO("Distance too far to move in reverse");
+                baseCmd.linear.x = 0;
+            }
+        }
+        else {
+            baseCmd.angular.z = yaw;      
+        }
         ROS_DEBUG("Moving base x: %f, y: %f, angular z: %f", baseCmd.linear.x, baseCmd.linear.y, baseCmd.angular.z);
             
         if(movePub.getNumSubscribers() > 0){
@@ -140,6 +163,7 @@ namespace {
     }
     
     if(as.isActive()){
+        stop();
         ROS_INFO("Move robot completed. Goal achieved.");
         as.setSucceeded();
     }

@@ -1,5 +1,7 @@
 #include <ros/ros.h>
 #include <dogsim/GetPath.h>
+#include <dogsim/StartPath.h>
+
 #include <boost/math/constants/constants.hpp>
 #include <geometry_msgs/Point.h>
 
@@ -8,7 +10,8 @@ namespace {
   using namespace std;
 
   //! Factor to slow down the lissajous calculation.
-  static const double TIMESCALE_FACTOR = 90.0;
+  // TODO: Determine if this is the appropriate speed.
+  static const double TIMESCALE_FACTOR = 100.0;
 
   //! Amount of time it takes to perform a full lissajous cycle.
   //  Note that this amount is slightly longer than the lissajous
@@ -19,13 +22,16 @@ namespace {
     private:
       NodeHandle nh;
 	  ros::ServiceServer service;
+      ros::ServiceServer startService;
       bool started;
       bool ended;
       double startTime;
     public:
       GetPathServer():started(false), ended(false), startTime(0){
         service = nh.advertiseService("/dogsim/get_path", &GetPathServer::getPath, this);
+        startService = nh.advertiseService("/dogsim/start", &GetPathServer::start, this);
       }
+      
     private:
       geometry_msgs::PointStamped lissajous(const double t){
 
@@ -44,30 +50,31 @@ namespace {
         return goal;
       }
 
+      bool start(dogsim::StartPath::Request& req, dogsim::StartPath::Response& res){
+          assert(!started);
+          started = true;
+          startTime = req.time;
+          ROS_INFO("Starting path @ time: %f", startTime);
+      }
+      
       bool getPath(dogsim::GetPath::Request& req, dogsim::GetPath::Response& res){
-	    res.elapsedTime = req.time - startTime;
+	    
+        res.elapsedTime = req.time - startTime;
+        
         if(ended){
-          res.ended = true;
-          res.started = true;
-          return true;
+            res.ended = true;
+            res.started = true;
+            return true;
         }
 
         if(!started){
-          bool isSoloDog = false;
-          nh.param<bool>("solo_dog", isSoloDog, false);
-          if(!isSoloDog && !req.start){
             // Not started yet.
             res.ended = false;
             res.started = false;
             return true;
-          }
-
-          // First call. Initialize.
-          started = true;
-          startTime = req.time;
-		  ROS_INFO("Starting path @ time: %f", startTime);
         }
-        else if((req.time - startTime) / TIMESCALE_FACTOR > LISSAJOUS_FULL_CYCLE_T){
+        
+        if((req.time - startTime) / TIMESCALE_FACTOR > LISSAJOUS_FULL_CYCLE_T){
           ROS_INFO("Setting end flag @ time %f", req.time);
           res.ended = ended = true;
           res.started = true;

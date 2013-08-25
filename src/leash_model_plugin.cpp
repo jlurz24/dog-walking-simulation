@@ -8,25 +8,24 @@
 #include <stdlib.h>
 #include <time.h>
 
-
 using namespace std;
 
 namespace gazebo {
   class LeashModelPlugin : public ModelPlugin {
     public: LeashModelPlugin() {
-      cout << "Creating Leash Model Plugin" << endl;
+      ROS_INFO("Creating Leash Model Plugin");
     }
     
     public: ~LeashModelPlugin() {
-      cout << "Destroying Leash Model Plugin" << endl;
+      ROS_INFO("Destroying Leash Model Plugin");
     }
 
     public: void Load(physics::ModelPtr _leash, sdf::ElementPtr /*_sdf*/) {
-      cout << "Loading Leash Model Plugin" << endl;
+      ROS_INFO("Loading Leash Model Plugin");
 
       // Store the pointer to the world
       this->world = _leash->GetWorld();
-
+      
       nh.param("leash_length", leashLength, 1.5);
       
       // Listen to the update event. This event is broadcast every
@@ -37,29 +36,35 @@ namespace gazebo {
 
     // Called by the world update start event
     public: void OnUpdate() {
-      // Find the robots hand
-      const physics::ModelPtr robot = this->world->GetModel("pr2");
-      if(!robot){
-        cout << "Could not locate robot." << endl;
-        return;
-      }
-      const physics::LinkPtr robotHand = robot->GetLink("r_gripper_l_finger_tip_link");
-      if(!robotHand){
-        cout << "Could not locate robot hand link." << endl;
-        return;
-      }
+        // Find the robot
+        if(!robotHand){
+            // Find the robots hand
+            const physics::ModelPtr robot = this->world->GetModel("pr2");
+            if(!robot){
+                ROS_ERROR("Failed to locate the robot model");
+                return;
+            }
+            robotHand = robot->GetLink("r_gripper_l_finger_tip_link");
+            if(!robotHand){
+                ROS_ERROR("Failed to loccate the robot finger tip link");
+                return;
+            }
+        }
+        
+        if(!dogBody){
+            // Find the dog.
+            const physics::ModelPtr dog = this->world->GetModel("dog");
+            if(!dog){
+                ROS_ERROR("Could not locate dog model.");
+                return;
+            }
 
-      // Find the dog.
-      const physics::ModelPtr dog = this->world->GetModel("dog");
-      if(!dog){
-        cout << "Could not locate dog model." << endl;
-        return;
-      }
-      const physics::LinkPtr dogBody = dog->GetLink("body");
-      if(!dogBody){
-        cout << "Could not locate dog body link." << endl;
-        return;
-      }
+            dogBody = dog->GetLink("body");
+            if(!dogBody){
+                ROS_ERROR("Could not locate dog body link.");
+                return;
+            }
+        }
 
       // Calculate the distance between the two.
       const math::Vector3 handPosition = robotHand->GetWorldPose().pos;
@@ -86,9 +91,8 @@ namespace gazebo {
       // Reduce the force.
       const math::Vector3 appliedForce = handForce * ratio;
 
-      // if(ratio > 0.05){
-      //  cout << "Applying force x: " << appliedForce.x << " y: " << appliedForce.y << " at angle : " << a << " with ratio: " << ratio <<  " at distance: " << distance << endl;
-      // }
+      ROS_DEBUG("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
+
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
  
@@ -96,6 +100,12 @@ namespace gazebo {
       // TODO: We should do this, but it can get the arm to a position where it can't move easily.
       // robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, 0.0));
     }
+    
+    // Pointer to the hand
+    private: physics::LinkPtr robotHand;
+    
+    // Pointer to the dog
+    private: physics::LinkPtr dogBody;
     
     // Pointer to the world
     private: physics::WorldPtr world;

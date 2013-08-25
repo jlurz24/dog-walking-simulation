@@ -46,7 +46,6 @@ class TotalForceMeasurer {
       ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
       dogsim::GetPath getPath;
       getPath.request.time = timerEvent.current_real.toSec();
-      getPath.request.start = false;
       getPathClient.call(getPath);
 
       if(!getPath.response.started){

@@ -9,6 +9,7 @@
 #include <dogsim/utils.h>
 #include <ros/ros.h>
 #include <dogsim/GetPath.h>
+#include <dogsim/StartPath.h>
 
 using namespace std;
 
@@ -18,7 +19,7 @@ namespace gazebo {
   class DogModelPlugin : public ModelPlugin {
     public: DogModelPlugin() {
       ROS_INFO("Creating Dog Plugin");
-	  ros::service::waitForService("/dogsim/get_path");
+
     }
     
     public: ~DogModelPlugin() {
@@ -27,7 +28,7 @@ namespace gazebo {
 
     public: void Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/) {
       ROS_INFO("Loading Dog Plugin");
-
+      
       // Store the pointer to the model
       this->model = _parent;
 
@@ -42,19 +43,35 @@ namespace gazebo {
       // Fetch the body link.
       body = this->model->GetLink("body");  
       
+      ros::service::waitForService("/dogsim/get_path");
+      ros::service::waitForService("/dogsim/start");
+      
+      // Start the path if we are in solo mode. In regular mode the robot does this.
+      bool isSoloDog;
+      nh.param<bool>("solo_dog", isSoloDog, false);
+      if(isSoloDog){
+          startPath();
+      }
+      
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateStart(
           boost::bind(&DogModelPlugin::OnUpdate, this));
     }
 
+    private: void startPath(){
+          dogsim::StartPath startPath;
+          startPath.request.time = this->model->GetWorld()->GetSimTime().Double();
+          ros::ServiceClient startPathClient = nh.serviceClient<dogsim::StartPath>("/dogsim/start", false);
+          startPathClient.call(startPath);
+    }
+    
     // Called by the world update start event
     public: void OnUpdate() {
        
       dogsim::GetPath getPath;
       common::Time currTime = this->model->GetWorld()->GetSimTime();
       getPath.request.time = currTime.Double();
-      getPath.request.start = false;
       getPathClient.call(getPath);
       if(!getPath.response.started || getPath.response.ended){
         return;

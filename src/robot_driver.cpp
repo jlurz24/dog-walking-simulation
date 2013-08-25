@@ -3,6 +3,8 @@
 #include <visualization_msgs/Marker.h>
 #include <dogsim/DogPosition.h>
 #include <dogsim/GetPath.h>
+#include <dogsim/StartPath.h>
+
 #include <message_filters/subscriber.h>
 #include <dogsim/AdjustDogPositionAction.h>
 #include <dogsim/MoveRobotAction.h>
@@ -87,6 +89,7 @@ public:
     futureDogPosPub_ = nh_.advertise<visualization_msgs::Marker>("robot_driver/future_dog_position_viz", 1);
     
     ros::service::waitForService("/dogsim/get_path");
+    ros::service::waitForService("/dogsim/start");
     getPathClient = nh_.serviceClient<dogsim::GetPath>("/dogsim/get_path", true /* persist */);
     dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     
@@ -110,9 +113,7 @@ public:
 
   void init(const ros::TimerEvent& event){
     ROS_INFO("Entering delayed init");
-    bool started, ended;
-    // TODO: Don't use common function here and eliminate parameter.
-    getDogPosition(ros::Time::now(), true /* should start */, started, ended);
+    startPath(event.current_real);
     displayTimer_ = nh_.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
     
     if(soloMode_){
@@ -121,18 +122,25 @@ public:
     ROS_INFO("Delayed init complete");
   }
   
+    void startPath(const ros::Time& currentTime){
+        dogsim::StartPath startPath;
+        startPath.request.time = currentTime.toSec();
+        ros::ServiceClient startPathClient = nh_.serviceClient<dogsim::StartPath>("/dogsim/start", false);
+        startPathClient.call(startPath);
+    }
+    
   void dogPositionCallback(const dogsim::DogPositionConstPtr& dogPosition){
     ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
     
     bool ended = false;
     bool started = false;
-    const geometry_msgs::PointStamped goalCurrent = getDogPosition(ros::Time(ros::Time::now().toSec()), false, started, ended);
+    const geometry_msgs::PointStamped goalCurrent = getDogPosition(ros::Time(ros::Time::now().toSec()), started, ended);
     if(!started || ended){
         // TODO: Could subscribe and unsubscribe later.
         return;
     }
 
-    const geometry_msgs::PointStamped futureGoal = getDogPosition(ros::Time(ros::Time::now().toSec() + FUTURE_DELTA_T), false, started, ended);
+    const geometry_msgs::PointStamped futureGoal = getDogPosition(ros::Time(ros::Time::now().toSec() + FUTURE_DELTA_T), started, ended);
 
     // Assumes message is in robot frame
     assert(dogPosition->pose.header.frame_id == "/base_footprint");
@@ -176,11 +184,10 @@ public:
     ROS_DEBUG("Completed dog position callback");
   }
 
-  geometry_msgs::PointStamped getDogPosition(const ros::Time& time, bool shouldStart, bool& started, bool& ended){
+  geometry_msgs::PointStamped getDogPosition(const ros::Time& time, bool& started, bool& ended){
       // Determine the goal.
       dogsim::GetPath getPath;
       getPath.request.time = time.toSec();
-      getPath.request.start = shouldStart;
       getPathClient.call(getPath);
       started = getPath.response.started;
       ended = getPath.response.ended;
@@ -190,7 +197,7 @@ public:
   void displayCallback(const ros::TimerEvent& event){
       bool started;
       bool ended;
-      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, false /* should start */, started, ended);
+      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, started, ended);
       assert(started);
       
       if(ended){
@@ -213,7 +220,7 @@ public:
 
       bool ended = false;
       bool started = false;
-      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, false /* should start */, started, ended);
+      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, started, ended);
 
       if(ended){
           ROS_INFO("Walk ended");

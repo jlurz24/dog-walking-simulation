@@ -1,5 +1,4 @@
 float64 time
-bool start
 ---
 bool started
 bool ended

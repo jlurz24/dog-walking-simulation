@@ -25,8 +25,8 @@ namespace {
         rightArm("move_right_arm", true),
         moveRobot("move_robot_action", true){
     
-        rightArm.waitForServer(ros::Duration(5.0));
-        moveRobot.waitForServer(ros::Duration(5.0));
+        rightArm.waitForServer();
+        moveRobot.waitForServer();
         
         as.registerPreemptCallback(boost::bind(&AdjustDogPositionAction::preemptCB, this));
         
@@ -180,7 +180,7 @@ namespace {
     
     // TODO: This design is not great.
     ros::Time actionStart = ros::Time::now();
-    moveRobot.waitForResult(ros::Duration(0.5));
+    moveRobot.waitForResult(ros::Duration(1.0));
     rightArm.waitForResult(ros::Duration(0.5 - (actionStart.toSec() - ros::Time::now().toSec())));
     
     if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
