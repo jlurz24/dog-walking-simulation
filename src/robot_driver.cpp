@@ -7,6 +7,7 @@
 
 #include <message_filters/subscriber.h>
 #include <dogsim/AdjustDogPositionAction.h>
+#include <dogsim/AdjustBasePositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
 #include <actionlib/client/simple_action_client.h>
@@ -14,6 +15,7 @@
 namespace {
   using namespace std;
   typedef actionlib::SimpleActionClient<dogsim::AdjustDogPositionAction> AdjustDogClient;
+  typedef actionlib::SimpleActionClient<dogsim::AdjustBasePositionAction> AdjustBaseClient;
   typedef actionlib::SimpleActionClient<dogsim::MoveRobotAction> MoveRobotClient;
   typedef actionlib::SimpleActionClient<dogsim::MoveDogAwayAction> MoveDogAwayClient;
 class RobotDriver {
@@ -56,8 +58,11 @@ private:
   
   //! Client for the arm to attempt to position the dog
   AdjustDogClient adjustDogClient;
-
-  //! Client for the movement of the robot base
+  
+  //! Client to adjust the position of the robot.
+  AdjustBaseClient adjustBaseClient;
+  
+  //! Client for the movement of the robot base. Used for solo mode only
   MoveRobotClient moveRobotClient;
   
   //! Client for moving the dog out of the way
@@ -75,6 +80,7 @@ private:
 public:
   //! ROS node initialization
   RobotDriver(): pnh_("~"), adjustDogClient("adjust_dog_position_action", true),
+                            adjustBaseClient("adjust_base_position_action", true),
                             moveRobotClient("move_robot_action", true),
                             moveDogAwayClient("move_dog_away_action", true){      
     ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
@@ -104,6 +110,7 @@ public:
     else {
       ROS_INFO("Running regular mode");
       adjustDogClient.waitForServer();
+      adjustBaseClient.waitForServer();
       moveDogAwayClient.waitForServer();
     }
 
@@ -165,9 +172,11 @@ public:
     if(dogPosition->pose.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPosition->pose.pose.position.x >= BASE_RADIUS && abs(dogPosition->pose.pose.position.y) < BASE_RADIUS){
       ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPosition->pose.pose.position.x, dogPosition->pose.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
       
-      // Allow current movement to continue.
-      dogsim::MoveDogAwayGoal goal;
+      // Stop current movement.
       adjustDogClient.cancelGoal();
+      adjustBaseClient.cancelGoal();
+      
+      dogsim::MoveDogAwayGoal goal;
       moveDogAwayClient.sendGoal(goal);
       return;
     }
@@ -181,6 +190,14 @@ public:
         adjustGoal.futureGoalPosition = futureGoal;
         adjustDogClient.sendGoal(adjustGoal);
     }
+    if(adjustBaseClient.getState() != actionlib::SimpleClientGoalState::ACTIVE){
+        dogsim::AdjustBasePositionGoal adjustGoal;
+        adjustGoal.dogPose = dogPosition->pose;
+        adjustGoal.goalPosition = goalCurrent;
+        adjustGoal.futureDogPose = expectedDogPosition;
+        adjustGoal.futureGoalPosition = futureGoal;
+        adjustBaseClient.sendGoal(adjustGoal);
+    } 
     ROS_DEBUG("Completed dog position callback");
   }
 

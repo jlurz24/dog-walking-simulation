@@ -130,6 +130,7 @@ namespace {
             }
             else {
                 ROS_INFO("Distance too far to move in reverse");
+                baseCmd.angular.z = yaw;
                 baseCmd.linear.x = 0;
             }
         }

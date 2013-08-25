@@ -37,7 +37,7 @@ namespace {
             // When to start the trajectory: now
             pr2_controllers_msgs::JointTrajectoryGoal goal = armExtensionTrajectory();
             goal.trajectory.header.stamp = ros::Time::now();
-            utils::sendGoal(&trajectoryClient, goal, nh, 1.0);
+            utils::sendGoal(&trajectoryClient, goal, nh, 2.0);
             as.setSucceeded();
         }
 
@@ -65,7 +65,7 @@ namespace {
             // Velocities
             goal.trajectory.points[0].velocities.resize(7);
     
-            // To be reached 1 seconds after starting along the trajectory
+            // To be reached 2 seconds after starting along the trajectory
             goal.trajectory.points[0].time_from_start = ros::Duration(2.0);
             return goal;
         }

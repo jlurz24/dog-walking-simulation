@@ -11,28 +11,23 @@
 #include <boost/math/constants/constants.hpp>
 // Generated messages
 #include <dogsim/AdjustDogPositionAction.h>
-#include <dogsim/MoveRobotAction.h>
 
 namespace {
   using namespace std;
 
   typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
-  typedef actionlib::SimpleActionClient<dogsim::MoveRobotAction> MoveRobotClient;
 
   class AdjustDogPositionAction {
     public:
       AdjustDogPositionAction(const string& name): as(nh, name, boost::bind(&AdjustDogPositionAction::adjust, this, _1), false), actionName(name),
-        rightArm("move_right_arm", true),
-        moveRobot("move_robot_action", true){
+        rightArm("move_right_arm", true){
     
         rightArm.waitForServer();
-        moveRobot.waitForServer();
         
         as.registerPreemptCallback(boost::bind(&AdjustDogPositionAction::preemptCB, this));
         
         nh.param("leash_length", leashLength, 2.0);
-      
-        startPub = nh.advertise<visualization_msgs::Marker>("adjust_dog_position_action/start_viz", 1);
+
         handStartPub = nh.advertise<visualization_msgs::Marker>("adjust_dog_position_action/hand_start_viz", 1);
 
         ROS_DEBUG("Completed init of the adjust dog position action");
@@ -51,13 +46,11 @@ namespace {
         ROS_INFO("Preempting the move arm action externally");
         rightArm.cancelGoal();
     }
-    if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-        moveRobot.cancelGoal();
-    }
     as.setPreempted();
   }
 
   // TODO: This need to handle errors.
+  // TODO: Refactor this.
   geometry_msgs::PointStamped calculateStart(const geometry_msgs::PointStamped goal, const geometry_msgs::PoseStamped dogPose){
       
     // Transform the goal position
@@ -149,15 +142,6 @@ namespace {
         return;
     }
     
-    geometry_msgs::PointStamped baseStartPoint = calculateStart(goal->futureGoalPosition, goal->futureDogPose);
-    if(startPub.getNumSubscribers() > 0){
-      static const std_msgs::ColorRGBA ORANGE = utils::createColor(1, 0.5, 0);
-      geometry_msgs::PointStamped startInBaseFrameViz = baseStartPoint;
-      startInBaseFrameViz.point.z = 0;
-      visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, ORANGE, false);
-      startPub.publish(startMsg);
-    }
-    
     geometry_msgs::PointStamped handStart = calculateStart(goal->goalPosition, goal->dogPose);
     if(handStartPub.getNumSubscribers() > 0){
       static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
@@ -171,21 +155,10 @@ namespace {
         return;
     }
     
-    dogsim::MoveRobotGoal moveGoal;
-    moveGoal.position = baseStartPoint;
-    moveRobot.sendGoal(moveGoal);
-    
     // The caller should abort the movement if it takes too long.
     moveRightArm(handStart);
+    rightArm.waitForResult(ros::Duration(1.0));
     
-    // TODO: This design is not great.
-    ros::Time actionStart = ros::Time::now();
-    moveRobot.waitForResult(ros::Duration(1.0));
-    rightArm.waitForResult(ros::Duration(0.5 - (actionStart.toSec() - ros::Time::now().toSec())));
-    
-    if(moveRobot.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-        moveRobot.cancelGoal();
-    }
     if(rightArm.getState() == actionlib::SimpleClientGoalState::ACTIVE){
         ROS_INFO("Preempting the move arm action inside AdjustDogPosition");
         rightArm.cancelGoal();
@@ -235,12 +208,8 @@ namespace {
     string actionName;
 
     MoveArmClient rightArm;
-    MoveRobotClient moveRobot;
     
     tf::TransformListener tf;
-
-    //! Publisher for start position.
-    ros::Publisher startPub;
     
     //! Publisher for hand start position.
     ros::Publisher handStartPub;
