@@ -1,26 +1,27 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <arm_navigation_msgs/MoveArmAction.h>
 #include <dogsim/utils.h>
 #include <tf/transform_listener.h>
 #include <arm_navigation_msgs/SimplePoseConstraint.h>
-#include <arm_navigation_msgs/MoveArmAction.h>
+#include <moveit_msgs/MoveGroupAction.h>
 #include <arm_navigation_msgs/utils.h>
 #include <visualization_msgs/Marker.h>
 #include <boost/math/constants/constants.hpp>
+#include <moveit/kinematic_constraints/utils.h>
+
 // Generated messages
 #include <dogsim/AdjustDogPositionAction.h>
 
 namespace {
   using namespace std;
 
-  typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
+  typedef actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> MoveArmClient;
 
   class AdjustDogPositionAction {
     public:
       AdjustDogPositionAction(const string& name): as(nh, name, boost::bind(&AdjustDogPositionAction::adjust, this, _1), false), actionName(name),
-        rightArm("move_right_arm", true){
+        rightArm("move_group", true){
     
         rightArm.waitForServer();
         
@@ -169,33 +170,13 @@ namespace {
   bool moveRightArm(const geometry_msgs::PointStamped goalPoint){
      ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.point.x, goalPoint.point.y, goalPoint.point.z, goalPoint.header.frame_id.c_str(), ros::Time::now().toSec());
 
-     arm_navigation_msgs::MoveArmGoal goal;
-     goal.motion_plan_request.group_name = "right_arm";
-     goal.motion_plan_request.num_planning_attempts = 1;
-     goal.motion_plan_request.planner_id = "";
-     goal.planner_service_name = "ompl_planning/plan_kinematic_path";
-     goal.motion_plan_request.allowed_planning_time = ros::Duration(0.25);
-     goal.motion_plan_request.expected_path_duration = ros::Duration(0.5);
-     goal.motion_plan_request.expected_path_dt = ros::Duration(0.1);
-     arm_navigation_msgs::SimplePoseConstraint desiredPos;
-     desiredPos.header.frame_id = goalPoint.header.frame_id;
-     desiredPos.header.stamp = ros::Time::now();
-     desiredPos.link_name = "r_wrist_roll_link";
-     desiredPos.pose.position = goalPoint.point;
-     desiredPos.absolute_position_tolerance.x = 0.04;
-     desiredPos.absolute_position_tolerance.y = 0.04;
-     desiredPos.absolute_position_tolerance.z = 0.04;
-    
-     desiredPos.pose.orientation.x = desiredPos.pose.orientation.y = desiredPos.pose.orientation.z = 0;
-     desiredPos.pose.orientation.w = 1;
-     // Allow any wrist position. We don't care about knots right now.
-     desiredPos.absolute_roll_tolerance = desiredPos.absolute_pitch_tolerance = desiredPos.absolute_yaw_tolerance = 2 * boost::math::constants::pi<double>();
+     moveit_msgs::MoveGroupGoal goal;
+     goal.request.group_name = "right_arm";
+     goal.request.num_planning_attempts = 1;
+     goal.request.allowed_planning_time = ros::Duration(0.25).toSec();
+     goal.request.goal_constraints.resize(1);
+     goal.request.goal_constraints[0] = kinematic_constraints::constructGoalConstraints("r_wrist_roll_link", goalPoint, 0.25 /* tolerance */);
 
-     arm_navigation_msgs::addGoalConstraintToMoveArmGoal(desiredPos, goal);
-
-     goal.disable_collision_monitoring = true;
-     goal.accept_invalid_goals = true;
-     goal.accept_partial_plans = true;
      rightArm.sendGoal(goal);
      return true;
   }
