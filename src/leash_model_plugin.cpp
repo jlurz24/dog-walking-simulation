@@ -91,7 +91,7 @@ namespace gazebo {
       // Reduce the force.
       const math::Vector3 appliedForce = handForce * ratio;
 
-      ROS_DEBUG("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
+      ROS_INFO("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
 
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
@@ -114,7 +114,7 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Amount of force the leash can apply at its maximum
-    private: static const double SPRING_FORCE = 800.0;
+    private: static const double SPRING_FORCE = 1500.0;
     
     double leashLength;
     

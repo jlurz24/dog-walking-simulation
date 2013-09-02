@@ -101,7 +101,7 @@ namespace gazebo {
         // Determine if we should start a new gaussian.
         boost::uniform_real<> randomZeroToOne(0, 1);
         
-        ROS_INFO("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
+        ROS_DEBUG("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
         // Precompute all the lissajous cycles.
         for(double t = 0; t <= maxTime.response.maximumTime; t += 1.0 / SIMULATOR_CYCLES_PER_SECOND){
             if(randomZeroToOne(rng) < P_NEW_GAUSS / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
@@ -158,12 +158,22 @@ namespace gazebo {
 
       this->forceX += outputX;
       this->forceY += outputY;
- 
-      body->AddForce(math::Vector3(this->forceX, this->forceY, 0.0));
-
+      
+      if(abs(this->forceX) > MAXIMUM_FORCE){
+          ROS_DEBUG("Maximum X force applied to force: %f", this->forceX);
+          this->forceX = copysign(MAXIMUM_FORCE, this->forceX);
+      }
       // Save the current error for the next iteration.
       this->previousErrorX = errorX;
+      
+      if(abs(this->forceY) > MAXIMUM_FORCE){
+          ROS_DEBUG("Maximum Y force applied to force: %f", this->forceX);
+          this->forceY = copysign(MAXIMUM_FORCE, this->forceY);
+      }
+      // Save the current error for the next iteration.
       this->previousErrorY = errorY;
+      
+      body->AddForce(math::Vector3(this->forceX, this->forceY, 0.0));
 
       // Save the previous time.
       this->previousTime = currTime;
@@ -174,10 +184,6 @@ namespace gazebo {
     }
 
     private: static double calcErrorDerivative(const double _previousError, const double _currentError, const common::Time& _deltaTime) {
-      // Check for initial condition.
-      if(_previousError == 0.0){
-        return 1.0;
-      }
       return (_currentError - _previousError) / _deltaTime.Double();
     }
 
@@ -313,12 +319,14 @@ namespace gazebo {
     // KP term
     private: double KP;
 
-    private: static const double KP_DEFAULT = 0.6;
+    private: static const double KP_DEFAULT = 0.32;
+    
+    private: static const double MAXIMUM_FORCE = 900;
     
     // KD term
     private: double KD;
 
-    private: static const double KD_DEFAULT = 0.35;
+    private: static const double KD_DEFAULT = 0.15;
     
     // Probability of starting a new gaussian in each second
     private: static const double P_NEW_GAUSS = 0.16;
