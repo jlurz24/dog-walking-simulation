@@ -3,15 +3,20 @@
 #include <tf/transform_listener.h>
 #include <gazebo_msgs/GetModelState.h>
 #include <dogsim/DogPosition.h>
+#include <dogsim/GetDogPlannedPosition.h>
 
 namespace {
   using namespace std;
+  using namespace dogsim;
   
   class DogPositionDetector {
     private:
       //! Publisher for the dog position visualization.
       ros::Publisher dogVizPub_;
 
+      //! Publisher for the future dog position visualization.
+      ros::Publisher futureDogVizPub_;
+      
       //! Publisher for the dog positon
       ros::Publisher dogPositionPub_;
 
@@ -30,20 +35,34 @@ namespace {
       //! Cached service client.
       ros::ServiceClient modelStateServ;
       
+      //! Dog planned position client
+      ros::ServiceClient futureDogPositionClient;
+      
       //! Last dog position
       geometry_msgs::PoseStamped lastDogPose;
       
       //! Velocity history
       deque<geometry_msgs::TwistStamped> velocityHistory;
       
+      //! Known position window (in seconds)
+      double knownPositionWindow;
+      
    public:
       //! ROS node initialization
       DogPositionDetector():pnh_("~"){
+        // Get the future window parameter
+        pnh_.param<double>("known_position_window", knownPositionWindow, 0.0);
+        
+        // TODO: Move these to a scope
         dogVizPub_ = nh_.advertise<visualization_msgs::Marker>("/dog_position_viz", 1);
-        dogPositionPub_ = nh_.advertise<dogsim::DogPosition>("/dog_position", 1);
-
+        dogPositionPub_ = nh_.advertise<DogPosition>("/dog_position", 1);
+        futureDogVizPub_ = nh_.advertise<visualization_msgs::Marker>("/future_dog_position_viz", 1);
+        
         ros::service::waitForService("/gazebo/get_model_state");
+        ros::service::waitForService("/dogsim/dog_planned_position");
+        
         modelStateServ = nh_.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state", true /* persistent */);
+        futureDogPositionClient = nh_.serviceClient<GetDogPlannedPosition>("/dogsim/dog_planned_position", true /* persist */);
         lastDogPose = getDogPose(ros::Time::now());
         timer_ = nh_.createTimer(ros::Duration(0.1), &DogPositionDetector::callback, this);
         timer_.start();
@@ -60,6 +79,16 @@ namespace {
             dogPose.header.frame_id = "/map";
             dogPose.pose = modelState.response.pose;
             return dogPose;
+        }
+        
+        geometry_msgs::PoseStamped getFutureDogPose(const ros::Time& time){
+            GetDogPlannedPosition plannedDogPosition;
+            plannedDogPosition.request.time = time;
+            futureDogPositionClient.call(plannedDogPosition);
+            geometry_msgs::PoseStamped result;
+            result.header = plannedDogPosition.response.point.header;
+            result.pose.position = plannedDogPosition.response.point.point;
+            return result;
         }
         
     void callback(const ros::TimerEvent& event){
@@ -98,42 +127,30 @@ namespace {
         dogV.twist.linear.z /= static_cast<double>(velocityHistory.size());
         
         // Visualize the dog.
-        std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
-        dogVizPub_.publish(utils::createMarker(dogPose.pose.position, dogPose.header, BLUE, true));
+        if(dogVizPub_.getNumSubscribers() > 0){
+            std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
+            dogVizPub_.publish(utils::createMarker(dogPose.pose.position, dogPose.header, BLUE, true));
+        }
+        DogPosition dogPositionMsg;
+        dogPositionMsg.pose = dogPose;
+        dogPositionMsg.twist = dogV;
 
-        // Determine the relative dog position
-        // TODO: Should we instead publish in the map frame?
-        dogsim::DogPosition dogPositionMsg;
-        dogPositionMsg.header.frame_id = "/base_footprint";
-        dogPositionMsg.header.stamp = event.current_real;
-        try {
-            tf_.transformPose("/base_footprint", ros::Time(0), dogPose, dogPose.header.frame_id, dogPositionMsg.pose);
+        // Get the future position of the dog.
+        if(knownPositionWindow > 0){
+            dogPositionMsg.futurePose = getFutureDogPose(ros::Time(event.current_real.toSec() + knownPositionWindow));
+            dogPositionMsg.futurePoseKnown = true;
+            if(futureDogVizPub_.getNumSubscribers() > 0){
+                std_msgs::ColorRGBA GREEN = utils::createColor(0, 1, 0);
+                futureDogVizPub_.publish(utils::createMarker(dogPositionMsg.futurePose.pose.position, dogPositionMsg.futurePose.header, GREEN, true));
+            }
         }
-        catch(tf::TransformException& ex){
-            ROS_INFO("Failed to transform dog point to /base_footprint");
-            return;
+        else {
+            dogPositionMsg.futurePoseKnown = false;
         }
-        try {
-            geometry_msgs::Vector3Stamped twistVector;
-            twistVector.header = dogV.header;
-            twistVector.vector.x = dogV.twist.linear.x;
-            twistVector.vector.y = dogV.twist.linear.y;
-            twistVector.vector.z = dogV.twist.linear.z;
-            geometry_msgs::Vector3Stamped twistVectorInBaseFrame;
-            tf_.transformVector("/base_footprint", ros::Time(0), twistVector, twistVector.header.frame_id, twistVectorInBaseFrame);
-            dogPositionMsg.twist.twist.linear.x = twistVectorInBaseFrame.vector.x;
-            dogPositionMsg.twist.twist.linear.y = twistVectorInBaseFrame.vector.y;
-            dogPositionMsg.twist.twist.linear.z = twistVectorInBaseFrame.vector.z;
-        }
-        catch(tf::TransformException& ex){
-            ROS_INFO("Failed to transform dog twist to /base_footprint");
-            return;
-        }
-        dogPositionMsg.pose.header = dogPositionMsg.header;
-        dogPositionMsg.twist.header = dogPositionMsg.header;
-
+        
         // Publish the event
         ROS_DEBUG("Publishing a dog position event");
+        
         dogPositionPub_.publish(dogPositionMsg);
       }
   };

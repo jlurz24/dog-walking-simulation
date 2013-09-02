@@ -9,21 +9,25 @@
 #include <visualization_msgs/Marker.h>
 #include <boost/math/constants/constants.hpp>
 #include <moveit/kinematic_constraints/utils.h>
+#include <moveit/move_group_interface/move_group.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+#include <moveit/robot_state/joint_state_group.h>
 
 // Generated messages
 #include <dogsim/AdjustDogPositionAction.h>
 
 namespace {
   using namespace std;
-
+  using namespace geometry_msgs;
+  
   typedef actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> MoveArmClient;
 
   class AdjustDogPositionAction {
     public:
       AdjustDogPositionAction(const string& name): as(nh, name, boost::bind(&AdjustDogPositionAction::adjust, this, _1), false), actionName(name),
-        rightArm("move_group", true){
-    
-        rightArm.waitForServer();
+        rightArm("right_arm"){
         
         as.registerPreemptCallback(boost::bind(&AdjustDogPositionAction::preemptCB, this));
         
@@ -31,6 +35,13 @@ namespace {
 
         handStartPub = nh.advertise<visualization_msgs::Marker>("adjust_dog_position_action/hand_start_viz", 1);
 
+        // Setup moveit.
+        robot_model_loader::RobotModelLoader robotModelLoader("robot_description", true);
+        robot_model::RobotModelPtr kinematicModel = robotModelLoader.getModel();
+        modelFrame = kinematicModel->getModelFrame();
+        
+        kinematicState.reset(new robot_state::RobotState(kinematicModel));
+        kinematicState->enforceBounds();
         ROS_DEBUG("Completed init of the adjust dog position action");
         as.start();
   }
@@ -43,19 +54,16 @@ namespace {
       return;
     }
 
-    if(rightArm.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-        ROS_INFO("Preempting the move arm action externally");
-        rightArm.cancelGoal();
-    }
+    rightArm.stop();
     as.setPreempted();
   }
 
   // TODO: This need to handle errors.
   // TODO: Refactor this.
-  geometry_msgs::PointStamped calculateStart(const geometry_msgs::PointStamped goal, const geometry_msgs::PoseStamped dogPose){
+  PointStamped calculateStart(const PointStamped goal, const PoseStamped dogPose){
       
     // Transform the goal position
-    geometry_msgs::PointStamped goalInBaseFrame;
+    PointStamped goalInBaseFrame;
     if(goal.header.frame_id != "/base_footprint"){
         try {
             tf.transformPoint("/base_footprint", ros::Time(0), goal, goal.header.frame_id, goalInBaseFrame);
@@ -63,7 +71,7 @@ namespace {
         catch(tf::TransformException& ex){
             ROS_INFO("Failed to transform goal point to /base_footprint");
             as.setAborted();
-            return geometry_msgs::PointStamped();
+            return PointStamped();
         }
     }
     else {
@@ -71,7 +79,7 @@ namespace {
     }
 
     // Transform the dog position.
-    geometry_msgs::PoseStamped dogInBaseFrame;
+    PoseStamped dogInBaseFrame;
     if(dogPose.header.frame_id != "/base_footprint"){
         try {
             tf.transformPose("/base_footprint", ros::Time(0), dogPose, dogPose.header.frame_id, dogInBaseFrame);
@@ -79,7 +87,7 @@ namespace {
         catch(tf::TransformException& ex){
             ROS_INFO("Failed to transform dog pose to /base_footprint");
             as.setAborted();
-            return geometry_msgs::PointStamped();
+            return PointStamped();
         }
     }
     else {
@@ -87,9 +95,9 @@ namespace {
     }
     
     // Determine the position of the base in the hand frame
-    geometry_msgs::PointStamped handInBaseFrame;
+    PointStamped handInBaseFrame;
     {
-        geometry_msgs::PointStamped handInHandFrame;
+        PointStamped handInHandFrame;
         handInHandFrame.header.frame_id = "/r_wrist_roll_link";
         try {
             tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame, handInHandFrame.header.frame_id, handInBaseFrame);
@@ -97,7 +105,7 @@ namespace {
         catch(tf::TransformException& ex){
             ROS_INFO("Failed to transform hand position to /base_footprint");
             as.setAborted();
-            return geometry_msgs::PointStamped();
+            return PointStamped();
         }
      }
     
@@ -127,7 +135,7 @@ namespace {
     ROS_DEBUG("Distance from dog to goal %f", distanceFromDogToGoal);
     
     // Now update the goal to move to the dog to the goal point.
-    geometry_msgs::PointStamped start;
+    PointStamped start;
     start.point.x = dogInBaseFrame.pose.position.x + (planarLeashLength + distanceFromDogToGoal) * ux;
     start.point.y = dogInBaseFrame.pose.position.x + (planarLeashLength + distanceFromDogToGoal) * uy;
     start.point.z = armHeight;
@@ -143,10 +151,10 @@ namespace {
         return;
     }
     
-    geometry_msgs::PointStamped handStart = calculateStart(goal->goalPosition, goal->dogPose);
+    PointStamped handStart = calculateStart(goal->goalPosition, goal->dogPose);
     if(handStartPub.getNumSubscribers() > 0){
       static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
-      geometry_msgs::PointStamped startInBaseFrameViz = handStart;
+      PointStamped startInBaseFrameViz = handStart;
       visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
       handStartPub.publish(startMsg);
     }
@@ -158,26 +166,42 @@ namespace {
     
     // The caller should abort the movement if it takes too long.
     moveRightArm(handStart);
-    rightArm.waitForResult(ros::Duration(1.0));
-    
-    if(rightArm.getState() == actionlib::SimpleClientGoalState::ACTIVE){
-        ROS_INFO("Preempting the move arm action inside AdjustDogPosition");
-        rightArm.cancelGoal();
-    }
     as.setSucceeded();
   }
 
-  bool moveRightArm(const geometry_msgs::PointStamped goalPoint){
+  bool moveRightArm(const PointStamped goalPoint){
      ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.point.x, goalPoint.point.y, goalPoint.point.z, goalPoint.header.frame_id.c_str(), ros::Time::now().toSec());
-
-     moveit_msgs::MoveGroupGoal goal;
-     goal.request.group_name = "right_arm";
-     goal.request.num_planning_attempts = 1;
-     goal.request.allowed_planning_time = ros::Duration(0.25).toSec();
-     goal.request.goal_constraints.resize(1);
-     goal.request.goal_constraints[0] = kinematic_constraints::constructGoalConstraints("r_wrist_roll_link", goalPoint, 0.25 /* tolerance */);
-
-     rightArm.sendGoal(goal);
+     
+     // Transform to the correct frame.
+     PointStamped goalInModelFrame;
+     if(goalPoint.header.frame_id != modelFrame){
+        try {
+            tf.transformPoint(modelFrame, ros::Time(0), goalPoint, goalPoint.header.frame_id, goalInModelFrame);
+        }
+        catch(tf::TransformException& ex){
+            ROS_INFO("Failed to goal to %s", modelFrame.c_str());
+            return false;
+        }
+    }
+    else {
+        goalInModelFrame = goalPoint;
+    }
+     
+     robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
+     
+     Pose poseGoal;
+     poseGoal.position = goalInModelFrame.point;
+     poseGoal.orientation.x = poseGoal.orientation.y = poseGoal.orientation.z = 0;
+     poseGoal.orientation.z = 1;
+     
+     kinematics::KinematicsQueryOptions opts;
+     bool foundIK = jointStateGroup->setFromIK(poseGoal, 10, 0.1, opts);
+     if(foundIK){
+         rightArm.setJointValueTarget(*jointStateGroup);
+     }
+     else {
+         ROS_INFO("Failed to find IK solution");
+     }
      return true;
   }
   
@@ -188,9 +212,15 @@ namespace {
     actionlib::SimpleActionServer<dogsim::AdjustDogPositionAction> as;
     string actionName;
 
-    MoveArmClient rightArm;
+    move_group_interface::MoveGroup rightArm;
+    robot_state::RobotStatePtr kinematicState;
     
     tf::TransformListener tf;
+    
+    /**
+     * Frame the arm planner uses
+     */
+    string modelFrame;
     
     //! Publisher for hand start position.
     ros::Publisher handStartPub;

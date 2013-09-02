@@ -27,9 +27,12 @@ private:
   static const double BASE_RADIUS = 0.668 / 2.0;
 
   //! Amount of time in the "future" to operate
-  static const double FUTURE_DELTA_T = 0.5;
+  static const double FUTURE_DELTA_T = 2.0;
   
-  //! The node handle we'll be using
+  //! Space to keep in front of the robot in meters
+  static const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
+  
+  //! Node handle
   ros::NodeHandle nh_;
 
   //! Private nh
@@ -76,6 +79,9 @@ private:
   
   //! Whether the robot is operating on its own
   bool soloMode_;
+  
+  //! Transform listener
+  tf::TransformListener tf;
   
 public:
   //! ROS node initialization
@@ -148,29 +154,36 @@ public:
     }
 
     const geometry_msgs::PointStamped futureGoal = getDogPosition(ros::Time(ros::Time::now().toSec() + FUTURE_DELTA_T), started, ended);
-
-    // Assumes message is in robot frame
-    assert(dogPosition->pose.header.frame_id == "/base_footprint");
     
-    const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
-    
-    // Calculate the future position.
-    geometry_msgs::PoseStamped expectedDogPosition;
-    expectedDogPosition.header = dogPosition->header;
-    expectedDogPosition.pose.position.x = dogPosition->pose.pose.position.x + dogPosition->twist.twist.linear.x * FUTURE_DELTA_T;
-    expectedDogPosition.pose.position.y = dogPosition->pose.pose.position.y + dogPosition->twist.twist.linear.y * FUTURE_DELTA_T;
-    expectedDogPosition.pose.position.z = dogPosition->pose.pose.position.z + dogPosition->twist.twist.linear.z * FUTURE_DELTA_T;
+    geometry_msgs::PoseStamped expectedDogPose;
+    if(dogPosition->futurePoseKnown){
+        expectedDogPose = dogPosition->futurePose;
+    }
+    else {
+        // Calculate the future position.
+        expectedDogPose.header = dogPosition->header;
+        expectedDogPose.pose.position.x = dogPosition->pose.pose.position.x + dogPosition->twist.twist.linear.x * FUTURE_DELTA_T;
+        expectedDogPose.pose.position.y = dogPosition->pose.pose.position.y + dogPosition->twist.twist.linear.y * FUTURE_DELTA_T;
+        expectedDogPose.pose.position.z = dogPosition->pose.pose.position.z + dogPosition->twist.twist.linear.z * FUTURE_DELTA_T;
+    }
     
     // Visualize the future position
     if(futureDogPosPub_.getNumSubscribers() > 0){
         std_msgs::ColorRGBA PURPLE = utils::createColor(0.5, 0, 0.5);
-        futureDogPosPub_.publish(utils::createMarker(expectedDogPosition.pose.position, expectedDogPosition.header, PURPLE, false));
+        futureDogPosPub_.publish(utils::createMarker(expectedDogPose.pose.position, expectedDogPose.header, PURPLE, false));
     }
-      
+    
+    // Convert the positions to the robot frame.
+    geometry_msgs::PoseStamped dogPoseInBaseFrame;
+    tf.transformPose("/base_footprint", ros::Time(0), dogPosition->pose, dogPosition->pose.header.frame_id, dogPoseInBaseFrame);
+    
+    geometry_msgs::PoseStamped expectedDogPoseInBaseFrame;
+    tf.transformPose("/base_footprint", ros::Time(0), expectedDogPose, expectedDogPose.header.frame_id, expectedDogPoseInBaseFrame);
+        
     // Determine if our base movement should be to avoid the dog. First priority.
     // TODO: Move this to separate action so it can more intelligently avoid the dog. Potentially.
-    if(dogPosition->pose.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPosition->pose.pose.position.x >= BASE_RADIUS && abs(dogPosition->pose.pose.position.y) < BASE_RADIUS){
-      ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPosition->pose.pose.position.x, dogPosition->pose.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
+    if(dogPoseInBaseFrame.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS && abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS){
+      ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPoseInBaseFrame.pose.position.x, dogPoseInBaseFrame.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
       
       // Stop current movement.
       adjustDogClient.cancelGoal();
@@ -184,20 +197,20 @@ public:
     // Only adjust dog position if the last adjustment finished
     if(adjustDogClient.getState() != actionlib::SimpleClientGoalState::ACTIVE){
         dogsim::AdjustDogPositionGoal adjustGoal;
-        adjustGoal.dogPose = dogPosition->pose;
+        adjustGoal.dogPose = dogPoseInBaseFrame;
         adjustGoal.goalPosition = goalCurrent;
-        adjustGoal.futureDogPose = expectedDogPosition;
+        adjustGoal.futureDogPose = expectedDogPoseInBaseFrame;
         adjustGoal.futureGoalPosition = futureGoal;
         adjustDogClient.sendGoal(adjustGoal);
     }
     if(adjustBaseClient.getState() != actionlib::SimpleClientGoalState::ACTIVE){
         dogsim::AdjustBasePositionGoal adjustGoal;
-        adjustGoal.dogPose = dogPosition->pose;
+        adjustGoal.dogPose = dogPoseInBaseFrame;
         adjustGoal.goalPosition = goalCurrent;
-        adjustGoal.futureDogPose = expectedDogPosition;
+        adjustGoal.futureDogPose = expectedDogPoseInBaseFrame;
         adjustGoal.futureGoalPosition = futureGoal;
         adjustBaseClient.sendGoal(adjustGoal);
-    } 
+    }
     ROS_DEBUG("Completed dog position callback");
   }
 

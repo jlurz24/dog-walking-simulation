@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
+#include <dogsim/MaximumTime.h>
 
 #include <boost/math/constants/constants.hpp>
 #include <geometry_msgs/Point.h>
@@ -23,13 +24,16 @@ namespace {
       NodeHandle nh;
 	  ros::ServiceServer service;
       ros::ServiceServer startService;
+      ros::ServiceServer maxService;
       bool started;
       bool ended;
       double startTime;
     public:
+      
       GetPathServer():started(false), ended(false), startTime(0){
         service = nh.advertiseService("/dogsim/get_path", &GetPathServer::getPath, this);
         startService = nh.advertiseService("/dogsim/start", &GetPathServer::start, this);
+        maxService = nh.advertiseService("/dogsim/maximum_time", &GetPathServer::maximumTime, this);
       }
       
     private:
@@ -44,7 +48,7 @@ namespace {
 
         geometry_msgs::PointStamped goal;
         goal.header.frame_id = "/map";
-        goal.point.x = -(A * sin(a * t + delta)) + 15.5; // Offset the start and invert;
+        goal.point.x = -(A * sin(a * t + delta)) + 16.5; // Offset the start and invert;
         goal.point.y = B * sin(b * t);
         goal.point.z = 0.0;
         return goal;
@@ -55,8 +59,14 @@ namespace {
           started = true;
           startTime = req.time;
           ROS_INFO("Starting path @ time: %f", startTime);
+          return true;
       }
       
+      bool maximumTime(dogsim::MaximumTime::Request& req, dogsim::MaximumTime::Response& res){
+          res.maximumTime = LISSAJOUS_FULL_CYCLE_T * TIMESCALE_FACTOR;
+          ROS_INFO("Returning maximum time: %f", res.maximumTime);
+          return true;
+      }
       bool getPath(dogsim::GetPath::Request& req, dogsim::GetPath::Response& res){
 	    
         res.elapsedTime = req.time - startTime;

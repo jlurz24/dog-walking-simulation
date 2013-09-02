@@ -1,5 +1,6 @@
 <launch>
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
+  <rosparam command="load" file="$(find pr2_moveit_config)/config/kinematics.yaml"/>
 
   <!-- Move it -->
   <include file="$(find pr2_moveit_config)/launch/planning_context.launch">
@@ -25,7 +26,9 @@
   <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
 
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
-  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
+  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen">
+    <param name="known_position_window" value="2.0"/>
+  </node>
   <node pkg="dogsim" type="adjust_dog_position_action" name="adjust_dog_position_action" output="screen">
   </node>
 

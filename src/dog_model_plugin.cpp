@@ -10,6 +10,8 @@
 #include <ros/ros.h>
 #include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
+#include <dogsim/MaximumTime.h>
+#include <dogsim/GetDogPlannedPosition.h>
 
 using namespace std;
 
@@ -17,9 +19,8 @@ namespace gazebo {
   static const double pi = boost::math::constants::pi<double>();
 
   class DogModelPlugin : public ModelPlugin {
-    public: DogModelPlugin() {
-      ROS_INFO("Creating Dog Plugin");
-
+    public: DogModelPlugin(){
+        ROS_INFO("Creating Dog Plugin");
     }
     
     public: ~DogModelPlugin() {
@@ -45,6 +46,14 @@ namespace gazebo {
       
       ros::service::waitForService("/dogsim/get_path");
       ros::service::waitForService("/dogsim/start");
+      ros::service::waitForService("/dogsim/maximum_time");
+      
+      // Advertise a service to get the dogs planned position.
+      service = nh.advertiseService("/dogsim/dog_planned_position", &DogModelPlugin::getPlannedPosition, this);
+      dogGoalVizPub = nh.advertise<visualization_msgs::Marker>("dogsim/dog_goal_viz", 1);
+      
+      // Initialize the gaussians.
+      initGaussians();
       
       // Start the path if we are in solo mode. In regular mode the robot does this.
       bool isSoloDog;
@@ -53,39 +62,88 @@ namespace gazebo {
           startPath();
       }
       
+      nh.param<double>("dog_kp", KP, KP_DEFAULT);
+      nh.param<double>("dog_kd", KD, KD_DEFAULT);
+      ROS_INFO("Dog PD operation with KP %f KD %f", KP, KD);
+      
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateStart(
           boost::bind(&DogModelPlugin::OnUpdate, this));
     }
 
+    private: bool getPlannedPosition(dogsim::GetDogPlannedPosition::Request& req, dogsim::GetDogPlannedPosition::Response& res) {        bool running;
+        const math::Vector3 plannedPosition = calcGoalPosition(common::Time(req.time.toSec()), running);
+        res.point.header.stamp = req.time;
+        res.point.header.frame_id = "/map";
+        res.point.point.x = plannedPosition.x;
+        res.point.point.y = plannedPosition.y;
+        res.point.point.z = plannedPosition.z;
+        return running;
+    }
+    
     private: void startPath(){
           dogsim::StartPath startPath;
           startPath.request.time = this->model->GetWorld()->GetSimTime().Double();
           ros::ServiceClient startPathClient = nh.serviceClient<dogsim::StartPath>("/dogsim/start", false);
-          startPathClient.call(startPath);
+          if(!startPathClient.call(startPath)){
+              ROS_ERROR("Failed to start path");
+          }
+    }
+    
+    private: void initGaussians(){
+        dogsim::MaximumTime maxTime;
+        ros::ServiceClient maxTimeClient = nh.serviceClient<dogsim::MaximumTime>("/dogsim/maximum_time", false);
+        if(!maxTimeClient.call(maxTime)){
+            ROS_ERROR("Failed to call maximum time");
+        }
+        
+        // Determine if we should start a new gaussian.
+        boost::uniform_real<> randomZeroToOne(0, 1);
+        
+        ROS_INFO("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
+        // Precompute all the lissajous cycles.
+        for(double t = 0; t <= maxTime.response.maximumTime; t += 1.0 / SIMULATOR_CYCLES_PER_SECOND){
+            if(randomZeroToOne(rng) < P_NEW_GAUSS / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
+                // Create a structure with the parameters.
+                GaussParams params;
+                boost::uniform_real<> randomA(-pi, pi);
+                params.a = randomA(rng);
+       
+                boost::uniform_real<> randomC(pi / 2, 8.0 * pi);
+                params.c = randomC(rng);
+
+                ROS_DEBUG("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
+                params.startTime = t;
+                gaussParams.push_back(params);
+            }
+        }
+        ROS_INFO("Completed initializing gaussians. Total gaussians is %lu", gaussParams.size());
     }
     
     // Called by the world update start event
-    public: void OnUpdate() {
-       
-      dogsim::GetPath getPath;
-      common::Time currTime = this->model->GetWorld()->GetSimTime();
-      getPath.request.time = currTime.Double();
-      getPathClient.call(getPath);
-      if(!getPath.response.started || getPath.response.ended){
-        return;
-      }
-     
-      // Check the goal for the current time.
-      gazebo::math::Vector3 goal;
-      goal.x = getPath.response.point.point.x;
-      goal.y = getPath.response.point.point.y;
-      goal.z = getPath.response.point.point.z;      
+    private: void OnUpdate() {
 
       // Calculate the desired position.
-      math::Vector3 goalPosition = calcGoalPosition(goal, getPath.response.elapsedTime);
-
+      common::Time currTime = this->model->GetWorld()->GetSimTime();
+      bool running;
+      math::Vector3 goalPosition = calcGoalPosition(currTime, running);
+      if(!running){
+          return;
+      }
+      
+      // Publish the position.
+      if(int(currTime.Double() * 1000) % 100 == 0 && dogGoalVizPub.getNumSubscribers() > 0){
+          std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
+          geometry_msgs::PointStamped goalPoint;
+          goalPoint.point.x = goalPosition.x;
+          goalPoint.point.y = goalPosition.y;
+          goalPoint.point.z = goalPosition.z;
+          goalPoint.header.stamp = ros::Time(currTime.Double());
+          goalPoint.header.frame_id = "/map";
+          dogGoalVizPub.publish(utils::createMarker(goalPoint.point, goalPoint.header, RED, true));
+      }
+      
       // Calculate current errors
       math::Vector3 worldPose = this->model->GetWorldPose().pos;
       double errorX = calcError(worldPose.x, goalPosition.x);
@@ -101,9 +159,6 @@ namespace gazebo {
       this->forceX += outputX;
       this->forceY += outputY;
  
-      // Prevent excessive force.
-      this->forceX = this->forceX > 0 ? min(this->forceX, MAX_FORCE) : max(this->forceX, -MAX_FORCE);
-      this->forceY = this->forceY > 0 ? min(this->forceY, MAX_FORCE) : max(this->forceY, -MAX_FORCE);
       body->AddForce(math::Vector3(this->forceX, this->forceY, 0.0));
 
       // Save the current error for the next iteration.
@@ -126,39 +181,37 @@ namespace gazebo {
       return (_currentError - _previousError) / _deltaTime.Double();
     }
 
-    private: static double calcPDOutput(const double _error, const double _errorDerivative){
+    private: double calcPDOutput(const double _error, const double _errorDerivative){
       return KP * _error + KD * _errorDerivative;
     }
 
-    private: math::Vector3 calcGoalPosition(const gazebo::math::Vector3& base, const double elapsedTime){
+    private: math::Vector3 calcGoalPosition(common::Time time, bool& running){
+        dogsim::GetPath getPath;
+        getPath.request.time = time.Double();
+        getPathClient.call(getPath);
+        if(!getPath.response.started || getPath.response.ended){
+            running = false;
+            return math::Vector3();
+        }
+        
+        running = true;
+        
+        // Check the goal for the current time.
+        gazebo::math::Vector3 base;
+        base.x = getPath.response.point.point.x;
+        base.y = getPath.response.point.point.y;
+        base.z = getPath.response.point.point.z;  
 
-      // Gaussian function is tuned for input = [1:700]
-      math::Vector3 result = addGaussians(base, this->previousBase, elapsedTime);
-      this->previousBase = base;
-      return result;
+        // Gaussian function is tuned for input = [1:700]
+        math::Vector3 result = addGaussians(base, this->previousBase, getPath.response.elapsedTime);
+        this->previousBase = base;
+        return result;
     }
 
     private: math::Vector3 addGaussians(const math::Vector3& base, const math::Vector3& previousBase, const double t){
 
-      // Start with the base vector      
+      // Start with the base vector
       math::Vector3 result = base;
-
-      // Determine if we should start a new gaussian.
-      boost::uniform_real<> randomZeroToOne(0,1);
-      
-      if(randomZeroToOne(rng) < P_NEW_GAUSS / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
-        // Create a structure with the parameters.
-        GaussParams params;
-        boost::uniform_real<> randomA(-pi, pi);
-        params.a = randomA(rng);
-       
-        boost::uniform_real<> randomC(pi / 2.0, 8.0 * pi);
-        params.c = randomC(rng);
-
-        ROS_INFO("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
-        params.startTime = t;
-        gaussParams.push_back(params);
-      }
 
       // Calculate the derivative
       double dx = 0;
@@ -187,23 +240,28 @@ namespace gazebo {
 
       // Iterate over all gaussians.
       for(unsigned int i = 0; i < gaussParams.size(); ++i){
-        double gx = t - gaussParams[i].startTime - GAUSS_HALF_WIDTH * gaussParams[i].c;
-        double gy = gaussParams[i].a * exp(-(utils::square(gx) / (2 * utils::square(gaussParams[i].c))));
+          // Start times are strictly increasing.
+          if(t < gaussParams[i].startTime){
+              break;
+          }
+          
+          double gx = t - gaussParams[i].startTime - GAUSS_HALF_WIDTH * gaussParams[i].c;
+          double gy = gaussParams[i].a * exp(-(utils::square(gx) / (2 * utils::square(gaussParams[i].c))));
 
-        // Calculate the normal vector.
-        double nx = rux * gy;
-        double ny = ruy * gy;
+          // Calculate the normal vector.
+          double nx = rux * gy;
+          double ny = ruy * gy;
 
-        // Add it to the result.
-        result.x += nx;
-        result.y += ny;
+          // Add it to the result.
+          result.x += nx;
+          result.y += ny;
       }
       return result;
     }
 
     //! ROS node handle
     private: ros::NodeHandle nh;
-
+    
     // Pointer to the model
     private: physics::ModelPtr model;
 
@@ -236,6 +294,8 @@ namespace gazebo {
 
     private: ros::ServiceClient getPathClient;
     
+    private: ros::ServiceServer service;
+    
     private: physics::LinkPtr body;
     
     // Parameters for all operating gaussians
@@ -245,20 +305,23 @@ namespace gazebo {
     // so that every run is the same.
     private: boost::mt19937 rng;
 
+    private: ros::Publisher dogGoalVizPub;
+    
     // Number of simulator iterations per second.
-    private: static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 100;
+    private: static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
 
     // KP term
-    private: static const double KP = 0.125;
+    private: double KP;
 
-    // KD term
-    private: static const double KD = 0.800;
-
-    // Max force
-    private: static const double MAX_FORCE = 300.0;
+    private: static const double KP_DEFAULT = 0.6;
     
-    // Probability of starting a new gaussian in each iteration
-    private: static const double P_NEW_GAUSS = 0.08;
+    // KD term
+    private: double KD;
+
+    private: static const double KD_DEFAULT = 0.35;
+    
+    // Probability of starting a new gaussian in each second
+    private: static const double P_NEW_GAUSS = 0.16;
 
     // Multiple of sigma that captures nearly half of a gaussians width.
     private: static const double GAUSS_HALF_WIDTH = 3;

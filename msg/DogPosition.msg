@@ -1,3 +1,5 @@
 Header header
 geometry_msgs/PoseStamped pose
 geometry_msgs/TwistStamped twist
+bool futurePoseKnown
+geometry_msgs/PoseStamped futurePose

@@ -2,11 +2,17 @@
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen"/>
  <param name="solo_dog" value="true" />
+ <param name="dog_kp" value="0.6" />
+ <param name="dog_kd" value="0.35" />
  <param name="dog" textfile="$(find dogsim)/models/dog.model" />
-  <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.5" respawn="false" output="screen" />
+  <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.1" respawn="false" output="screen" />
 
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
-  <include file="$(find pr2_navigation_global)/amcl_node.xml" />
 
+ <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
+
+  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen">
+    <param name="known_position_window" value="2.0"/>
+  </node>
 
 </launch>

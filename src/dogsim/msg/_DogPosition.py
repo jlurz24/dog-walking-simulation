@@ -8,12 +8,14 @@ import geometry_msgs.msg
 import std_msgs.msg
 
 class DogPosition(genpy.Message):
-  _md5sum = "652d9e5b92b2e22bbd6671687976505f"
+  _md5sum = "9f1b67a283ce11272c8d69d922a9b054"
   _type = "dogsim/DogPosition"
   _has_header = True #flag to mark the presence of a Header object
   _full_text = """Header header
 geometry_msgs/PoseStamped pose
 geometry_msgs/TwistStamped twist
+bool futurePoseKnown
+geometry_msgs/PoseStamped futurePose
 
 ================================================================================
 MSG: std_msgs/Header
@@ -81,8 +83,8 @@ float64 x
 float64 y
 float64 z
 """
-  __slots__ = ['header','pose','twist']
-  _slot_types = ['std_msgs/Header','geometry_msgs/PoseStamped','geometry_msgs/TwistStamped']
+  __slots__ = ['header','pose','twist','futurePoseKnown','futurePose']
+  _slot_types = ['std_msgs/Header','geometry_msgs/PoseStamped','geometry_msgs/TwistStamped','bool','geometry_msgs/PoseStamped']
 
   def __init__(self, *args, **kwds):
     """
@@ -92,7 +94,7 @@ float64 z
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       header,pose,twist
+       header,pose,twist,futurePoseKnown,futurePose
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -107,10 +109,16 @@ float64 z
         self.pose = geometry_msgs.msg.PoseStamped()
       if self.twist is None:
         self.twist = geometry_msgs.msg.TwistStamped()
+      if self.futurePoseKnown is None:
+        self.futurePoseKnown = False
+      if self.futurePose is None:
+        self.futurePose = geometry_msgs.msg.PoseStamped()
     else:
       self.header = std_msgs.msg.Header()
       self.pose = geometry_msgs.msg.PoseStamped()
       self.twist = geometry_msgs.msg.TwistStamped()
+      self.futurePoseKnown = False
+      self.futurePose = geometry_msgs.msg.PoseStamped()
 
   def _get_types(self):
     """
@@ -149,7 +157,15 @@ float64 z
         length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_6d.pack(_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z))
+      buff.write(_struct_6dB3I.pack(_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z, _x.futurePoseKnown, _x.futurePose.header.seq, _x.futurePose.header.stamp.secs, _x.futurePose.header.stamp.nsecs))
+      _x = self.futurePose.header.frame_id
+      length = len(_x)
+      if python3 or type(_x) == unicode:
+        _x = _x.encode('utf-8')
+        length = len(_x)
+      buff.write(struct.pack('<I%ss'%length, length, _x))
+      _x = self
+      buff.write(_struct_7d.pack(_x.futurePose.pose.position.x, _x.futurePose.pose.position.y, _x.futurePose.pose.position.z, _x.futurePose.pose.orientation.x, _x.futurePose.pose.orientation.y, _x.futurePose.pose.orientation.z, _x.futurePose.pose.orientation.w))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -165,6 +181,8 @@ float64 z
         self.pose = geometry_msgs.msg.PoseStamped()
       if self.twist is None:
         self.twist = geometry_msgs.msg.TwistStamped()
+      if self.futurePose is None:
+        self.futurePose = geometry_msgs.msg.PoseStamped()
       end = 0
       _x = self
       start = end
@@ -207,8 +225,22 @@ float64 z
         self.twist.header.frame_id = str[start:end]
       _x = self
       start = end
-      end += 48
-      (_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z,) = _struct_6d.unpack(str[start:end])
+      end += 61
+      (_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z, _x.futurePoseKnown, _x.futurePose.header.seq, _x.futurePose.header.stamp.secs, _x.futurePose.header.stamp.nsecs,) = _struct_6dB3I.unpack(str[start:end])
+      self.futurePoseKnown = bool(self.futurePoseKnown)
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      start = end
+      end += length
+      if python3:
+        self.futurePose.header.frame_id = str[start:end].decode('utf-8')
+      else:
+        self.futurePose.header.frame_id = str[start:end]
+      _x = self
+      start = end
+      end += 56
+      (_x.futurePose.pose.position.x, _x.futurePose.pose.position.y, _x.futurePose.pose.position.z, _x.futurePose.pose.orientation.x, _x.futurePose.pose.orientation.y, _x.futurePose.pose.orientation.z, _x.futurePose.pose.orientation.w,) = _struct_7d.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -246,7 +278,15 @@ float64 z
         length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_6d.pack(_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z))
+      buff.write(_struct_6dB3I.pack(_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z, _x.futurePoseKnown, _x.futurePose.header.seq, _x.futurePose.header.stamp.secs, _x.futurePose.header.stamp.nsecs))
+      _x = self.futurePose.header.frame_id
+      length = len(_x)
+      if python3 or type(_x) == unicode:
+        _x = _x.encode('utf-8')
+        length = len(_x)
+      buff.write(struct.pack('<I%ss'%length, length, _x))
+      _x = self
+      buff.write(_struct_7d.pack(_x.futurePose.pose.position.x, _x.futurePose.pose.position.y, _x.futurePose.pose.position.z, _x.futurePose.pose.orientation.x, _x.futurePose.pose.orientation.y, _x.futurePose.pose.orientation.z, _x.futurePose.pose.orientation.w))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -263,6 +303,8 @@ float64 z
         self.pose = geometry_msgs.msg.PoseStamped()
       if self.twist is None:
         self.twist = geometry_msgs.msg.TwistStamped()
+      if self.futurePose is None:
+        self.futurePose = geometry_msgs.msg.PoseStamped()
       end = 0
       _x = self
       start = end
@@ -305,13 +347,28 @@ float64 z
         self.twist.header.frame_id = str[start:end]
       _x = self
       start = end
-      end += 48
-      (_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z,) = _struct_6d.unpack(str[start:end])
+      end += 61
+      (_x.twist.twist.linear.x, _x.twist.twist.linear.y, _x.twist.twist.linear.z, _x.twist.twist.angular.x, _x.twist.twist.angular.y, _x.twist.twist.angular.z, _x.futurePoseKnown, _x.futurePose.header.seq, _x.futurePose.header.stamp.secs, _x.futurePose.header.stamp.nsecs,) = _struct_6dB3I.unpack(str[start:end])
+      self.futurePoseKnown = bool(self.futurePoseKnown)
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      start = end
+      end += length
+      if python3:
+        self.futurePose.header.frame_id = str[start:end].decode('utf-8')
+      else:
+        self.futurePose.header.frame_id = str[start:end]
+      _x = self
+      start = end
+      end += 56
+      (_x.futurePose.pose.position.x, _x.futurePose.pose.position.y, _x.futurePose.pose.position.z, _x.futurePose.pose.orientation.x, _x.futurePose.pose.orientation.y, _x.futurePose.pose.orientation.z, _x.futurePose.pose.orientation.w,) = _struct_7d.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
 _struct_3I = struct.Struct("<3I")
-_struct_6d = struct.Struct("<6d")
+_struct_7d = struct.Struct("<7d")
 _struct_7d3I = struct.Struct("<7d3I")
+_struct_6dB3I = struct.Struct("<6dB3I")

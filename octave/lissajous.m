@@ -12,8 +12,8 @@ function x, y = lissajous(tmax)
   b = 2 * a;
 
   # Iterate over timestep
-  for ti = [0:0.01:tmax]
-    x(end + 1) = A * sin(a * ti + delta);
+  for ti = [0:0.001:tmax]
+    x(end + 1) = A * sin(a * ti + delta) + 16.5;
     y(end + 1) = B * sin(b * ti);
   end;
 endfunction
