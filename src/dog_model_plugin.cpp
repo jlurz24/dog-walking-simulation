@@ -53,7 +53,11 @@ namespace gazebo {
       dogGoalVizPub = nh.advertise<visualization_msgs::Marker>("dogsim/dog_goal_viz", 1);
       
       // Initialize the gaussians.
-      initGaussians();
+      bool addGaussians;
+      nh.param<bool>("add_gaussians_to_path", addGaussians, true);
+      if(addGaussians){
+        initGaussians();
+      }
       
       // Start the path if we are in solo mode. In regular mode the robot does this.
       bool isSoloDog;
@@ -64,7 +68,6 @@ namespace gazebo {
       
       nh.param<double>("dog_kp", KP, KP_DEFAULT);
       nh.param<double>("dog_kd", KD, KD_DEFAULT);
-      ROS_INFO("Dog PD operation with KP %f KD %f", KP, KD);
       
       // Listen to the update event. This event is broadcast every
       // simulation iteration.

@@ -88,6 +88,7 @@ namespace {
             geometry_msgs::PoseStamped result;
             result.header = plannedDogPosition.response.point.header;
             result.pose.position = plannedDogPosition.response.point.point;
+            result.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
             return result;
         }
         

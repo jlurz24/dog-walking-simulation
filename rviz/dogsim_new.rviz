@@ -718,45 +718,45 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /move_robot_action/move_goal_viz
       Name: Move Goal
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /robot_driver/walk_goal_viz
       Name: Walk Goal
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /adjust_dog_position_action/start_viz
       Name: Robot Move Start
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /adjust_dog_position_action/hand_start_viz
       Name: Hand Start Viz
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /move_robot_action/planned_move_viz
       Name: Planned Move Viz
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /future_dog_position_viz
@@ -791,17 +791,17 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 19.0784
+      Distance: 28.3422
       Focal Point:
         X: 0
         Y: 0
         Z: 0
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 1.4748
+      Pitch: 1.5698
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.5604
+      Yaw: 3.12541
     Saved: ~
 Window Geometry:
   Displays:
@@ -813,5 +813,5 @@ Window Geometry:
   Tool Properties:
     collapsed: false
   Width: 1375
-  X: 57
-  Y: 24
+  X: 58
+  Y: 23

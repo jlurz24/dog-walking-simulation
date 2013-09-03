@@ -2,9 +2,10 @@
 #include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
-
-#include <boost/math/constants/constants.hpp>
 #include <geometry_msgs/Point.h>
+#include "path_provider.h"
+#include "lissajous_path_provider.h"
+#include "rectangle_path_provider.h"
 
 namespace {
   using namespace ros;
@@ -17,54 +18,51 @@ namespace {
   //! Amount of time it takes to perform a full lissajous cycle.
   //  Note that this amount is slightly longer than the lissajous
   //  cycle time because the robot trails the goal point.
-  static const double LISSAJOUS_FULL_CYCLE_T = 4.85;
+  static const double FULL_CYCLE_T = 4.85;
 
   class GetPathServer {
     private:
       NodeHandle nh;
+      NodeHandle pnh;
 	  ros::ServiceServer service;
       ros::ServiceServer startService;
       ros::ServiceServer maxService;
       bool started;
       bool ended;
       double startTime;
+      auto_ptr<PathProvider> pathProvider;
     public:
       
-      GetPathServer():started(false), ended(false), startTime(0){
+      GetPathServer() : pnh("~"), started(false), ended(false), startTime(0){
         service = nh.advertiseService("/dogsim/get_path", &GetPathServer::getPath, this);
         startService = nh.advertiseService("/dogsim/start", &GetPathServer::start, this);
         maxService = nh.advertiseService("/dogsim/maximum_time", &GetPathServer::maximumTime, this);
+        
+        string pathType;
+        pnh.param<string>("path_type", pathType, "lissajous");
+        if(pathType == "lissajous"){
+            pathProvider.reset(new LissajousPathProvider(FULL_CYCLE_T));
+        }
+        else if(pathType == "rectangle"){
+            pathProvider.reset(new RectanglePathProvider(FULL_CYCLE_T));
+        }
+        else {
+            ROS_ERROR("Unknown path provider type: %s", pathType.c_str());
+        }
       }
       
     private:
-      geometry_msgs::PointStamped lissajous(const double t){
-
-        // Lissajous parameters.
-        static const double a = sqrt(2);
-        static const double delta = boost::math::constants::pi<long double>() / 2.0;
-        static const double A = 15.0;
-        static const double B = 6.0;
-        static const double b = 2 * a;
-
-        geometry_msgs::PointStamped goal;
-        goal.header.frame_id = "/map";
-        goal.point.x = -(A * sin(a * t + delta)) + 16.5; // Offset the start and invert;
-        goal.point.y = B * sin(b * t);
-        goal.point.z = 0.0;
-        return goal;
-      }
-
       bool start(dogsim::StartPath::Request& req, dogsim::StartPath::Response& res){
           assert(!started);
           started = true;
           startTime = req.time;
-          ROS_INFO("Starting path @ time: %f", startTime);
+          ROS_DEBUG("Starting path @ time: %f", startTime);
           return true;
       }
       
       bool maximumTime(dogsim::MaximumTime::Request& req, dogsim::MaximumTime::Response& res){
-          res.maximumTime = LISSAJOUS_FULL_CYCLE_T * TIMESCALE_FACTOR;
-          ROS_INFO("Returning maximum time: %f", res.maximumTime);
+          res.maximumTime = FULL_CYCLE_T * TIMESCALE_FACTOR;
+          ROS_DEBUG("Returning maximum time: %f", res.maximumTime);
           return true;
       }
       bool getPath(dogsim::GetPath::Request& req, dogsim::GetPath::Response& res){
@@ -84,7 +82,7 @@ namespace {
             return true;
         }
         
-        if((req.time - startTime) / TIMESCALE_FACTOR > LISSAJOUS_FULL_CYCLE_T){
+        if((req.time - startTime) / TIMESCALE_FACTOR > FULL_CYCLE_T){
           ROS_INFO("Setting end flag @ time %f", req.time);
           res.ended = ended = true;
           res.started = true;
@@ -94,7 +92,7 @@ namespace {
         // TODO: Be smarter about making time scale based on velocity.
         res.started = true;
         res.ended = false;
-        res.point = lissajous((req.time - startTime) / TIMESCALE_FACTOR);
+        res.point = pathProvider->positionAtTime((req.time - startTime) / TIMESCALE_FACTOR);
 		res.point.header.stamp = Time(req.time);
         return true;
       }
