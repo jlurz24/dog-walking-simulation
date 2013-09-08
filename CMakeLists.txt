@@ -65,3 +65,4 @@ rosbuild_add_executable(adjust_base_position_action src/adjust_base_position_act
 rosbuild_add_executable(move_robot_action src/move_robot_action.cpp)
 rosbuild_add_executable(move_dog_away_action src/move_dog_away_action.cpp)
 rosbuild_add_executable(map_broadcaster src/map_broadcaster.cpp)
+rosbuild_add_executable(move_arm_to_base_position_action src/move_arm_to_base_position_action.cpp)

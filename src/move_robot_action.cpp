@@ -87,7 +87,7 @@ namespace {
     ros::Rate r(10); // 10hz
     
     // How close to the goal we need to get.
-    const double DISTANCE_THRESHOLD = 0.25;
+    const double DISTANCE_THRESHOLD = 0.1;
     
     // Robot is at 0,0
     geometry_msgs::Point robotPosition;
@@ -104,8 +104,8 @@ namespace {
         geometry_msgs::Twist baseCmd;
 
         const double MAX_V = 4.0;
-        const double DEACC_DISTANCE = 1.0;
-        const double MAX_REVERSE_DISTANCE = 1.0;
+        const double DEACC_DISTANCE = 0.75;
+        const double MAX_REVERSE_DISTANCE = 0.5;
         
         // Robot location is at the root of frame.
         double distance = goalVector.distance(btVector3(0, 0, 0));

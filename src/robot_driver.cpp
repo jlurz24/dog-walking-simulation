@@ -7,17 +7,20 @@
 
 #include <message_filters/subscriber.h>
 #include <dogsim/AdjustDogPositionAction.h>
-#include <dogsim/AdjustBasePositionAction.h>
+#include <dogsim/MoveArmToBasePositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
 #include <actionlib/client/simple_action_client.h>
+#include <tf2/LinearMath/btVector3.h>
 
 namespace {
   using namespace std;
-  typedef actionlib::SimpleActionClient<dogsim::AdjustDogPositionAction> AdjustDogClient;
-  typedef actionlib::SimpleActionClient<dogsim::AdjustBasePositionAction> AdjustBaseClient;
-  typedef actionlib::SimpleActionClient<dogsim::MoveRobotAction> MoveRobotClient;
-  typedef actionlib::SimpleActionClient<dogsim::MoveDogAwayAction> MoveDogAwayClient;
+  using namespace dogsim;
+  
+  typedef actionlib::SimpleActionClient<AdjustDogPositionAction> AdjustDogClient;
+  typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
+  typedef actionlib::SimpleActionClient<MoveDogAwayAction> MoveDogAwayClient;
+  typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 class RobotDriver {
 private:
   //! Amount of time before starting walk
@@ -25,12 +28,23 @@ private:
   
   //! Radius of the robot to edge of the square base.
   static const double BASE_RADIUS = 0.668 / 2.0;
-
-  //! Amount of time in the "future" to operate
-  static const double FUTURE_DELTA_T = 2.0;
   
   //! Space to keep in front of the robot in meters
   static const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
+  
+  //! Slope delta for calculating robot path.
+  static const double SLOPE_DELTA = 0.01;
+  
+  // Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
+  static const double TRAILING_DISTANCE = 0.585;
+  
+  //! Shift distance from base to desired arm position
+  //! Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
+  //! TODO: This may need further calibration
+  static const double SHIFT_DISTANCE = 0.6;
+  
+  //! Amount of time in the future to operate
+  double knownPositionWindow;
   
   //! Node handle
   ros::NodeHandle nh_;
@@ -57,19 +71,19 @@ private:
   ros::Timer initTimer_;
   
   //! Dog position subscriber
-  auto_ptr<message_filters::Subscriber<dogsim::DogPosition> > dogPositionSub_;
+  auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub_;
   
   //! Client for the arm to attempt to position the dog
   AdjustDogClient adjustDogClient;
   
-  //! Client to adjust the position of the robot.
-  AdjustBaseClient adjustBaseClient;
-  
-  //! Client for the movement of the robot base. Used for solo mode only
+  //! Client for the movement of the robot base.
   MoveRobotClient moveRobotClient;
   
   //! Client for moving the dog out of the way
   MoveDogAwayClient moveDogAwayClient;
+  
+  //! Client to adjust the arm of the robot to the start position
+  MoveArmToBasePositionClient moveArmToBasePositionClient;
   
   //! Cached service client.
   ros::ServiceClient getPathClient;
@@ -78,7 +92,7 @@ private:
   double leashLength;
   
   //! Whether the robot is operating on its own
-  bool soloMode_;
+  bool soloMode;
   
   //! Transform listener
   tf::TransformListener tf;
@@ -86,14 +100,15 @@ private:
 public:
   //! ROS node initialization
   RobotDriver(): pnh_("~"), adjustDogClient("adjust_dog_position_action", true),
-                            adjustBaseClient("adjust_base_position_action", true),
                             moveRobotClient("move_robot_action", true),
-                            moveDogAwayClient("move_dog_away_action", true){      
+                            moveDogAwayClient("move_dog_away_action", true),
+                            moveArmToBasePositionClient("move_arm_to_base_position_action", true){      
     ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
     
     nh_.param("leash_length", leashLength, 2.0);
+    nh_.param("dog_position_detector/known_position_window", knownPositionWindow, 0.0);
     
-    dogPositionSub_.reset(new message_filters::Subscriber<dogsim::DogPosition> (nh_, "/dog_position", 1));
+    dogPositionSub_.reset(new message_filters::Subscriber<DogPosition> (nh_, "/dog_position", 1));
 
     // Set up the publisher
     cmdVelocityPub_ = nh_.advertise<geometry_msgs::Twist>("base_controller/command", 1);
@@ -102,21 +117,23 @@ public:
     
     ros::service::waitForService("/dogsim/get_path");
     ros::service::waitForService("/dogsim/start");
-    getPathClient = nh_.serviceClient<dogsim::GetPath>("/dogsim/get_path", true /* persist */);
+    getPathClient = nh_.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
     dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     
     moveRobotClient.waitForServer();
+    ROS_INFO("Waiting for move arm to base position client");
+    moveArmToBasePositionClient.waitForServer();
+    ROS_INFO("Completed waiting");
     
     // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
     // move the arm.
-    pnh_.param<bool>("solo_mode", soloMode_, false);
-    if(soloMode_){
+    pnh_.param<bool>("solo_mode", soloMode, false);
+    if(soloMode){
         ROS_INFO("Running solo mode");
     }
     else {
       ROS_INFO("Running regular mode");
       adjustDogClient.waitForServer();
-      adjustBaseClient.waitForServer();
       moveDogAwayClient.waitForServer();
     }
 
@@ -126,35 +143,37 @@ public:
 
   void init(const ros::TimerEvent& event){
     ROS_INFO("Entering delayed init");
-    startPath(event.current_real);
-    displayTimer_ = nh_.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
     
-    if(soloMode_){
-        driverTimer_ = nh_.createTimer(ros::Duration(1.0), &RobotDriver::steeringCallback, this);
-    }
+    MoveArmToBasePositionGoal moveArmToBasePositionGoal;
+    utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh_, 10.0);
+    
+    startPath(ros::Time::now());
+    displayTimer_ = nh_.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
+    driverTimer_ = nh_.createTimer(ros::Duration(0.5), &RobotDriver::steeringCallback, this);
     ROS_INFO("Delayed init complete");
   }
   
     void startPath(const ros::Time& currentTime){
-        dogsim::StartPath startPath;
+        StartPath startPath;
         startPath.request.time = currentTime.toSec();
-        ros::ServiceClient startPathClient = nh_.serviceClient<dogsim::StartPath>("/dogsim/start", false);
+        ros::ServiceClient startPathClient = nh_.serviceClient<StartPath>("/dogsim/start", false);
         startPathClient.call(startPath);
     }
     
-  void dogPositionCallback(const dogsim::DogPositionConstPtr& dogPosition){
+  void dogPositionCallback(const DogPositionConstPtr& dogPosition){
     ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
     
     bool ended = false;
     bool started = false;
-    const geometry_msgs::PointStamped goalCurrent = getDogPosition(ros::Time(ros::Time::now().toSec()), started, ended);
+    const geometry_msgs::PointStamped goalCurrent = getDogGoalPosition(ros::Time(ros::Time::now().toSec()), started, ended);
     if(!started || ended){
         // TODO: Could subscribe and unsubscribe later.
         return;
     }
 
-    const geometry_msgs::PointStamped futureGoal = getDogPosition(ros::Time(ros::Time::now().toSec() + FUTURE_DELTA_T), started, ended);
-    
+    const double FUTURE_DELTA_T = 2.0;
+    const geometry_msgs::PointStamped futureGoal = getDogGoalPosition(ros::Time(ros::Time::now().toSec() + FUTURE_DELTA_T), started, ended);
+
     geometry_msgs::PoseStamped expectedDogPose;
     if(dogPosition->futurePoseKnown){
         expectedDogPose = dogPosition->futurePose;
@@ -182,41 +201,35 @@ public:
         
     // Determine if our base movement should be to avoid the dog. First priority.
     // TODO: Move this to separate action so it can more intelligently avoid the dog. Potentially.
+    // TODO: This makes more sense to me as a separate node that listens for this event and then sends 
+    //       an avoiding dog event.
     if(dogPoseInBaseFrame.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS && abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS){
       ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPoseInBaseFrame.pose.position.x, dogPoseInBaseFrame.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
       
       // Stop current movement.
       adjustDogClient.cancelGoal();
-      adjustBaseClient.cancelGoal();
+      moveRobotClient.cancelGoal();
       
-      dogsim::MoveDogAwayGoal goal;
+      MoveDogAwayGoal goal;
       moveDogAwayClient.sendGoal(goal);
       return;
     }
     
     // Only adjust dog position if the last adjustment finished
     if(adjustDogClient.getState() != actionlib::SimpleClientGoalState::ACTIVE){
-        dogsim::AdjustDogPositionGoal adjustGoal;
+        AdjustDogPositionGoal adjustGoal;
         adjustGoal.dogPose = dogPoseInBaseFrame;
         adjustGoal.goalPosition = goalCurrent;
         adjustGoal.futureDogPose = expectedDogPoseInBaseFrame;
         adjustGoal.futureGoalPosition = futureGoal;
         adjustDogClient.sendGoal(adjustGoal);
     }
-    if(adjustBaseClient.getState() != actionlib::SimpleClientGoalState::ACTIVE){
-        dogsim::AdjustBasePositionGoal adjustGoal;
-        adjustGoal.dogPose = dogPoseInBaseFrame;
-        adjustGoal.goalPosition = goalCurrent;
-        adjustGoal.futureDogPose = expectedDogPoseInBaseFrame;
-        adjustGoal.futureGoalPosition = futureGoal;
-        adjustBaseClient.sendGoal(adjustGoal);
-    }
     ROS_DEBUG("Completed dog position callback");
   }
 
-  geometry_msgs::PointStamped getDogPosition(const ros::Time& time, bool& started, bool& ended){
+  geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started, bool& ended){
       // Determine the goal.
-      dogsim::GetPath getPath;
+      GetPath getPath;
       getPath.request.time = time.toSec();
       getPathClient.call(getPath);
       started = getPath.response.started;
@@ -225,32 +238,31 @@ public:
   }
 
   void displayCallback(const ros::TimerEvent& event){
-      bool started;
-      bool ended;
-      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, started, ended);
-      assert(started);
-      
-      if(ended){
-          ROS_INFO("Walk is ended");
-          driverTimer_.stop();
-          return;
-      }
-
-      // Visualize the goal.
       if(goalPub_.getNumSubscribers() > 0){
-          ROS_DEBUG("Publishing the goal position");
-          std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
-          goalPub_.publish(utils::createMarker(goal.point, goal.header, RED, true));
+        bool started;
+        bool ended;
+        const geometry_msgs::PointStamped goal = getDogGoalPosition(event.current_real, started, ended);
+        assert(started);
+      
+        if(ended){
+            ROS_INFO("Walk is ended");
+            displayTimer_.stop();
+            return;
+        }
+
+        // Visualize the goal.
+        ROS_DEBUG("Publishing the goal position");
+        std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
+        goalPub_.publish(utils::createMarker(goal.point, goal.header, RED, true));
       }
   }
   
   void steeringCallback(const ros::TimerEvent& event){
       ROS_DEBUG("Received callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
 
-
       bool ended = false;
       bool started = false;
-      const geometry_msgs::PointStamped goal = getDogPosition(event.current_real, started, ended);
+      const geometry_msgs::PointStamped dogGoal = getDogGoalPosition(event.current_real, started, ended);
 
       if(ended){
           ROS_INFO("Walk ended");
@@ -261,8 +273,29 @@ public:
           return;
       }
       
-      dogsim::MoveRobotGoal moveRobotGoal;
-      moveRobotGoal.position = goal;
+      const geometry_msgs::PointStamped goal2 = getDogGoalPosition(ros::Time(event.current_real.toSec() + SLOPE_DELTA), started, ended);
+      
+      // Calculate the vector of the tangent line.
+      btVector3 tangent = btVector3(goal2.point.x, goal2.point.y, 0) - btVector3(dogGoal.point.x, dogGoal.point.y, 0);
+      tangent.normalize();
+ 
+      // Now select a point on the vector but slightly behind.
+      btVector3 backGoal = btVector3(dogGoal.point.x, dogGoal.point.y, 0) - tangent * btScalar(TRAILING_DISTANCE);
+   
+      // Rotate the vector to perpendicular
+      btVector3 perp = backGoal.normalized().rotate(btVector3(0, 0, 1), btScalar(boost::math::constants::pi<double>() / 2.0));
+
+      // Select a point on the perpindicular line.
+      btVector3 finalGoal = backGoal + perp * btScalar(SHIFT_DISTANCE);
+  
+      geometry_msgs::PointStamped robotGoal;
+      robotGoal.header = dogGoal.header;
+      robotGoal.point.x = finalGoal.x();
+      robotGoal.point.y = finalGoal.y();
+      robotGoal.point.z = finalGoal.z();
+
+      MoveRobotGoal moveRobotGoal;
+      moveRobotGoal.position = robotGoal;
       
       // This will automatically cancel the last goal.
       moveRobotClient.sendGoal(moveRobotGoal);
