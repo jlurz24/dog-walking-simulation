@@ -129,10 +129,15 @@ namespace {
                 ROS_INFO("Moving in reverse at angle %f at velocity %f", baseCmd.angular.z, baseCmd.linear.x);
             }
             else {
-                ROS_INFO("Distance too far to move in reverse");
+                ROS_DEBUG("Distance too far to move in reverse");
                 baseCmd.angular.z = yaw;
                 baseCmd.linear.x = 0;
             }
+        }
+        else if(fabs(yaw) > PI / 4.0){
+            ROS_DEBUG("Too far to turn and move: %f", yaw);
+            baseCmd.linear.x = 0;
+            baseCmd.angular.z = yaw;
         }
         else {
             baseCmd.angular.z = yaw;      

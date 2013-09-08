@@ -121,9 +121,7 @@ public:
     dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     
     moveRobotClient.waitForServer();
-    ROS_INFO("Waiting for move arm to base position client");
     moveArmToBasePositionClient.waitForServer();
-    ROS_INFO("Completed waiting");
     
     // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
     // move the arm.
@@ -283,7 +281,7 @@ public:
       btVector3 backGoal = btVector3(dogGoal.point.x, dogGoal.point.y, 0) - tangent * btScalar(TRAILING_DISTANCE);
    
       // Rotate the vector to perpendicular
-      btVector3 perp = backGoal.normalized().rotate(btVector3(0, 0, 1), btScalar(boost::math::constants::pi<double>() / 2.0));
+      btVector3 perp = tangent.rotate(btVector3(0, 0, 1), btScalar(boost::math::constants::pi<double>() / 2.0));
 
       // Select a point on the perpindicular line.
       btVector3 finalGoal = backGoal + perp * btScalar(SHIFT_DISTANCE);
