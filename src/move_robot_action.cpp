@@ -178,7 +178,7 @@ namespace {
         as.setSucceeded();
     }
     else {
-        ROS_DEBUG"Move aborted prior to completion");
+        ROS_DEBUG("Move aborted prior to completion");
     }
   }
 
