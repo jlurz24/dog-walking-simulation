@@ -59,7 +59,7 @@ namespace {
             // Positions
             goal.trajectory.points[0].positions.resize(7);
             goal.trajectory.points[0].positions[0] = -2.0;
-            goal.trajectory.points[0].positions[3] = 0.0;
+            goal.trajectory.points[0].positions[3] = -1.2;
             goal.trajectory.points[0].positions[5] = 0.0;
    
             // Velocities

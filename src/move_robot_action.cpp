@@ -43,6 +43,9 @@ namespace {
 
   void stop(){
     geometry_msgs::Twist baseCmd;
+    baseCmd.linear.x = 0.0;
+    baseCmd.angular.z = 0.0;
+    
     // Publish the command to the base
     cmdVelocityPub.publish(baseCmd);
   }
@@ -96,6 +99,7 @@ namespace {
     // Loop and move the robot until the robot reaches the goal point.
     while(ros::ok() && as.isActive() && utils::pointToPointXYDistance(goalPosition.point, robotPosition) > DISTANCE_THRESHOLD){
         ROS_DEBUG("Distance to goal: %f", utils::pointToPointXYDistance(goalPosition.point, robotPosition));
+        
         // Move the robot.
         btVector3 goalVector(goalPosition.point.x, goalPosition.point.y, 0);
         btScalar yaw = btAtan2(goalVector.y(), goalVector.x());
@@ -170,11 +174,11 @@ namespace {
     
     if(as.isActive()){
         stop();
-        ROS_INFO("Move robot completed. Goal achieved.");
+        ROS_DEBUG("Move robot completed. Goal achieved.");
         as.setSucceeded();
     }
     else {
-        ROS_INFO("Move aborted prior to completion");
+        ROS_DEBUG"Move aborted prior to completion");
     }
   }
 

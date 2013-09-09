@@ -168,35 +168,11 @@ public:
         // TODO: Could subscribe and unsubscribe later.
         return;
     }
-
-    const double FUTURE_DELTA_T = 2.0;
-    const geometry_msgs::PointStamped futureGoal = getDogGoalPosition(ros::Time(ros::Time::now().toSec() + FUTURE_DELTA_T), started, ended);
-
-    geometry_msgs::PoseStamped expectedDogPose;
-    if(dogPosition->futurePoseKnown){
-        expectedDogPose = dogPosition->futurePose;
-    }
-    else {
-        // Calculate the future position.
-        expectedDogPose.header = dogPosition->header;
-        expectedDogPose.pose.position.x = dogPosition->pose.pose.position.x + dogPosition->twist.twist.linear.x * FUTURE_DELTA_T;
-        expectedDogPose.pose.position.y = dogPosition->pose.pose.position.y + dogPosition->twist.twist.linear.y * FUTURE_DELTA_T;
-        expectedDogPose.pose.position.z = dogPosition->pose.pose.position.z + dogPosition->twist.twist.linear.z * FUTURE_DELTA_T;
-    }
-    
-    // Visualize the future position
-    if(futureDogPosPub_.getNumSubscribers() > 0){
-        std_msgs::ColorRGBA PURPLE = utils::createColor(0.5, 0, 0.5);
-        futureDogPosPub_.publish(utils::createMarker(expectedDogPose.pose.position, expectedDogPose.header, PURPLE, false));
-    }
     
     // Convert the positions to the robot frame.
     geometry_msgs::PoseStamped dogPoseInBaseFrame;
     tf.transformPose("/base_footprint", ros::Time(0), dogPosition->pose, dogPosition->pose.header.frame_id, dogPoseInBaseFrame);
-    
-    geometry_msgs::PoseStamped expectedDogPoseInBaseFrame;
-    tf.transformPose("/base_footprint", ros::Time(0), expectedDogPose, expectedDogPose.header.frame_id, expectedDogPoseInBaseFrame);
-        
+
     // Determine if our base movement should be to avoid the dog. First priority.
     // TODO: Move this to separate action so it can more intelligently avoid the dog. Potentially.
     // TODO: This makes more sense to me as a separate node that listens for this event and then sends 
@@ -218,8 +194,6 @@ public:
         AdjustDogPositionGoal adjustGoal;
         adjustGoal.dogPose = dogPoseInBaseFrame;
         adjustGoal.goalPosition = goalCurrent;
-        adjustGoal.futureDogPose = expectedDogPoseInBaseFrame;
-        adjustGoal.futureGoalPosition = futureGoal;
         adjustDogClient.sendGoal(adjustGoal);
     }
     ROS_DEBUG("Completed dog position callback");
@@ -236,6 +210,7 @@ public:
   }
 
   void displayCallback(const ros::TimerEvent& event){
+      ROS_DEBUG("Received display callback");
       if(goalPub_.getNumSubscribers() > 0){
         bool started;
         bool ended;
@@ -249,14 +224,13 @@ public:
         }
 
         // Visualize the goal.
-        ROS_DEBUG("Publishing the goal position");
         std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
         goalPub_.publish(utils::createMarker(goal.point, goal.header, RED, true));
       }
   }
   
   void steeringCallback(const ros::TimerEvent& event){
-      ROS_DEBUG("Received callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
+      ROS_DEBUG("Received steering callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
 
       bool ended = false;
       bool started = false;
