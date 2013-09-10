@@ -23,8 +23,6 @@
 namespace {
   using namespace std;
   using namespace geometry_msgs;
-  
-  typedef actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> MoveArmClient;
 
   class AdjustDogPositionAction {
     public:
@@ -43,7 +41,6 @@ namespace {
         
         kinematicState.reset(new robot_state::RobotState(kinematicModel));
         
-        ROS_INFO("Waiting for IK service");
         ros::service::waitForService("compute_ik");
         ikClient = nh.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
         
@@ -171,12 +168,20 @@ namespace {
             for(double height = MIN_ARM_HEIGHT; !found && as.isActive() && height <= min(leashLength, MAX_ARM_HEIGHT); height += ARM_HEIGHT_SEARCH_INCREMENT){
                 handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, height, currLeashLength);
         
+                if(found && handStartPub.getNumSubscribers() > 0){
+                    static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
+                    PointStamped startInBaseFrameViz = handStart;
+                    visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
+                    handStartPub.publish(startMsg);
+                }
+                
                 // The caller should abort the movement if it takes too long.
                 found = moveRightArm(handStart);
             }
         }
         currLeashLength -= LEASH_LENGTH_SEARCH_INCREMENT;
     } while(!found && as.isActive() && currLeashLength > 0);
+    
     ROS_INFO("Ending search @ %f", ros::Time::now().toSec());
     if(found && handStartPub.getNumSubscribers() > 0){
       static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
@@ -201,6 +206,7 @@ namespace {
      req.ik_request.pose_stamped.pose.orientation.y = 0.0;
      req.ik_request.pose_stamped.pose.orientation.z = 0.0;
      req.ik_request.pose_stamped.pose.orientation.w = 1.0;
+     req.ik_request.avoid_collisions = false;
      
      robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
      vector<string> jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();

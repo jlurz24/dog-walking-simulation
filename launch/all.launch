@@ -26,6 +26,8 @@
  
   <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
 
+  <node pkg="dogsim" type="avoid_dog" name="avoid_dog" output="screen"/>
+
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen">
     <param name="known_position_window" value="0.0"/>

@@ -1,3 +1,4 @@
+from ._AvoidingDog import *
 from ._MoveDogAwayResult import *
 from ._AdjustDogPositionAction import *
 from ._MoveArmToBasePositionAction import *
