@@ -22,7 +22,7 @@ namespace {
         as.registerPreemptCallback(boost::bind(&MoveRobotAction::preemptCB, this));
       
         // Set up the publisher for the cmd_vel topic
-        cmdVelocityPub = nh.advertise<geometry_msgs::Twist>("base_controller/command", 1);
+        cmdVelocityPub = nh.advertise<geometry_msgs::Twist>("base_controller/command", 1, true);
 
         goalPub = nh.advertise<visualization_msgs::Marker>("move_robot_action/move_goal_viz", 1);
         movePub = nh.advertise<visualization_msgs::Marker>("move_robot_action/planned_move_viz", 1);
@@ -30,7 +30,7 @@ namespace {
   }
   
   void preemptCB(){
-    ROS_INFO("Preempting the move robot action");
+    ROS_DEBUG("Preempting the move robot action");
 
     if(!as.isActive()){
       ROS_INFO("Move robot position action cancelled prior to start");
@@ -69,7 +69,7 @@ namespace {
         tf.transformPoint("/map", ros::Time(0), goal->position, goal->position.header.frame_id, absoluteGoal);
     }
     catch(tf::TransformException& ex){
-        ROS_INFO("Failed to transform goal to map frame");
+        ROS_ERROR("Failed to transform goal to map frame");
         as.setAborted();
         return;
     }
@@ -80,7 +80,7 @@ namespace {
         tf.transformPoint("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPosition);
     }
     catch(tf::TransformException& ex){
-        ROS_INFO("Failed to transform absolute goal to base footprint");
+        ROS_ERROR("Failed to transform absolute goal to base footprint");
         as.setAborted();
         return;
     }
@@ -107,7 +107,7 @@ namespace {
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 
-        const double MAX_V = 4.0;
+        const double MAX_V = 2.5;
         const double DEACC_DISTANCE = 0.75;
         const double MAX_REVERSE_DISTANCE = 0.5;
         

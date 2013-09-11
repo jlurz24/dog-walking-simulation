@@ -38,31 +38,25 @@ private:
   static const double SHIFT_DISTANCE = 0.6;
   
   //! Node handle
-  ros::NodeHandle nh_;
+  ros::NodeHandle nh;
 
   //! Private nh
-  ros::NodeHandle pnh_;
-
-  //! Publisher for command velocities
-  ros::Publisher cmdVelocityPub_;
+  ros::NodeHandle pnh;
 
   //! Publisher for goals
-  ros::Publisher goalPub_;
-    
-  //! Publisher for future dog position
-  ros::Publisher futureDogPosPub_;
+  ros::Publisher goalPub;
 
   //! Timer that controls movement of the robot (in solo mode only)
-  ros::Timer driverTimer_;
+  ros::Timer driverTimer;
   
   //! Timer that display the goal
-  ros::Timer displayTimer_;
+  ros::Timer displayTimer;
   
   //! One shot timer that performs delayed start
-  ros::Timer initTimer_;
+  ros::Timer initTimer;
   
   //! Dog position subscriber
-  auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub_;
+  auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub;
   
   //! Avoiding dog listener.
   auto_ptr<message_filters::Subscriber<AvoidingDog> > avoidingDogSub;
@@ -88,41 +82,41 @@ private:
   //! Whether are currently avoiding the dog
   bool avoidingDog;
   
-  //! Transform listener
-  tf::TransformListener tf;
+  //! TODO: Move
+  ros::Publisher cmdVelocityPub;
   
 public:
   //! ROS node initialization
-  RobotDriver(): pnh_("~"), adjustDogClient("adjust_dog_position_action", true),
+  RobotDriver(): pnh("~"), adjustDogClient("adjust_dog_position_action", true),
                             moveRobotClient("move_robot_action", true),
                             moveArmToBasePositionClient("move_arm_to_base_position_action", true),
                             avoidingDog(false){
                                 
     ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
     
-    nh_.param("leash_length", leashLength, 2.0);
+    nh.param("leash_length", leashLength, 2.0);
     
     // Set up the publisher
-    cmdVelocityPub_ = nh_.advertise<geometry_msgs::Twist>("base_controller/command", 1);
-    goalPub_ = nh_.advertise<visualization_msgs::Marker>("robot_driver/walk_goal_viz", 1);
-    futureDogPosPub_ = nh_.advertise<visualization_msgs::Marker>("robot_driver/future_dog_position_viz", 1);
+    goalPub = nh.advertise<visualization_msgs::Marker>("robot_driver/walk_goal_viz", 1);
     
     ros::service::waitForService("/dogsim/get_path");
     ros::service::waitForService("/dogsim/start");
-    getPathClient = nh_.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
+    getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
     
-    dogPositionSub_.reset(new message_filters::Subscriber<DogPosition> (nh_, "/dog_position", 1));
-    dogPositionSub_->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
+    dogPositionSub.reset(new message_filters::Subscriber<DogPosition> (nh, "/dog_position", 1));
+    dogPositionSub->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     
-    avoidingDogSub.reset(new message_filters::Subscriber<AvoidingDog> (nh_, "/avoid_dog/avoiding", 1));
+    avoidingDogSub.reset(new message_filters::Subscriber<AvoidingDog> (nh, "/avoid_dog/avoiding", 1));
     avoidingDogSub->registerCallback(boost::bind(&RobotDriver::avoidingDogCallback, this, _1));
     
     moveRobotClient.waitForServer();
     moveArmToBasePositionClient.waitForServer();
     
+    ros::Publisher cmdVelocityPub = nh.advertise<geometry_msgs::Twist>("base_controller/command", 1);
+    
     // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
     // move the arm.
-    pnh_.param<bool>("solo_mode", soloMode, false);
+    pnh.param<bool>("solo_mode", soloMode, false);
     if(soloMode){
         ROS_INFO("Running solo mode");
     }
@@ -131,7 +125,14 @@ public:
       adjustDogClient.waitForServer();
     }
 
-    initTimer_ = nh_.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
+    // TODO: Move this to a better location.
+    // Point the robot along the initial path.
+    ROS_INFO("Publishing turn left action");
+    geometry_msgs::Twist baseCmd;
+    baseCmd.angular.z = -5;
+    cmdVelocityPub.publish(baseCmd);
+    
+    initTimer = nh.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
     ROS_INFO("Robot driver initialization complete @ %f", ros::Time::now().toSec());
   }
 
@@ -139,33 +140,35 @@ public:
     ROS_INFO("Entering delayed init");
     
     MoveArmToBasePositionGoal moveArmToBasePositionGoal;
-    utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh_, 10.0);
+    utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 10.0);
     
     startPath(ros::Time::now());
-    displayTimer_ = nh_.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
-    driverTimer_ = nh_.createTimer(ros::Duration(0.5), &RobotDriver::steeringCallback, this);
+    displayTimer = nh.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
+    driverTimer = nh.createTimer(ros::Duration(0.5), &RobotDriver::steeringCallback, this);
     ROS_INFO("Delayed init complete");
   }
   
     void startPath(const ros::Time& currentTime){
         StartPath startPath;
         startPath.request.time = currentTime.toSec();
-        ros::ServiceClient startPathClient = nh_.serviceClient<StartPath>("/dogsim/start", false);
+        ros::ServiceClient startPathClient = nh.serviceClient<StartPath>("/dogsim/start", false);
         startPathClient.call(startPath);
     }
 
     void avoidingDogCallback(const AvoidingDogConstPtr& avoidDogMsg){
-        ROS_INFO("Received avoid dog callback");
-        assert(avoidingDog == !avoidDogMsg->avoiding);
+        ROS_DEBUG("Robot driver received avoid dog callback");
         if(avoidDogMsg->avoiding){
+            ROS_INFO("Canceling movement as the avoiding flag is set");
             // Cancel all movement
             adjustDogClient.cancelGoal();
             moveRobotClient.cancelGoal();
+            moveArmToBasePositionClient.cancelGoal();
         }
-        else {
+        else if(avoidingDog){
+            ROS_INFO("Resetting arm as the avoiding flag is not set");
             // Reset the arm
             MoveArmToBasePositionGoal moveArmToBasePositionGoal;
-            utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh_, 2.0);
+            moveArmToBasePositionClient.sendGoal(moveArmToBasePositionGoal);
         }
         // Set the flag
         avoidingDog = avoidDogMsg->avoiding;
@@ -209,7 +212,7 @@ public:
 
   void displayCallback(const ros::TimerEvent& event){
       ROS_DEBUG("Received display callback");
-      if(goalPub_.getNumSubscribers() > 0){
+      if(goalPub.getNumSubscribers() > 0){
         bool started;
         bool ended;
         const geometry_msgs::PointStamped goal = getDogGoalPosition(event.current_real, started, ended);
@@ -217,13 +220,13 @@ public:
       
         if(ended){
             ROS_INFO("Walk is ended");
-            displayTimer_.stop();
+            displayTimer.stop();
             return;
         }
 
         // Visualize the goal.
         std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
-        goalPub_.publish(utils::createMarker(goal.point, goal.header, RED, true));
+        goalPub.publish(utils::createMarker(goal.point, goal.header, RED, true));
       }
   }
   
@@ -239,7 +242,7 @@ public:
           if(moveRobotClient.getState() == actionlib::SimpleClientGoalState::ACTIVE){
               moveRobotClient.cancelGoal();
           }
-          driverTimer_.stop();
+          driverTimer.stop();
           return;
       }
       

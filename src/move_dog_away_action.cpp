@@ -20,9 +20,22 @@ namespace {
             MoveDogAway(const string& name):as(nh, name, boost::bind(&MoveDogAway::moveAway, this), false),
                                     actionName(name),
                                     rightArm("right_arm"){
+            as.registerPreemptCallback(boost::bind(&MoveDogAway::preemptCB, this));
             as.start();
         }
 
+            void preemptCB(){
+                ROS_DEBUG("Preempting the move dog away action");
+
+                if(!as.isActive()){
+                    ROS_DEBUG("Adjust dog position action cancelled prior to start");
+                    return;
+                }
+
+                rightArm.stop();
+                as.setPreempted();
+        }
+        
         void moveAway(){
             if(!as.isActive()){
                 ROS_INFO("Move dog away action cancelled prior to start");

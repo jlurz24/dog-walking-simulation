@@ -62,7 +62,7 @@ namespace {
 
   PointStamped calculateStart(const PointStamped goalInBaseFrame, const PoseStamped dogInBaseFrame, const double armHeight, const double leashLength){
     
-    ROS_INFO("Searching for solution at arm height: %f for leash length: %f", armHeight, leashLength);
+    ROS_DEBUG("Searching for solution at arm height: %f for leash length: %f", armHeight, leashLength);
     
     double planarLeashLength = 0;
     // TODO: Make a better select of the small number
@@ -168,7 +168,7 @@ namespace {
             for(double height = MIN_ARM_HEIGHT; !found && as.isActive() && height <= min(leashLength, MAX_ARM_HEIGHT); height += ARM_HEIGHT_SEARCH_INCREMENT){
                 handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, height, currLeashLength);
         
-                if(found && handStartPub.getNumSubscribers() > 0){
+                if(handStartPub.getNumSubscribers() > 0){
                     static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
                     PointStamped startInBaseFrameViz = handStart;
                     visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
@@ -200,18 +200,24 @@ namespace {
      moveit_msgs::GetPositionIK::Request req;
      moveit_msgs::GetPositionIK::Response res; 
      req.ik_request.group_name = "right_arm";
+     
+     // req.ik_request.constraints = kinematic_constraints::constructGoalConstraints("r_gripper_l_finger_tip_link", point, 5);
      req.ik_request.pose_stamped.header.frame_id = goalPoint.header.frame_id;
      req.ik_request.pose_stamped.pose.position = goalPoint.point;
      req.ik_request.pose_stamped.pose.orientation.x = 0.0;
      req.ik_request.pose_stamped.pose.orientation.y = 0.0;
      req.ik_request.pose_stamped.pose.orientation.z = 0.0;
      req.ik_request.pose_stamped.pose.orientation.w = 1.0;
+     
      req.ik_request.avoid_collisions = false;
+     // req.ik_request.attempts = 10;
+     // Default is 0.05
+     req.ik_request.timeout = ros::Duration(0.1);
      
      robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
-     vector<string> jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
-     req.ik_request.robot_state.joint_state.name = jointStateGroup->getJointModelGroup()->getJointModelNames();
-     jointStateGroup->getVariableValues(req.ik_request.robot_state.joint_state.position);
+     const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
+     
+     // Seed state is by default the initial state
      ikClient.call(req, res);
      if(res.error_code.val == res.error_code.SUCCESS){
          ROS_INFO("IK succeeded");

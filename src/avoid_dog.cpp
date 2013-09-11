@@ -36,11 +36,11 @@ private:
   //! Transform listener
   tf::TransformListener tf;
   
-  //! Whether we are currently avoiding the dog
-  bool avoidingDog;
-  
   //! Publisher for avoiding dog messages
   ros::Publisher avoidingDogPub;
+  
+  //! Whether we are currently avoiding the dog
+  bool avoidingDog;
   
 public:
   AvoidDog(): pnh("~"),
@@ -63,22 +63,27 @@ public:
 
     // Determine if we should avoid the dog.
     bool dogInFront = dogPoseInBaseFrame.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS && abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS;
-    if(dogInFront && !avoidingDog){
+    if(dogInFront){
       ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPoseInBaseFrame.pose.position.x, dogPoseInBaseFrame.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
-      // Set the flag in the node
-      avoidingDog = true;
-      
+
       // Notify that we are avoiding the dog.
       AvoidingDog msg;
       msg.pose = dogPoseInBaseFrame;
       msg.avoiding = true;
       avoidingDogPub.publish(msg);
       
-      MoveDogAwayGoal goal;
-      moveDogAwayClient.sendGoal(goal);
+      if(!avoidingDog){
+          ROS_INFO("Activating the move dog away client");
+          MoveDogAwayGoal goal;
+          moveDogAwayClient.sendGoal(goal);
+      }
+      avoidingDog = true;
     }
-    else if(!dogInFront && avoidingDog){
-        // Reset the flag
+    else if(!dogInFront){
+        if(avoidingDog){
+            ROS_INFO("Deactivating the move dog away client");
+            moveDogAwayClient.cancelGoal();
+        }
         avoidingDog = false;
         
         // Notify that we are done avoiding
