@@ -34,7 +34,6 @@ private:
   
   //! Shift distance from base to desired arm position
   //! Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
-  //! TODO: This may need further calibration
   static const double SHIFT_DISTANCE = 0.6;
   
   //! Node handle
@@ -82,9 +81,6 @@ private:
   //! Whether are currently avoiding the dog
   bool avoidingDog;
   
-  //! TODO: Move
-  ros::Publisher cmdVelocityPub;
-  
 public:
   //! ROS node initialization
   RobotDriver(): pnh("~"), adjustDogClient("adjust_dog_position_action", true),
@@ -112,8 +108,6 @@ public:
     moveRobotClient.waitForServer();
     moveArmToBasePositionClient.waitForServer();
     
-    ros::Publisher cmdVelocityPub = nh.advertise<geometry_msgs::Twist>("base_controller/command", 1);
-    
     // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
     // move the arm.
     pnh.param<bool>("solo_mode", soloMode, false);
@@ -124,18 +118,25 @@ public:
       ROS_INFO("Running regular mode");
       adjustDogClient.waitForServer();
     }
-
-    // TODO: Move this to a better location.
-    // Point the robot along the initial path.
-    ROS_INFO("Publishing turn left action");
-    geometry_msgs::Twist baseCmd;
-    baseCmd.angular.z = -5;
-    cmdVelocityPub.publish(baseCmd);
+    moveToStartPosition();
     
     initTimer = nh.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
     ROS_INFO("Robot driver initialization complete @ %f", ros::Time::now().toSec());
   }
 
+  void moveToStartPosition(){
+      MoveRobotGoal moveRobotGoal;
+      moveRobotGoal.pose.header.frame_id = "/base_footprint";
+      moveRobotGoal.pose.header.stamp = ros::Time::now();
+      
+      // Calculate the yaw so we can create an orientation.
+      double yaw = boost::math::constants::pi<double>() / 2.0;
+      moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); 
+      
+      // This will automatically cancel the last goal.
+      utils::sendGoal(&moveRobotClient, moveRobotGoal, nh, 5.0);
+  }
+  
   void init(const ros::TimerEvent& event){
     ROS_INFO("Entering delayed init");
     
@@ -261,14 +262,19 @@ public:
       // Select a point on the perpindicular line.
       btVector3 finalGoal = backGoal + perp * btScalar(SHIFT_DISTANCE);
   
-      geometry_msgs::PointStamped robotGoal;
-      robotGoal.header = dogGoal.header;
-      robotGoal.point.x = finalGoal.x();
-      robotGoal.point.y = finalGoal.y();
-      robotGoal.point.z = finalGoal.z();
+      geometry_msgs::Point robotGoal;
+      robotGoal.x = finalGoal.x();
+      robotGoal.y = finalGoal.y();
+      robotGoal.z = finalGoal.z();
 
       MoveRobotGoal moveRobotGoal;
-      moveRobotGoal.position = robotGoal;
+      moveRobotGoal.pose.header = dogGoal.header;
+      moveRobotGoal.pose.pose.position = robotGoal;
+      
+      // Calculate the yaw so we can create an orientation.
+      btScalar yaw = btAtan2(tangent.y(), tangent.x());
+      moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); 
+      ROS_DEBUG("Sending move goal with yaw: %f", yaw);
       
       // This will automatically cancel the last goal.
       moveRobotClient.sendGoal(moveRobotGoal);

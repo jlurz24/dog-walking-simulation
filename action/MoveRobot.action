@@ -1,5 +1,5 @@
 # goal definition
-geometry_msgs/PointStamped position
+geometry_msgs/PoseStamped pose
 ---
 ---
 

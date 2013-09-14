@@ -59,14 +59,14 @@ namespace {
     // Visualize the goal.
     if(goalPub.getNumSubscribers()){
         std_msgs::ColorRGBA GREEN = utils::createColor(0, 1, 0);
-        goalPub.publish(utils::createMarker(goal->position.point, goal->position.header, GREEN, false));
+        goalPub.publish(utils::createMarker(goal->pose.pose.position, goal->pose.header, GREEN, false));
     }
     
-    // Determine the position in the map frame. This allows us to store
-    // an absolute position
-    geometry_msgs::PointStamped absoluteGoal;
+    // Determine the pose in the map frame. This allows us to store
+    // an absolute pose
+    geometry_msgs::PoseStamped absoluteGoal;
     try {
-        tf.transformPoint("/map", ros::Time(0), goal->position, goal->position.header.frame_id, absoluteGoal);
+        tf.transformPose("/map", ros::Time(0), goal->pose, goal->pose.header.frame_id, absoluteGoal);
     }
     catch(tf::TransformException& ex){
         ROS_ERROR("Failed to transform goal to map frame");
@@ -75,9 +75,9 @@ namespace {
     }
     
     // Determine the updated position of the robot.
-    geometry_msgs::PointStamped goalPosition;
+    geometry_msgs::PoseStamped goalPose;
     try {
-        tf.transformPoint("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPosition);
+        tf.transformPose("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPose);
     }
     catch(tf::TransformException& ex){
         ROS_ERROR("Failed to transform absolute goal to base footprint");
@@ -91,39 +91,68 @@ namespace {
     
     // How close to the goal we need to get.
     const double DISTANCE_THRESHOLD = 0.1;
+    const double Q_DISTANCE_THRESHOLD = 0.01;
     
     // Robot is at 0,0
-    geometry_msgs::Point robotPosition;
-    robotPosition.x = robotPosition.y = robotPosition.z = 0.0;
+    geometry_msgs::Pose robotPose;
+    tf::quaternionTFToMsg(tf::createIdentityQuaternion(), robotPose.orientation);
+    
+    // Track the total distance.
+    double totalDistance = utils::pointToPointXYDistance(goalPose.pose.position, robotPose.position);
+    double currentDistance = totalDistance;
+    
+    // Convert to bt classes
+    tf::Quaternion robotPoseTF;
+    tf::quaternionMsgToTF(robotPose.orientation, robotPoseTF);
+    
+    tf::Quaternion goalPoseTF;
+    tf::quaternionMsgToTF(goalPose.pose.orientation, goalPoseTF);
+
+    double qDistance = 1 - btPow(goalPoseTF.dot(robotPoseTF), btScalar(2));
     
     // Loop and move the robot until the robot reaches the goal point.
-    while(ros::ok() && as.isActive() && utils::pointToPointXYDistance(goalPosition.point, robotPosition) > DISTANCE_THRESHOLD){
-        ROS_DEBUG("Distance to goal: %f", utils::pointToPointXYDistance(goalPosition.point, robotPosition));
+    while(ros::ok() && as.isActive() && (currentDistance > DISTANCE_THRESHOLD || qDistance > Q_DISTANCE_THRESHOLD)){
+        ROS_DEBUG("Distance to goal: %f %f", currentDistance, qDistance);
         
-        // Move the robot.
-        btVector3 goalVector(goalPosition.point.x, goalPosition.point.y, 0);
-        btScalar yaw = btAtan2(goalVector.y(), goalVector.x());
+        // Interpolate between the starting orientation and goal.
+        const double MAX_V = 2.5;
+        
+        // Attempt to estimate the distance traveled in this iteration
+        double ratio = 1;
+        
+        // TODO: Better small number constant
+        if(totalDistance > 0.01){
+            ratio = min(max(totalDistance - currentDistance, MAX_V * 0.1) / totalDistance, 1.0);
+        }
+        
+        btVector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
+        btScalar yawToTarget = btAtan2(goalVector.y(), goalVector.x());
+        tf::Quaternion goalOrientation = tf::createQuaternionFromYaw(yawToTarget);
+        
+        ROS_DEBUG("Orientation ratio: %f", ratio);
+        tf::Quaternion interp = tf::slerp(goalOrientation, goalPoseTF, ratio);
+        double yaw = tf::getYaw(interp);
         
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 
-        const double MAX_V = 2.5;
         const double DEACC_DISTANCE = 0.75;
         const double MAX_REVERSE_DISTANCE = 0.5;
         
         // Robot location is at the root of frame.
-        double distance = goalVector.distance(btVector3(0, 0, 0));
-        if(distance > DEACC_DISTANCE){
+        if(currentDistance > DEACC_DISTANCE){
           baseCmd.linear.x = MAX_V;
         }
         else {
-          baseCmd.linear.x = distance / DEACC_DISTANCE * MAX_V;
+          baseCmd.linear.x = currentDistance / DEACC_DISTANCE * MAX_V;
         }
 
+        ROS_DEBUG("Final yaw: %f x: %f", yaw, baseCmd.linear.x);
+        
         // Determine if we should go backwards.
         // TODO: Might need to tune this further to perform the least amount of turning.
-        if(goalPosition.point.x < 0){
-            if(goalPosition.point.x > -MAX_REVERSE_DISTANCE){
+        if(goalPose.pose.position.x < 0){
+            if(goalPose.pose.position.x > -MAX_REVERSE_DISTANCE && goalPose.pose.position.x > 0){
                 if(yaw > PI){
                     baseCmd.angular.z = yaw - PI;
                 } else {
@@ -133,7 +162,6 @@ namespace {
                 ROS_INFO("Moving in reverse at angle %f at velocity %f", baseCmd.angular.z, baseCmd.linear.x);
             }
             else {
-                ROS_DEBUG("Distance too far to move in reverse");
                 baseCmd.angular.z = yaw;
                 baseCmd.linear.x = 0;
             }
@@ -163,13 +191,17 @@ namespace {
             r.sleep();
             // Determine the updated position of the robot.
             try {
-                tf.transformPoint("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPosition);
+                tf.transformPose("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPose);
             }
             catch(tf::TransformException& ex){
-                ROS_INFO("Failed to transform absolute goal to base footprint");
+                ROS_ERROR("Failed to transform absolute goal to base footprint");
                 // Continue and hope that it transforms next time.
             }
+            currentDistance = utils::pointToPointXYDistance(goalPose.pose.position, robotPose.position);
+            tf::quaternionMsgToTF(goalPose.pose.orientation, goalPoseTF);
+            qDistance = 1 - btPow(goalPoseTF.dot(robotPoseTF), btScalar(2));
         }
+        
     }
     
     if(as.isActive()){
@@ -206,7 +238,6 @@ namespace {
 int main(int argc, char** argv){
   ros::init(argc, argv, "move_robot_action");
   MoveRobotAction action(ros::this_node::getName());
-  ROS_INFO("Waiting for move_robot actions");
   ros::spin();
   return 0;
 }
