@@ -133,7 +133,8 @@ namespace {
     PointStamped handInBaseFrame;
     {
         PointStamped handInHandFrame;
-        handInHandFrame.header.frame_id = "/r_gripper_l_finger_tip_link";
+        handInHandFrame.header.frame_id = rightArm.getEndEffectorLink();
+        ROS_DEBUG("End effector link is %s", rightArm.getEndEffectorLink().c_str());
         try {
             tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame, handInHandFrame.header.frame_id, handInBaseFrame);
         }
@@ -143,6 +144,10 @@ namespace {
             return false;
         }
      }
+    
+    // Lookup the transform between the base plan and the planning frame so we can cache it.
+    tf::StampedTransform baseToPlanningTransform;
+    tf.lookupTransform(rightArm.getPlanningFrame(), "/base_footprint", ros::Time(0), baseToPlanningTransform);
     
     // Givens: Dog position + goal position
     // create a line between the dog position and goal position
@@ -161,7 +166,7 @@ namespace {
         handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, armHeight, currLeashLength);
         
         // The caller should abort the movement if it takes too long.
-        found = moveRightArm(handStart);
+        found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
         
         if(!found){
             // Iterate over all possible height
@@ -175,8 +180,10 @@ namespace {
                     handStartPub.publish(startMsg);
                 }
                 
-                // The caller should abort the movement if it takes too long.
-                found = moveRightArm(handStart);
+                found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
+                if(found){
+                    ROS_INFO("IK succeeded at height %f and length %f", height, leashLength);
+                }
             }
         }
         currLeashLength -= LEASH_LENGTH_SEARCH_INCREMENT;
@@ -194,16 +201,26 @@ namespace {
     return true;
   }
 
-  bool moveRightArm(const PointStamped goalPoint){
-     ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.point.x, goalPoint.point.y, goalPoint.point.z, goalPoint.header.frame_id.c_str(), ros::Time::now().toSec());
+  static Point applyTransform(const geometry_msgs::PointStamped& point, const tf::StampedTransform transform){
+    tf::Stamped<tf::Point> tfPoint;
+    tf::pointStampedMsgToTF(point, tfPoint);
+    tf::Point tfGoal = transform * tfPoint;
+    Point msgGoal;
+    tf::pointTFToMsg(tfGoal, msgGoal);
+    return msgGoal;
+  }
+  
+  bool moveRightArm(const Point goalPoint){
+     // Transform to the planning frame.
+     ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.x, goalPoint.y, goalPoint.z, rightArm.getPlanningFrame().c_str(), ros::Time::now().toSec());
      
      moveit_msgs::GetPositionIK::Request req;
      moveit_msgs::GetPositionIK::Response res; 
      req.ik_request.group_name = "right_arm";
      
      // req.ik_request.constraints = kinematic_constraints::constructGoalConstraints("r_gripper_l_finger_tip_link", point, 5);
-     req.ik_request.pose_stamped.header.frame_id = goalPoint.header.frame_id;
-     req.ik_request.pose_stamped.pose.position = goalPoint.point;
+     req.ik_request.pose_stamped.header.frame_id = rightArm.getPlanningFrame();
+     req.ik_request.pose_stamped.pose.position = goalPoint;
      req.ik_request.pose_stamped.pose.orientation.x = 0.0;
      req.ik_request.pose_stamped.pose.orientation.y = 0.0;
      req.ik_request.pose_stamped.pose.orientation.z = 0.0;
@@ -212,7 +229,7 @@ namespace {
      req.ik_request.avoid_collisions = false;
      // req.ik_request.attempts = 10;
      // Default is 0.05
-     req.ik_request.timeout = ros::Duration(0.1);
+     req.ik_request.timeout = ros::Duration(0.05);
      
      robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
      const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
@@ -220,7 +237,6 @@ namespace {
      // Seed state is by default the initial state
      ikClient.call(req, res);
      if(res.error_code.val == res.error_code.SUCCESS){
-         ROS_INFO("IK succeeded");
          
          // For some reason this returns all joints. Copy over ones we need.
          vector<double> positions(jointNames.size());
