@@ -44,9 +44,9 @@ namespace gazebo {
                 ROS_ERROR("Failed to locate the robot model");
                 return;
             }
-            robotHand = robot->GetLink("r_gripper_l_finger_tip_link");
+            robotHand = robot->GetLink("r_wrist_roll_link");
             if(!robotHand){
-                ROS_ERROR("Failed to loccate the robot finger tip link");
+                ROS_ERROR("Failed to locate r_wrist_roll_link");
                 return;
             }
         }
@@ -92,7 +92,9 @@ namespace gazebo {
       const math::Vector3 appliedForce = handForce * ratio;
 
       ROS_DEBUG("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
-
+      if(distance > leashLength * 1.01){
+          ROS_INF0("Distance exceeding the leash length. Distance: %f", distance);
+      }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
  

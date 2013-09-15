@@ -62,7 +62,7 @@ public:
     tf.transformPose("/base_footprint", ros::Time(0), dogPosition->pose, dogPosition->pose.header.frame_id, dogPoseInBaseFrame);
 
     // Determine if we should avoid the dog.
-    bool dogInFront = dogPoseInBaseFrame.pose.position.x < FRONT_AVOIDANCE_THRESHOLD && dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS && abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS;
+    bool dogInFront = dogPoseInBaseFrame.pose.position.x < (FRONT_AVOIDANCE_THRESHOLD - BASE_RADIUS) && dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS && abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS;
     if(dogInFront){
       ROS_INFO("Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPoseInBaseFrame.pose.position.x, dogPoseInBaseFrame.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
 

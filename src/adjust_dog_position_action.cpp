@@ -65,7 +65,6 @@ namespace {
     ROS_DEBUG("Searching for solution at arm height: %f for leash length: %f", armHeight, leashLength);
     
     double planarLeashLength = 0;
-    // TODO: Make a better select of the small number
     if(leashLength - armHeight > 0){
         planarLeashLength = sqrt(utils::square(leashLength) - utils::square(armHeight));
     }
@@ -97,7 +96,7 @@ namespace {
         return false;
     }
     
-        // Transform the goal position
+    // Transform the goal position
     PointStamped goalInBaseFrame;
     if(goal->goalPosition.header.frame_id != "/base_footprint"){
         try {
