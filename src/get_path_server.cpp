@@ -11,14 +11,6 @@ namespace {
   using namespace ros;
   using namespace std;
 
-  //! Factor to slow down the lissajous calculation.
-  static const double TIMESCALE_FACTOR = 200.0;
-
-  //! Amount of time it takes to perform a full lissajous cycle.
-  //  Note that this amount is slightly longer than the lissajous
-  //  cycle time because the robot trails the goal point.
-  static const double FULL_CYCLE_T = 4.85;
-
   class GetPathServer {
     private:
       NodeHandle nh;
@@ -40,10 +32,10 @@ namespace {
         string pathType;
         pnh.param<string>("path_type", pathType, "lissajous");
         if(pathType == "lissajous"){
-            pathProvider.reset(new LissajousPathProvider(FULL_CYCLE_T));
+            pathProvider.reset(new LissajousPathProvider());
         }
         else if(pathType == "rectangle"){
-            pathProvider.reset(new RectanglePathProvider(FULL_CYCLE_T));
+            pathProvider.reset(new RectanglePathProvider());
         }
         else {
             ROS_ERROR("Unknown path provider type: %s", pathType.c_str());
@@ -60,7 +52,7 @@ namespace {
       }
       
       bool maximumTime(dogsim::MaximumTime::Request& req, dogsim::MaximumTime::Response& res){
-          res.maximumTime = FULL_CYCLE_T * TIMESCALE_FACTOR;
+          res.maximumTime = pathProvider->getMaximumTime();
           ROS_DEBUG("Returning maximum time: %f", res.maximumTime);
           return true;
       }
@@ -81,17 +73,16 @@ namespace {
             return true;
         }
         
-        if((req.time - startTime) / TIMESCALE_FACTOR > FULL_CYCLE_T){
+        if((req.time - startTime) > pathProvider->getMaximumTime()){
           ROS_INFO("Setting end flag @ time %f", req.time);
           res.ended = ended = true;
           res.started = true;
           return true;
         }
 
-        // TODO: Be smarter about making time scale based on velocity.
         res.started = true;
         res.ended = false;
-        res.point = pathProvider->positionAtTime((req.time - startTime) / TIMESCALE_FACTOR);
+        res.point = pathProvider->positionAtTime((req.time - startTime));
 		res.point.header.stamp = Time(req.time);
         return true;
       }

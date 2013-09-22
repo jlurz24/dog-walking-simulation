@@ -8,9 +8,11 @@ namespace {
   using namespace std;
   static const double pi = boost::math::constants::pi<double>();
   
+  static const double VELOCITY = 2.0;
+  
   class RectanglePathProvider : public PathProvider {
       public:
-        RectanglePathProvider(const double totalDuration){
+        RectanglePathProvider(){
             segments.resize(4);
             segments[0] = btVector3(0, 1, 0);
             segments[0].setW(btScalar(5));
@@ -30,13 +32,16 @@ namespace {
               totalLength += segments[i].w();
             }
 
-            // Calculate the needed velocity to complete the cycle in the given time.
-            velocity = totalLength / totalDuration;
+            totalDuration = totalLength / VELOCITY;
         }
     
+        virtual double getMaximumTime() const {
+            return totalDuration;
+        }
+        
         virtual geometry_msgs::PointStamped positionAtTime(const double t) const {
 
-            double distance = velocity * t;
+            double distance = VELOCITY * t;
             btVector3 result = btVector3(0, 0, 0);
             bool roundingRequired = false;
             bool firstRoundingSegment = false;
@@ -128,10 +133,10 @@ namespace {
         }
 
      private:
-        double velocity;
+        double totalDuration;
     
         vector<btVector3> segments;
         
-        static  const double ROUNDING_DISTANCE = 1.0;
+        static const double ROUNDING_DISTANCE = 1.0;
   };
 }

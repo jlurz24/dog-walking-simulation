@@ -57,7 +57,9 @@ public:
         bool started;
         bool ended;
         const geometry_msgs::PointStamped goal = getDogGoalPosition(event.current_real, started, ended);
-        assert(started);
+        if(!started){
+            return;
+        }
       
         if(ended){
             ROS_INFO("Walk is ended");

@@ -76,8 +76,7 @@ namespace gazebo {
       // Octave function:
       // x = [0:0.01:2.5];
       // y = 1 ./ (1 + e.^(-28*(x - 2)));
-      // Include buffer for the transition phase
-      const double ratio = 1.0 / (1.0 + exp(-28.0 * (abs(distance) - (leashLength - 0.05))));
+      const double ratio = 1.0 / (1.0 + exp(-28.0 * (abs(distance) - leashLength)));
 
       // The hand force is a spring like attractive force between the hand and
       // the dog.

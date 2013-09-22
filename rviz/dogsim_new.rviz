@@ -15,7 +15,7 @@ Panels:
         - /Planned Move Viz1
         - /DogGoal1
       Splitter Ratio: 0.5
-    Tree Height: 595
+    Tree Height: 359
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -757,13 +757,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /dogsim/dog_goal_viz
       Name: DogGoal
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -782,27 +782,27 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 26.0049
+      Distance: 25.003
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 11.185
+        Y: 2.29445
+        Z: -0.625716
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 1.2648
+      Pitch: 1.5148
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.61041
+      Yaw: 6.2736
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: false
+    collapsed: true
   Height: 808
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730100000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff00000105000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730000000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002ad000002c900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
   Width: 685
-  X: 58
-  Y: 24
+  X: 0
+  Y: 21

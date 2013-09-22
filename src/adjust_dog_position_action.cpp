@@ -46,25 +46,27 @@ namespace {
         
         ROS_INFO("Completed init of the adjust dog position action");
         as.start();
-  }
+    }
   
-  void preemptCB(){
-    ROS_DEBUG("Preempting the adjust dog position action");
+    private:
+  
+    void preemptCB(){
+        ROS_DEBUG("Preempting the adjust dog position action");
 
-    if(!as.isActive()){
-      ROS_DEBUG("Adjust dog position action cancelled prior to start");
-      return;
+        if(!as.isActive()){
+            ROS_DEBUG("Adjust dog position action cancelled prior to start");
+            return;
+        }
+
+        rightArm.stop();
+        as.setPreempted();
     }
 
-    rightArm.stop();
-    as.setPreempted();
-  }
-
-  PointStamped calculateStart(const PointStamped goalInBaseFrame, const PoseStamped dogInBaseFrame, const double armHeight, const double leashLength){
+    PointStamped calculateStart(const PointStamped goalInBaseFrame, const PoseStamped dogInBaseFrame, const double armHeight, const double leashLength) const {
     
-    ROS_DEBUG("Searching for solution at arm height: %f for leash length: %f", armHeight, leashLength);
+        ROS_DEBUG("Searching for solution at arm height: %f for leash length: %f", armHeight, leashLength);
     
-    double planarLeashLength = 0;
+        double planarLeashLength = 0;
     if(leashLength - armHeight > 0){
         planarLeashLength = sqrt(utils::square(leashLength) - utils::square(armHeight));
     }
@@ -228,7 +230,10 @@ namespace {
      robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
      const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
      
-     // Seed state is by default the initial state
+     // Set the seed state to the base position.
+     req.ik_request.robot_state.joint_state.position = baseArmJointPositions();
+     req.ik_request.robot_state.joint_state.name = jointNames;
+     
      ikClient.call(req, res);
      if(res.error_code.val == res.error_code.SUCCESS){
          
@@ -253,7 +258,20 @@ namespace {
      return true;
   }
   
+  vector<double> baseArmJointPositions() const {
+        vector<double> positions(7);
+        positions[0] = -boost::math::constants::pi<double>() / 4.0;
+        positions[1] = 0.4;
+        positions[2] = -boost::math::constants::pi<double>() / 4.0;
+        positions[3] = -boost::math::constants::pi<double>() / 4.0;
+        positions[4] = -1.0;
+        positions[5] = -0.2;
+        positions[6] = 0.0;
+        return positions;
+  }
+  
     protected:
+    
         // Calibrated through experimentation.
         static const double MAX_ARM_HEIGHT = 1.376;
         
