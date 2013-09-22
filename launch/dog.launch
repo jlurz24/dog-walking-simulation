@@ -1,12 +1,13 @@
 <launch>
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen">
-    <param name="path_type" value="rectangle"/>
+    <param name="path_type" value="lissajous"/>
   </node>
  <param name="add_gaussians_to_path" value="true"/>
  <param name="solo_dog" value="true" />
- <param name="dog_kp" value="0.32" />
- <param name="dog_kd" value="0.15" />
+ <param name="dog_kp" value="0.01" />
+ <param name="dog_kd" value="0.2" />
+
  <param name="dog" textfile="$(find dogsim)/models/dog.model" />
   <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.1" respawn="false" output="screen" />
 
@@ -14,8 +15,7 @@
 
  <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
 
-  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen">
-    <param name="known_position_window" value="2.0"/>
-  </node>
+  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
 
+  <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
 </launch>

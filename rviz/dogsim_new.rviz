@@ -13,8 +13,9 @@ Panels:
         - /Robot Move Start1
         - /Hand Start Viz1
         - /Planned Move Viz1
+        - /DogGoal1
       Splitter Ratio: 0.5
-    Tree Height: 663
+    Tree Height: 595
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -709,23 +710,23 @@ Visualization Manager:
       Value: false
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /dog_position_viz
+      Marker Topic: /dog_position_detector/dog_position_viz_perm
       Name: Dog Position
       Namespaces:
         dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /move_robot_action/move_goal_viz
       Name: Move Goal
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /robot_driver/walk_goal_viz
+      Marker Topic: /path/walk_goal_viz_perm
       Name: Walk Goal
       Namespaces:
         dogsim: true
@@ -740,17 +741,25 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /adjust_dog_position_action/hand_start_viz
       Name: Hand Start Viz
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /move_robot_action/planned_move_viz
       Name: Planned Move Viz
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /dogsim/dog_goal_viz
+      Name: DogGoal
       Namespaces:
         dogsim: true
       Queue Size: 100
@@ -773,27 +782,27 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 22.6773
+      Distance: 26.0049
       Focal Point:
         X: 0
         Y: 0
         Z: 0
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 1.4998
+      Pitch: 1.2648
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.18041
+      Yaw: 0.61041
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 876
+  Height: 808
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a200000326fc0200000001fb000000100044006900730070006c006100790073010000002800000326000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000003b70000032600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730100000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff00000105000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
-  Width: 1375
+  Width: 685
   X: 58
   Y: 24

@@ -156,39 +156,34 @@ namespace {
     
     // Determine the current vertical position of the arm.
     double armHeight = handInBaseFrame.point.z; // Height of the robot hand relative to base (approximately the height of the dog).
-    ROS_INFO("Beginning search @ %f", ros::Time::now().toSec());
-    bool found = false;
-    PointStamped handStart;
-    double currLeashLength = leashLength;
-    do {
-        // First try at the current height
-        handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, armHeight, currLeashLength);
+    ROS_DEBUG("Beginning search @ %f", ros::Time::now().toSec());
+    
+    // First try at the current height
+    PointStamped handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, armHeight, leashLength);
         
-        // The caller should abort the movement if it takes too long.
-        found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
+    // The caller should abort the movement if it takes too long.
+    bool found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
         
-        if(!found){
-            // Iterate over all possible height
-            for(double height = MIN_ARM_HEIGHT; !found && as.isActive() && height <= min(leashLength, MAX_ARM_HEIGHT); height += ARM_HEIGHT_SEARCH_INCREMENT){
-                handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, height, currLeashLength);
+    if(!found){
+        // Iterate over all possible height
+        for(double height = MIN_ARM_HEIGHT; !found && as.isActive() && height <= min(leashLength, MAX_ARM_HEIGHT); height += ARM_HEIGHT_SEARCH_INCREMENT){
+            handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, height, leashLength);
         
-                if(handStartPub.getNumSubscribers() > 0){
-                    static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
-                    PointStamped startInBaseFrameViz = handStart;
-                    visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
-                    handStartPub.publish(startMsg);
-                }
+            if(handStartPub.getNumSubscribers() > 0){
+                static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
+                PointStamped startInBaseFrameViz = handStart;
+                visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
+                handStartPub.publish(startMsg);
+            }
                 
-                found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
-                if(found){
-                    ROS_INFO("IK succeeded at height %f and length %f", height, leashLength);
-                }
+            found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
+            if(found){
+                ROS_INFO("IK succeeded at height %f and length %f", height, leashLength);
             }
         }
-        currLeashLength -= LEASH_LENGTH_SEARCH_INCREMENT;
-    } while(!found && as.isActive() && currLeashLength > 0);
+    }
     
-    ROS_INFO("Ending search @ %f", ros::Time::now().toSec());
+    ROS_DEBUG("Ending search @ %f", ros::Time::now().toSec());
     if(found && handStartPub.getNumSubscribers() > 0){
       static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
       PointStamped startInBaseFrameViz = handStart;

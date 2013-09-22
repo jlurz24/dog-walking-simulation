@@ -104,10 +104,13 @@ namespace gazebo {
         // Determine if we should start a new gaussian.
         boost::uniform_real<> randomZeroToOne(0, 1);
         
+        double pNewGauss;
+        nh.param<double>("p_new_gauss", pNewGauss, P_NEW_GAUSS_DEFAULT);
+        
         ROS_DEBUG("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
         // Precompute all the lissajous cycles.
         for(double t = 0; t <= maxTime.response.maximumTime; t += 1.0 / SIMULATOR_CYCLES_PER_SECOND){
-            if(randomZeroToOne(rng) < P_NEW_GAUSS / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
+            if(randomZeroToOne(rng) < pNewGauss / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
                 // Create a structure with the parameters.
                 GaussParams params;
                 boost::uniform_real<> randomA(-pi, pi);
@@ -173,6 +176,7 @@ namespace gazebo {
           ROS_DEBUG("Maximum Y force applied to force: %f", this->forceX);
           this->forceY = copysign(MAXIMUM_FORCE, this->forceY);
       }
+      
       // Save the current error for the next iteration.
       this->previousErrorY = errorY;
       
@@ -322,17 +326,17 @@ namespace gazebo {
     // KP term
     private: double KP;
 
-    private: static const double KP_DEFAULT = 0.32;
+    private: static const double KP_DEFAULT = 0.01;
     
-    private: static const double MAXIMUM_FORCE = 900;
+    private: static const double MAXIMUM_FORCE = 40;
     
     // KD term
     private: double KD;
 
-    private: static const double KD_DEFAULT = 0.15;
+    private: static const double KD_DEFAULT = 0.2;
     
     // Probability of starting a new gaussian in each second
-    private: static const double P_NEW_GAUSS = 0.16;
+    private: static const double P_NEW_GAUSS_DEFAULT = 0.16;
 
     // Multiple of sigma that captures nearly half of a gaussians width.
     private: static const double GAUSS_HALF_WIDTH = 3;

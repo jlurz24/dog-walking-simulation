@@ -30,7 +30,7 @@ private:
   static const double SLOPE_DELTA = 0.01;
   
   // Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
-  static const double TRAILING_DISTANCE = 0.585;
+  static const double TRAILING_DISTANCE = 0; // 0.585;
   
   //! Shift distance from base to desired arm position
   //! Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
@@ -41,15 +41,9 @@ private:
 
   //! Private nh
   ros::NodeHandle pnh;
-
-  //! Publisher for goals
-  ros::Publisher goalPub;
-
+  
   //! Timer that controls movement of the robot (in solo mode only)
   ros::Timer driverTimer;
-  
-  //! Timer that display the goal
-  ros::Timer displayTimer;
   
   //! One shot timer that performs delayed start
   ros::Timer initTimer;
@@ -91,15 +85,12 @@ public:
     ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
     
     nh.param("leash_length", leashLength, 2.0);
-    
-    // Set up the publisher
-    goalPub = nh.advertise<visualization_msgs::Marker>("robot_driver/walk_goal_viz", 1);
-    
+        
     ros::service::waitForService("/dogsim/get_path");
     ros::service::waitForService("/dogsim/start");
     getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
     
-    dogPositionSub.reset(new message_filters::Subscriber<DogPosition> (nh, "/dog_position", 1));
+    dogPositionSub.reset(new message_filters::Subscriber<DogPosition> (nh, "/dog_position_detector/dog_position", 1));
     dogPositionSub->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
     
     avoidingDogSub.reset(new message_filters::Subscriber<AvoidingDog> (nh, "/avoid_dog/avoiding", 1));
@@ -118,23 +109,9 @@ public:
       ROS_INFO("Running regular mode");
       adjustDogClient.waitForServer();
     }
-    moveToStartPosition();
     
     initTimer = nh.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
     ROS_INFO("Robot driver initialization complete @ %f", ros::Time::now().toSec());
-  }
-
-  void moveToStartPosition(){
-      MoveRobotGoal moveRobotGoal;
-      moveRobotGoal.pose.header.frame_id = "/base_footprint";
-      moveRobotGoal.pose.header.stamp = ros::Time::now();
-      
-      // Calculate the yaw so we can create an orientation.
-      double yaw = boost::math::constants::pi<double>() / 2.0;
-      moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); 
-      
-      // This will automatically cancel the last goal.
-      utils::sendGoal(&moveRobotClient, moveRobotGoal, nh, 5.0);
   }
   
   void init(const ros::TimerEvent& event){
@@ -144,7 +121,6 @@ public:
     utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 10.0);
     
     startPath(ros::Time::now());
-    displayTimer = nh.createTimer(ros::Duration(0.2), &RobotDriver::displayCallback, this);
     driverTimer = nh.createTimer(ros::Duration(0.5), &RobotDriver::steeringCallback, this);
     ROS_INFO("Delayed init complete");
   }
@@ -209,26 +185,6 @@ public:
       started = getPath.response.started;
       ended = getPath.response.ended;
       return getPath.response.point;
-  }
-
-  void displayCallback(const ros::TimerEvent& event){
-      ROS_DEBUG("Received display callback");
-      if(goalPub.getNumSubscribers() > 0){
-        bool started;
-        bool ended;
-        const geometry_msgs::PointStamped goal = getDogGoalPosition(event.current_real, started, ended);
-        assert(started);
-      
-        if(ended){
-            ROS_INFO("Walk is ended");
-            displayTimer.stop();
-            return;
-        }
-
-        // Visualize the goal.
-        std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
-        goalPub.publish(utils::createMarker(goal.point, goal.header, RED, true));
-      }
   }
   
   void steeringCallback(const ros::TimerEvent& event){

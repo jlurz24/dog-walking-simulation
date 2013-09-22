@@ -75,8 +75,9 @@ namespace gazebo {
       // function.
       // Octave function:
       // x = [0:0.01:2.5];
-      // y = 1 ./ (1 + e.^(-24*(x - 2)));
-      const double ratio = 1.0 / (1.0 + exp(-24.0 * (abs(distance) - leashLength)));
+      // y = 1 ./ (1 + e.^(-28*(x - 2)));
+      // Include buffer for the transition phase
+      const double ratio = 1.0 / (1.0 + exp(-28.0 * (abs(distance) - (leashLength - 0.05))));
 
       // The hand force is a spring like attractive force between the hand and
       // the dog.
@@ -92,8 +93,8 @@ namespace gazebo {
       const math::Vector3 appliedForce = handForce * ratio;
 
       ROS_DEBUG("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
-      if(distance > leashLength * 1.01){
-          ROS_INF0("Distance exceeding the leash length. Distance: %f", distance);
+      if(distance > leashLength * 1.05){
+          ROS_INFO("Distance exceeding the leash length. Distance: %f", distance);
       }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);

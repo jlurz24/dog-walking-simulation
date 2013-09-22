@@ -12,42 +12,41 @@ namespace {
   class DogPositionDetector {
     private:
       //! Publisher for the dog position visualization.
-      ros::Publisher dogVizPub_;
+      ros::Publisher dogVizPubPerm;
+      
+      //! Publisher for the ephemeral dogVizPub;
+      ros::Publisher dogVizPubEphem;
       
       //! Publisher for the dog positon
-      ros::Publisher dogPositionPub_;
+      ros::Publisher dogPositionPub;
 
       //! Frequency at which to search for the dog
-      ros::Timer timer_;
+      ros::Timer timer;
       
       //! The node handle we'll be using
-      ros::NodeHandle nh_;
+      ros::NodeHandle nh;
 
       //! Private nh
-      ros::NodeHandle pnh_;
-
-      //! We will be listening to TF transforms
-      tf::TransformListener tf_;
+      ros::NodeHandle pnh;
 
       //! Cached service client.
       ros::ServiceClient modelStateServ;
       
    public:
       //! ROS node initialization
-      DogPositionDetector():pnh_("~"){
-        // TODO: Move these to a scope
-        dogVizPub_ = nh_.advertise<visualization_msgs::Marker>("/dog_position_viz", 1);
-        dogPositionPub_ = nh_.advertise<DogPosition>("/dog_position", 1);
+      DogPositionDetector():pnh("~"){
+        dogVizPubPerm = nh.advertise<visualization_msgs::Marker>("/dog_position_detector/dog_position_viz_perm", 1);
+        dogVizPubEphem = nh.advertise<visualization_msgs::Marker>("/dog_position_detector/dog_position_viz_ephem", 1);
+        dogPositionPub = nh.advertise<DogPosition>("/dog_position_detector/dog_position", 1);
         
         ros::service::waitForService("/gazebo/get_model_state");
         
-        modelStateServ = nh_.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state", true /* persistent */);
-        timer_ = nh_.createTimer(ros::Duration(0.1), &DogPositionDetector::callback, this);
-        timer_.start();
+        modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state", true /* persistent */);
+        timer = nh.createTimer(ros::Duration(0.1), &DogPositionDetector::callback, this);
+        timer.start();
       }
 
     private:
-   
         geometry_msgs::PoseStamped getDogPose(const ros::Time& time){
             gazebo_msgs::GetModelState modelState;
             modelState.request.model_name = "dog";
@@ -65,9 +64,13 @@ namespace {
         geometry_msgs::PoseStamped dogPose = getDogPose(event.current_real);
         
         // Visualize the dog.
-        if(dogVizPub_.getNumSubscribers() > 0){
+        if(dogVizPubPerm.getNumSubscribers() > 0){
             std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
-            dogVizPub_.publish(utils::createMarker(dogPose.pose.position, dogPose.header, BLUE, true));
+            dogVizPubPerm.publish(utils::createMarker(dogPose.pose.position, dogPose.header, BLUE, true));
+        }
+        if(dogVizPubEphem.getNumSubscribers() > 0){
+            std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
+            dogVizPubEphem.publish(utils::createMarker(dogPose.pose.position, dogPose.header, BLUE, false));
         }
         DogPosition dogPositionMsg;
         dogPositionMsg.pose = dogPose;
@@ -75,7 +78,7 @@ namespace {
         // Publish the event
         ROS_DEBUG("Publishing a dog position event");
         
-        dogPositionPub_.publish(dogPositionMsg);
+        dogPositionPub.publish(dogPositionMsg);
       }
   };
 }
