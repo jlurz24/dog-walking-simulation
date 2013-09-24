@@ -62,32 +62,38 @@ namespace {
         as.setPreempted();
     }
 
-    PointStamped calculateStart(const PointStamped goalInBaseFrame, const PoseStamped dogInBaseFrame, const double armHeight, const double leashLength) const {
+    PointStamped calculateStart(const PointStamped goalInBaseFrame, const PoseStamped dogInBaseFrame, const double armHeight, const double leashLength, const double angle) const {
     
         ROS_DEBUG("Searching for solution at arm height: %f for leash length: %f", armHeight, leashLength);
     
         double planarLeashLength = 0;
-    if(leashLength - armHeight > 0){
-        planarLeashLength = sqrt(utils::square(leashLength) - utils::square(armHeight));
-    }
-    ROS_DEBUG("Arm height: %f planar leash length: %f", armHeight, planarLeashLength);
+        if(leashLength - armHeight > 0){
+            planarLeashLength = sqrt(utils::square(leashLength) - utils::square(armHeight));
+        }
+        ROS_DEBUG("Arm height: %f planar leash length: %f", armHeight, planarLeashLength);
 
-    // Find the angle between the dog and the goal point.
-    // Calculate the unit vector given x1, y1 = dog and x2, y2 = goal
-    btVector3 dogToGoal = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - btVector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
-    dogToGoal.normalize();
+        // Find the angle between the dog and the goal point.
+        // Calculate the unit vector given x1, y1 = dog and x2, y2 = goal
+        btVector3 dogToGoal = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - btVector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+        dogToGoal.normalize();
     
-    double distanceFromDogToGoal = utils::pointToPointXYDistance(goalInBaseFrame.point, dogInBaseFrame.pose.position);
-    ROS_DEBUG("Distance from dog to goal %f", distanceFromDogToGoal);
+        double distanceFromDogToGoal = utils::pointToPointXYDistance(goalInBaseFrame.point, dogInBaseFrame.pose.position);
+        ROS_DEBUG("Distance from dog to goal %f", distanceFromDogToGoal);
     
-    btVector3 startVector = btVector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight) + btScalar(planarLeashLength + distanceFromDogToGoal) * dogToGoal;
-    // Now update the goal to move to the dog to the goal point.
-    PointStamped start;
-    start.point.x = startVector.x();
-    start.point.y = startVector.y();
-    start.point.z = startVector.z();
-    start.header = dogInBaseFrame.header;
-    return start;
+        btVector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+        btVector3 startVector = dogVector + btScalar(distanceFromDogToGoal) * dogToGoal;
+        
+        // Now add the leash length.
+        btVector3 leashToGoal = dogToGoal.rotate(btVector3(0, 0, 1), btScalar(angle));
+        startVector = startVector + btScalar(planarLeashLength) * leashToGoal;
+        
+        // Now update the goal to move to the dog to the goal point.
+        PointStamped start;
+        start.point.x = startVector.x();
+        start.point.y = startVector.y();
+        start.point.z = startVector.z();
+        start.header = dogInBaseFrame.header;
+        return start;
   }
   
   bool adjust(const dogsim::AdjustDogPositionGoalConstPtr& goal){
@@ -158,34 +164,48 @@ namespace {
     
     // Determine the current vertical position of the arm.
     double armHeight = handInBaseFrame.point.z; // Height of the robot hand relative to base (approximately the height of the dog).
-    ROS_DEBUG("Beginning search @ %f", ros::Time::now().toSec());
+    ros::Time startTime = ros::Time::now();
     
     // First try at the current height
-    PointStamped handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, armHeight, leashLength);
+    // TODO: Refactor
+    PointStamped handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, armHeight, leashLength, 0);
         
     // The caller should abort the movement if it takes too long.
     bool found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
+    
+    static const double angles[5] = { 0.0,
+                                      boost::math::constants::pi<double>() / 8.0,
+                                     -boost::math::constants::pi<double>() / 8.0,
+                                      boost::math::constants::pi<double>() / 4.0,
+                                     -boost::math::constants::pi<double>() / 4.0
+                                     };
+    
+    if(!found && as.isActive()){
+        // Iterate over angles
+        for(unsigned int i = 0; i < 3 && !found && as.isActive(); ++i){
+            // Iterate over all possible height
+            for(double height = MIN_ARM_HEIGHT; !found && as.isActive() && height <= min(leashLength, MAX_ARM_HEIGHT); height += ARM_HEIGHT_SEARCH_INCREMENT){
+                handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, height, leashLength, angles[i]);
         
-    if(!found){
-        // Iterate over all possible height
-        for(double height = MIN_ARM_HEIGHT; !found && as.isActive() && height <= min(leashLength, MAX_ARM_HEIGHT); height += ARM_HEIGHT_SEARCH_INCREMENT){
-            handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, height, leashLength);
-        
-            if(handStartPub.getNumSubscribers() > 0){
-                static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
-                PointStamped startInBaseFrameViz = handStart;
-                visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
-                handStartPub.publish(startMsg);
-            }
+                if(handStartPub.getNumSubscribers() > 0){
+                    static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
+                    PointStamped startInBaseFrameViz = handStart;
+                    visualization_msgs::Marker startMsg = utils::createMarker(startInBaseFrameViz.point, startInBaseFrameViz.header, YELLOW, false);
+                    handStartPub.publish(startMsg);
+                }
                 
-            found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
-            if(found){
-                ROS_INFO("IK succeeded at height %f and length %f", height, leashLength);
+                found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
+                if(found){
+                    ROS_INFO("IK succeeded at height %f and length %f and angle %f in time %f", height, leashLength, angles[i], ros::Time::now().toSec() - startTime.toSec());
+                }
             }
         }
     }
     
-    ROS_DEBUG("Ending search @ %f", ros::Time::now().toSec());
+    if(!found){
+        ROS_INFO("Failed to find solution after %f time search", ros::Time::now().toSec() - startTime.toSec());
+    }
+
     if(found && handStartPub.getNumSubscribers() > 0){
       static const std_msgs::ColorRGBA YELLOW = utils::createColor(1, 1, 0);
       PointStamped startInBaseFrameViz = handStart;
@@ -230,9 +250,7 @@ namespace {
      robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
      const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
      
-     // Set the seed state to the base position.
-     req.ik_request.robot_state.joint_state.position = baseArmJointPositions();
-     req.ik_request.robot_state.joint_state.name = jointNames;
+     // Seed state defaults to current positions
      
      ikClient.call(req, res);
      if(res.error_code.val == res.error_code.SUCCESS){
@@ -258,18 +276,6 @@ namespace {
      return true;
   }
   
-  vector<double> baseArmJointPositions() const {
-        vector<double> positions(7);
-        positions[0] = -boost::math::constants::pi<double>() / 4.0;
-        positions[1] = 0.4;
-        positions[2] = -boost::math::constants::pi<double>() / 4.0;
-        positions[3] = -boost::math::constants::pi<double>() / 4.0;
-        positions[4] = -1.0;
-        positions[5] = -0.2;
-        positions[6] = 0.0;
-        return positions;
-  }
-  
     protected:
     
         // Calibrated through experimentation.
@@ -279,8 +285,6 @@ namespace {
         static const double MIN_ARM_HEIGHT = 0.2;
         
         static const double ARM_HEIGHT_SEARCH_INCREMENT = 0.1;
-        
-        static const double LEASH_LENGTH_SEARCH_INCREMENT = 0.25;
     
         ros::NodeHandle nh;
     

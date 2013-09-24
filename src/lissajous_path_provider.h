@@ -33,7 +33,7 @@ namespace {
             
             geometry_msgs::PointStamped goal;
             goal.header.frame_id = "/map";
-            goal.point.x = -(A * sin(a * t + delta)) + 8.5; // Offset the start and invert;
+            goal.point.x = -(A * sin(a * t + delta)) + 9; // Offset the start and invert;
             goal.point.y = B * sin(b * t);
             goal.point.z = 0.0;
             return goal;
