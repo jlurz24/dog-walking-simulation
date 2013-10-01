@@ -42,6 +42,15 @@ namespace utils {
     color.a = 1;
     return color;
   }
+  
+  static inline std_msgs::ColorRGBA createColor(float r, float g, float b, float a){
+    std_msgs::ColorRGBA color;
+    color.r = r;
+    color.g = g;
+    color.b = b;
+    color.a = a;
+    return color;
+  }
 
   static inline visualization_msgs::Marker createArrow(const double yaw, const std_msgs::Header& header, const std_msgs::ColorRGBA& color){
      // Publish a visualization arrow.

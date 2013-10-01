@@ -19,12 +19,11 @@ namespace {
       ros::ServiceServer startService;
       ros::ServiceServer maxService;
       bool started;
-      bool ended;
       double startTime;
       auto_ptr<PathProvider> pathProvider;
     public:
       
-      GetPathServer() : pnh("~"), started(false), ended(false), startTime(0){
+      GetPathServer() : pnh("~"), started(false), startTime(0){
         service = nh.advertiseService("/dogsim/get_path", &GetPathServer::getPath, this);
         startService = nh.advertiseService("/dogsim/start", &GetPathServer::start, this);
         maxService = nh.advertiseService("/dogsim/maximum_time", &GetPathServer::maximumTime, this);
@@ -59,31 +58,24 @@ namespace {
       bool getPath(dogsim::GetPath::Request& req, dogsim::GetPath::Response& res){
 	    
         res.elapsedTime = req.time - startTime;
-        
-        if(ended){
-            res.ended = true;
-            res.started = true;
-            return true;
-        }
 
         if(!started){
             // Not started yet.
             res.ended = false;
             res.started = false;
-            return true;
+        }
+        else if((req.time - startTime) > pathProvider->getMaximumTime()){
+          res.ended = true;
+          res.started = true;
+        }
+        else {
+          res.started = true;
+          res.ended = false;
         }
         
-        if((req.time - startTime) > pathProvider->getMaximumTime()){
-          ROS_INFO("Setting end flag @ time %f", req.time);
-          res.ended = ended = true;
-          res.started = true;
-          return true;
-        }
-
-        res.started = true;
-        res.ended = false;
         res.point = pathProvider->positionAtTime((req.time - startTime));
 		res.point.header.stamp = Time(req.time);
+        assert(res.point.header.frame_id.size() > 0);
         return true;
       }
   };

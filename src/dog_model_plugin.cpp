@@ -12,6 +12,8 @@
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
 #include <dogsim/GetDogPlannedPosition.h>
+#include <dogsim/GetDogOrientation.h>
+#include <tf/tf.h>
 
 using namespace std;
 
@@ -49,7 +51,9 @@ namespace gazebo {
       ros::service::waitForService("/dogsim/maximum_time");
       
       // Advertise a service to get the dogs planned position.
-      service = nh.advertiseService("/dogsim/dog_planned_position", &DogModelPlugin::getPlannedPosition, this);
+      plannedPositionService = nh.advertiseService("/dogsim/dog_planned_position", &DogModelPlugin::getPlannedPosition, this);
+      dogOrientationService = nh.advertiseService("/dogsim/dog_orientation", &DogModelPlugin::getDogOrientation, this);
+      
       dogGoalVizPub = nh.advertise<visualization_msgs::Marker>("dogsim/dog_goal_viz", 1);
       
       // Initialize the gaussians.
@@ -83,6 +87,18 @@ namespace gazebo {
         res.point.point.y = plannedPosition.y;
         res.point.point.z = plannedPosition.z;
         return running;
+    }
+    
+    private: bool getDogOrientation(dogsim::GetDogOrientation::Request& req, dogsim::GetDogOrientation::Response& res) {        bool running;
+        
+        math::Quaternion rot = this->body->GetWorldCoGPose().rot;
+        res.orientation.quaternion.x = rot.x;
+        res.orientation.quaternion.y = rot.y;
+        res.orientation.quaternion.z = rot.z;
+        res.orientation.quaternion.w = rot.w;
+        res.orientation.header.frame_id = "/map";
+        res.orientation.header.stamp = ros::Time(this->model->GetWorld()->GetSimTime().Double());
+        return true;
     }
     
     private: void startPath(){
@@ -307,7 +323,9 @@ namespace gazebo {
 
     private: ros::ServiceClient getPathClient;
     
-    private: ros::ServiceServer service;
+    private: ros::ServiceServer plannedPositionService;
+    
+    private: ros::ServiceServer dogOrientationService;
     
     private: physics::LinkPtr body;
     
