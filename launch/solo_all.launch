@@ -14,7 +14,9 @@
 
   <param name="leash_length" value="1.25"/>
 
-  <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen"/>
+  <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen">
+    <param name="path_type" value="blockwalk"/>
+  </node>
 
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
  

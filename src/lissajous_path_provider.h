@@ -17,6 +17,9 @@ namespace {
       public:
         LissajousPathProvider(){
         }
+        
+        virtual void init(){
+        }
     
         virtual double getMaximumTime() const {
             return FULL_CYCLE_T * TIMESCALE_FACTOR;

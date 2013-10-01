@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 #include <dogsim/GetPath.h>
+#include <dogsim/GetEntirePath.h>
 #include <dogsim/MaximumTime.h>
 #include <dogsim/utils.h>
 
@@ -34,7 +35,8 @@ private:
   
   //! Cached service client.
   ros::ServiceClient getPathClient;
-  
+  ros::ServiceClient getEntirePathClient;
+    
   double maximumTime;
 public:
   //! ROS node initialization
@@ -47,7 +49,9 @@ public:
    
     ros::service::waitForService("/dogsim/get_path");
     ros::service::waitForService("/dogsim/maximum_time");
+    ros::service::waitForService("/dogsim/get_entire_path");
     getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
+    getEntirePathClient = nh.serviceClient<GetEntirePath>("/dogsim/get_entire_path", true /* persist */);
     
     // Precalc the maximum time
     ros::ServiceClient maxTimeClient = nh.serviceClient<dogsim::MaximumTime>("/dogsim/maximum_time", false);
@@ -78,20 +82,22 @@ public:
             static const std_msgs::ColorRGBA ORANGE = utils::createColor(0.66, 0.33, 0, 0.5);
             visualization_msgs::Marker marker;
             marker.header.frame_id = "/map";
+            marker.header.stamp = ros::Time::now();
             marker.ns = "dogsim";
             marker.id = 0;
             marker.type = visualization_msgs::Marker::CUBE_LIST;
             marker.action = visualization_msgs::Marker::ADD;
             marker.color = ORANGE;
-            marker.scale.x = 0.25;
-            marker.scale.y = 0.06;
+            marker.scale.x = 0.15;
+            marker.scale.y = 0.15;
             marker.scale.z = 0.01;
             
-            for(double t = 0; t <= maximumTime; t += 0.5){
-                bool started, ended;
-                geometry_msgs::PointStamped goal = getDogGoalPosition(ros::Time(t), started, ended);
-                assert(goal.header.frame_id != "");
-                marker.points.push_back(goal.point);
+            GetEntirePath getPath;
+            getPath.request.increment = 0.5;
+            getEntirePathClient.call(getPath);
+            
+            for(size_t i = 0; i < getPath.response.points.size(); ++i){
+                marker.points.push_back(getPath.response.points[i].point);
             }
             goalPubComplete.publish(marker);  
         }
