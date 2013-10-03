@@ -82,14 +82,16 @@ namespace gazebo {
       // the dog.
       // Determine the angle between the robot and the dog in the world frame.
       double a = atan2((handPosition.y - dogPosition.y), (handPosition.x - dogPosition.x));
-      
+      double az = atan2((handPosition.z - dogPosition.z), 0);
+
       math::Vector3 handForce;
-      handForce.x = SPRING_FORCE * cos(a);
-      handForce.y = SPRING_FORCE * sin(a);
-      handForce.z = 0;
+      handForce.x = cos(a);
+      handForce.y = sin(a);
+      handForce.z = sin(az);
+      handForce = handForce.normalize();
 
       // Reduce the force.
-      const math::Vector3 appliedForce = handForce * ratio;
+      const math::Vector3 appliedForce = SPRING_FORCE * handForce * ratio;
 
       ROS_DEBUG("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
       if(distance > leashLength * 1.05){
@@ -99,8 +101,7 @@ namespace gazebo {
       dogBody->AddForce(appliedForce);
  
       // Apply the opposite force to the hand.
-      // TODO: We should do this, but it can get the arm to a position where it can't move easily.
-      // robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, 0.0));
+      robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, -appliedForce.z));
     }
     
     // Pointer to the hand
