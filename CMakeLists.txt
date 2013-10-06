@@ -68,3 +68,5 @@ rosbuild_add_executable(move_arm_to_base_position_action src/move_arm_to_base_po
 rosbuild_add_executable(avoid_dog src/avoid_dog.cpp)
 rosbuild_add_executable(path_visualizer src/path_visualizer.cpp)
 rosbuild_add_executable(leash_visualizer src/leash_visualizer.cpp)
+rosbuild_add_executable(high_arm_position_action src/high_arm_position_action)
+rosbuild_add_executable(no_op_adjust_arm_position_action src/no_op_adjust_arm_position_action.cpp)

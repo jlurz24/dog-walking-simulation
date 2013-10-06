@@ -75,6 +75,9 @@ private:
   //! Whether the robot is operating on its own
   bool soloMode;
   
+  //! Whether the robot is running in a mode where the base does not move.
+  bool noSteeringMode;
+  
   //! Whether are currently avoiding the dog
   bool avoidingDog;
   
@@ -83,6 +86,8 @@ public:
   RobotDriver(): pnh("~"), adjustDogClient("adjust_dog_position_action", true),
                             moveRobotClient("move_robot_action", true),
                             moveArmToBasePositionClient("move_arm_to_base_position_action", true),
+                            soloMode(false),
+                            noSteeringMode(false),
                             avoidingDog(false){
                                 
     ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
@@ -113,6 +118,8 @@ public:
       adjustDogClient.waitForServer();
     }
 
+    pnh.param<bool>("no_steering_mode", noSteeringMode, false);
+    
     initTimer = nh.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
     ROS_INFO("Robot driver initialization complete @ %f", ros::Time::now().toSec());
   }
@@ -140,7 +147,9 @@ public:
     utils::sendGoal(&moveRobotClient, moveRobotGoal, nh);
     
     startPath(ros::Time::now());
-    driverTimer = nh.createTimer(ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL), &RobotDriver::steeringCallback, this);
+    if(!noSteeringMode){
+        driverTimer = nh.createTimer(ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL), &RobotDriver::steeringCallback, this);
+    }
     ROS_INFO("Delayed init complete");
   }
   

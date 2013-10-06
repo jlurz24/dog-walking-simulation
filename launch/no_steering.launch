@@ -1,0 +1,7 @@
+<launch>
+  <include file="$(find dogsim)/launch/base.launch" />
+  <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen">
+    <param name="no_steering_mode" value="true"/>
+  </node>
+  <node pkg="dogsim" type="no_op_adjust_arm_position_action" name="adjust_dog_position_action" output="screen"/>
+</launch>

@@ -25,11 +25,11 @@ class PathScorer {
          ros::service::waitForService("/dogsim/get_path");
 
          timer.start();
-         ROS_INFO("Measurement initiated");
+         ROS_INFO("Path measurement initiated");
     }
   
     ~PathScorer(){
-      ROS_INFO("Measurement ended. Total position deviation: %f", totalDistanceDeviation);
+      ROS_INFO("Path measurement ended. Total position deviation squared(m): %f", totalDistanceDeviation);
     }
     
  private:
