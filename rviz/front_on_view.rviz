@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Visualization Markers1
-        - /RobotModel1
         - /RobotModel1/Links1
         - /RobotModel1/Links1/base_bellow_link1
         - /RobotModel1/Links1/base_footprint1
@@ -28,7 +27,7 @@ Panels:
         - /FlatPath1
         - /DogDirection1
       Splitter Ratio: 0.5
-    Tree Height: 595
+    Tree Height: 570
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -726,7 +725,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_position_viz_ephem
       Name: Dog Position
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -742,7 +741,7 @@ Visualization Manager:
       Marker Topic: /path/walk_goal_viz_ephem
       Name: Walk Goal
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -782,7 +781,7 @@ Visualization Manager:
       Marker Topic: /leash_visualizer/leash_viz
       Name: Leash
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -790,7 +789,7 @@ Visualization Manager:
       Marker Topic: /path/walk_goal_viz_complete
       Name: FlatPath
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -798,7 +797,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_direction_viz
       Name: DogDirection
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -826,20 +825,20 @@ Visualization Manager:
         Z: 0
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.3998
+      Pitch: 0.5248
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.27863
+      Yaw: 6.23363
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: false
+    collapsed: true
   Height: 808
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730100000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff0000023f000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002c9fc0200000001fb000000100044006900730070006c0061007900730000000041000002c9000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002ac000002c900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
-  Width: 999
-  X: 65
-  Y: 26
+  Width: 684
+  X: 0
+  Y: 21

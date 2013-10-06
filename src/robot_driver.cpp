@@ -23,18 +23,21 @@ namespace {
   typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 class RobotDriver {
 private:
-  //! Amount of time before starting walk
+  //! Amount of time before starting walk. This provides time for the robot to finish
+  //  tucking its arms.
   static const double DELAY_TIME = 2.5;
   
   //! Slope delta for calculating robot path.
   static const double SLOPE_DELTA = 0.01;
   
-  // Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
-  static const double TRAILING_DISTANCE = 0; // 0.585;
+  static const double TRAILING_DISTANCE = 0;
   
   //! Shift distance from base to desired arm position
   //! Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
   static const double SHIFT_DISTANCE = 0.6;
+  
+  //! Interval to update the move_robot_action
+  static const double MOVE_ROBOT_UPDATE_INTERVAL = 2.0;
   
   //! Node handle
   ros::NodeHandle nh;
@@ -109,7 +112,7 @@ public:
       ROS_INFO("Running regular mode");
       adjustDogClient.waitForServer();
     }
-    
+
     initTimer = nh.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this, true /* One shot */);
     ROS_INFO("Robot driver initialization complete @ %f", ros::Time::now().toSec());
   }
@@ -120,8 +123,24 @@ public:
     MoveArmToBasePositionGoal moveArmToBasePositionGoal;
     utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 10.0);
     
+    // Move the robot to the initial orientation.
+    ROS_INFO("Moving to initial pose");
+    MoveRobotGoal moveRobotGoal;
+    moveRobotGoal.pose.header.stamp = ros::Time::now();
+    moveRobotGoal.pose.header.frame_id = "/base_footprint";
+    moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(boost::math::constants::pi<double>() / 2.0);
+    utils::sendGoal(&moveRobotClient, moveRobotGoal, nh);
+    
+    ROS_INFO("Clearing wheels");
+    // Clear the wheels so we can move forward.
+    moveRobotGoal.pose.header.stamp = ros::Time::now();
+    moveRobotGoal.pose.header.frame_id = "/base_footprint";
+    moveRobotGoal.pose.pose.position.x = 0.2;
+    moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+    utils::sendGoal(&moveRobotClient, moveRobotGoal, nh);
+    
     startPath(ros::Time::now());
-    driverTimer = nh.createTimer(ros::Duration(0.5), &RobotDriver::steeringCallback, this);
+    driverTimer = nh.createTimer(ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL), &RobotDriver::steeringCallback, this);
     ROS_INFO("Delayed init complete");
   }
   
@@ -192,7 +211,7 @@ public:
 
       bool ended = false;
       bool started = false;
-      const geometry_msgs::PointStamped dogGoal = getDogGoalPosition(event.current_real, started, ended);
+      const geometry_msgs::PointStamped dogGoal = getDogGoalPosition(event.current_real + ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL / 2.0), started, ended);
 
       if(ended){
           ROS_INFO("Walk ended");
@@ -203,7 +222,7 @@ public:
           return;
       }
       
-      const geometry_msgs::PointStamped goal2 = getDogGoalPosition(ros::Time(event.current_real.toSec() + SLOPE_DELTA), started, ended);
+      const geometry_msgs::PointStamped goal2 = getDogGoalPosition(ros::Time(event.current_real.toSec() + MOVE_ROBOT_UPDATE_INTERVAL / 2.0 + SLOPE_DELTA), started, ended);
       
       // Calculate the vector of the tangent line.
       btVector3 tangent = btVector3(goal2.point.x, goal2.point.y, 0) - btVector3(dogGoal.point.x, dogGoal.point.y, 0);

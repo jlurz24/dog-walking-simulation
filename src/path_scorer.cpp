@@ -70,7 +70,7 @@ class PathScorer {
       double duration = timerEvent.current_real.toSec() - lastTime.toSec();
       totalDistanceDeviation += utils::square(currPositionDeviation) * duration;
 	  lastTime = timerEvent.current_real;
-      ROS_INFO("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
+      ROS_DEBUG("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
    }
 };
 

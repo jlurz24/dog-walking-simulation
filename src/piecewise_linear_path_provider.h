@@ -9,7 +9,7 @@ namespace {
   using namespace std;
   static const double pi = boost::math::constants::pi<double>();
   
-  static const double VELOCITY = 0.25; // m/s
+  static const double VELOCITY = 0.125; // m/s
   
   class PiecewiseLinearPathProvider : public PathProvider {
       public:

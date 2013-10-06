@@ -81,27 +81,28 @@ namespace gazebo {
       // The hand force is a spring like attractive force between the hand and
       // the dog.
       // Determine the angle between the robot and the dog in the world frame.
-      double a = atan2((handPosition.y - dogPosition.y), (handPosition.x - dogPosition.x));
-      double az = atan2((handPosition.z - dogPosition.z), 0);
+      double a = atan2(handPosition.y - dogPosition.y, handPosition.x - dogPosition.x);
 
       math::Vector3 handForce;
       handForce.x = cos(a);
       handForce.y = sin(a);
-      handForce.z = sin(az);
-      handForce = handForce.normalize();
+      handForce.z = handPosition.z - dogPosition.z;
+      handForce = handForce.Normalize();
 
       // Reduce the force.
       const math::Vector3 appliedForce = SPRING_FORCE * handForce * ratio;
 
-      ROS_DEBUG("Applying force x: %f y: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, a, ratio, distance);
+      ROS_DEBUG("Applying force x: %f y: %f z: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, appliedForce.z, a, ratio, distance);
       if(distance > leashLength * 1.05){
           ROS_INFO("Distance exceeding the leash length. Distance: %f", distance);
       }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
  
+      // Don't allow the extra spring force to be applied to the arm.
       // Apply the opposite force to the hand.
-      robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, -appliedForce.z));
+      // TODO: Activate this when it doesn't impact the arm so much
+      // robotHand->AddForce(math::Vector3(-min(appliedForce.x, MAXIMUM_DOG_FORCE), -min(appliedForce.y, MAXIMUM_DOG_FORCE), -min(appliedForce.z, MAXIMUM_DOG_FORCE)));
     }
     
     // Pointer to the hand
@@ -117,7 +118,10 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Amount of force the leash can apply at its maximum
-    private: static const double SPRING_FORCE = 1500.0;
+    // This is 2x the maximum force the dog can apply.
+    private: static const double SPRING_FORCE = 50.0;
+    
+    private: static const double MAXIMUM_DOG_FORCE = 25.0;
     
     double leashLength;
     

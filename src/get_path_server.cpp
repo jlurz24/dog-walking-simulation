@@ -74,7 +74,6 @@ namespace {
       }
       
       bool getPath(dogsim::GetPath::Request& req, dogsim::GetPath::Response& res){
-        assert(req.time >= startTime);
         res.elapsedTime = req.time - startTime;
         if(!started){
             // Not started yet.

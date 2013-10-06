@@ -29,6 +29,7 @@ namespace {
         as.start();
   }
   
+  protected:
   void preemptCB(){
     ROS_DEBUG("Preempting the move robot action");
 
@@ -36,8 +37,8 @@ namespace {
       ROS_INFO("Move robot position action cancelled prior to start");
       return;
     }
-    // Stop the robot.
-    stop();
+
+    // Do not stop the robot as this will be called if we are pre-empted by the sequencer.
     as.setPreempted();
   }
 
@@ -50,6 +51,10 @@ namespace {
     cmdVelocityPub.publish(baseCmd);
   }
   
+  static double calcQDistance(const tf::Quaternion& q1, const tf::Quaternion& q2){
+      return (1 - btPow(q1.dot(q2), btScalar(2)));
+  }
+  
   void move(const dogsim::MoveRobotGoalConstPtr& goal){
     if(!as.isActive()){
       ROS_INFO("Move robot action cancelled prior to start");
@@ -57,7 +62,7 @@ namespace {
     }
     
     // Visualize the goal.
-    if(goalPub.getNumSubscribers()){
+    if(goalPub.getNumSubscribers() > 0){
         std_msgs::ColorRGBA GREEN = utils::createColor(0, 1, 0);
         goalPub.publish(utils::createMarker(goal->pose.pose.position, goal->pose.header, GREEN, false));
     }
@@ -65,13 +70,18 @@ namespace {
     // Determine the pose in the map frame. This allows us to store
     // an absolute pose
     geometry_msgs::PoseStamped absoluteGoal;
-    try {
-        tf.transformPose("/map", ros::Time(0), goal->pose, goal->pose.header.frame_id, absoluteGoal);
+    if(goal->pose.header.frame_id != "/map"){
+        try {
+            tf.transformPose("/map", ros::Time(0), goal->pose, goal->pose.header.frame_id, absoluteGoal);
+        }
+        catch(tf::TransformException& ex){
+            ROS_ERROR("Failed to transform goal to map frame");
+            as.setAborted();
+            return;
+        }
     }
-    catch(tf::TransformException& ex){
-        ROS_ERROR("Failed to transform goal to map frame");
-        as.setAborted();
-        return;
+    else {
+        absoluteGoal = goal->pose;
     }
     
     // Determine the updated position of the robot.
@@ -87,12 +97,20 @@ namespace {
     
     // Loop and move the robot, checking the position of the goal in the base
     // frame after each move.
-    ros::Rate r(10); // 10hz
+    static const unsigned int HZ = 10;
+    ros::Rate r(HZ);
     
     // How close to the goal we need to get.
-    const double DISTANCE_THRESHOLD = 0.1;
-    const double Q_DISTANCE_THRESHOLD = 0.01;
+    static const double DISTANCE_THRESHOLD = 0.1;
     
+    // This is about 2.5 degrees
+    static const double Q_DISTANCE_THRESHOLD = 0.005;
+    static const double MAX_LINEAR_V = 0.5;
+    static const double STRAIGHT_AHEAD_FACTOR = 6.0;
+    static const double MAX_ANGULAR_V = 0.5;
+    static const double STATIONARY_FACTOR = 4.0;
+    static const double MAX_REVERSE_DISTANCE = 0.25;
+            
     // Robot is at 0,0
     geometry_msgs::Pose robotPose;
     tf::quaternionTFToMsg(tf::createIdentityQuaternion(), robotPose.orientation);
@@ -108,71 +126,87 @@ namespace {
     tf::Quaternion goalPoseTF;
     tf::quaternionMsgToTF(goalPose.pose.orientation, goalPoseTF);
 
-    double qDistance = 1 - btPow(goalPoseTF.dot(robotPoseTF), btScalar(2));
+    double qDistance = calcQDistance(goalPoseTF, robotPoseTF);
     
     // Loop and move the robot until the robot reaches the goal point.
     while(ros::ok() && as.isActive() && (currentDistance > DISTANCE_THRESHOLD || qDistance > Q_DISTANCE_THRESHOLD)){
         ROS_DEBUG("Distance to goal: %f %f", currentDistance, qDistance);
         
-        // Interpolate between the starting orientation and goal.
-        const double MAX_V = 2.5;
-        
         // Attempt to estimate the distance traveled in this iteration
         double ratio = 1;
         
-        // TODO: Better small number constant
-        if(totalDistance > 0.01){
-            ratio = min(max(totalDistance - currentDistance, MAX_V * 0.1) / totalDistance, 1.0);
+        // Use the ratio of current distance to go over the total distance to go assuming the total
+        // distance is not zero.
+        if(totalDistance > DISTANCE_THRESHOLD){
+            ratio = min((totalDistance - (currentDistance - MAX_LINEAR_V * 1.0 / static_cast<double>(HZ))) / totalDistance, 1.0);
         }
+        ROS_DEBUG("Total distance %f current distance %f ratio %f", totalDistance, currentDistance, ratio);
         
+        // Interpolate between the starting orientation and goal.
         btVector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
         btScalar yawToTarget = btAtan2(goalVector.y(), goalVector.x());
         tf::Quaternion goalOrientation = tf::createQuaternionFromYaw(yawToTarget);
         
-        ROS_DEBUG("Orientation ratio: %f", ratio);
         tf::Quaternion interp = tf::slerp(goalOrientation, goalPoseTF, ratio);
         double yaw = tf::getYaw(interp);
         
         // Calculate the movement.
         geometry_msgs::Twist baseCmd;
 
-        const double DEACC_DISTANCE = 0.75;
-        const double MAX_REVERSE_DISTANCE = 0.5;
+
         
         // Robot location is at the root of frame.
-        if(currentDistance > DEACC_DISTANCE){
-          baseCmd.linear.x = MAX_V;
+        if(currentDistance > DISTANCE_THRESHOLD){
+            baseCmd.linear.x = MAX_LINEAR_V;
         }
         else {
-          baseCmd.linear.x = currentDistance / DEACC_DISTANCE * MAX_V;
+            baseCmd.linear.x = 0;
         }
 
-        ROS_DEBUG("Final yaw: %f x: %f", yaw, baseCmd.linear.x);
+        ROS_DEBUG("Final yaw: %f x: %f qdistance: %f", yaw, baseCmd.linear.x, qDistance);
         
         // Determine if we should go backwards.
-        // TODO: Might need to tune this further to perform the least amount of turning.
-        if(goalPose.pose.position.x < 0){
-            if(goalPose.pose.position.x > -MAX_REVERSE_DISTANCE && goalPose.pose.position.x > 0){
-                if(yaw > PI){
-                    baseCmd.angular.z = yaw - PI;
+        if(goalPose.pose.position.x < 0 && currentDistance > DISTANCE_THRESHOLD && fabs(yaw > 3 * PI / 4)){
+            if(currentDistance < MAX_REVERSE_DISTANCE){
+                ROS_INFO("Moving in reverse at original anglular velocity %f at velocity %f", yaw, baseCmd.linear.x);
+                if(yaw > PI / 2.0){
+                    yaw -= PI;
                 } else {
-                    baseCmd.angular.z = yaw + PI;
+                    yaw += PI;
                 }
                 baseCmd.linear.x *= -1;
-                ROS_INFO("Moving in reverse at angle %f at velocity %f", baseCmd.angular.z, baseCmd.linear.x);
+                ROS_INFO("Moving in reverse at anglular velocity %f at velocity %f", yaw, baseCmd.linear.x);
             }
             else {
-                baseCmd.angular.z = yaw;
+                // Use yaw as is.
                 baseCmd.linear.x = 0;
             }
         }
-        else if(fabs(yaw) > PI / 4.0){
-            ROS_DEBUG("Too far to turn and move: %f", yaw);
-            baseCmd.linear.x = 0;
-            baseCmd.angular.z = yaw;
+        else if(calcQDistance(tf::createIdentityQuaternion(), interp) < Q_DISTANCE_THRESHOLD){
+            ROS_DEBUG("Not performing turn because threshold reached. yaw = %f qDistance = %f", yaw, calcQDistance(tf::createIdentityQuaternion(), interp));
+            // Turning slows the robot down, so avoid turning when possible.
+            yaw = 0;
+        }
+        // Turn and drive
+        else {
+            ROS_DEBUG("Turning and driving. Yaw = %f qDistance = %f", yaw, calcQDistance(tf::createIdentityQuaternion(), interp));
+            // Use yaw as is.     
+        }
+        
+        // base cmd is rotational
+        if(fabs(yaw) > numeric_limits<double>::epsilon()){
+            baseCmd.angular.z = copysign(MAX_ANGULAR_V, yaw);
+            if(fabs(baseCmd.linear.x) < numeric_limits<double>::epsilon()){
+                // If the robot is not moving forward use a faster turn.
+                baseCmd.angular.z *= STATIONARY_FACTOR;
+            }
+            else {
+                ROS_DEBUG("X too high to apply stationary factor %f", baseCmd.linear.x);
+            }
         }
         else {
-            baseCmd.angular.z = yaw;      
+            baseCmd.linear.x *= STRAIGHT_AHEAD_FACTOR;
+            baseCmd.angular.z = 0;
         }
         ROS_DEBUG("Moving base x: %f, y: %f, angular z: %f", baseCmd.linear.x, baseCmd.linear.y, baseCmd.angular.z);
             
@@ -199,7 +233,7 @@ namespace {
             }
             currentDistance = utils::pointToPointXYDistance(goalPose.pose.position, robotPose.position);
             tf::quaternionMsgToTF(goalPose.pose.orientation, goalPoseTF);
-            qDistance = 1 - btPow(goalPoseTF.dot(robotPoseTF), btScalar(2));
+            qDistance = calcQDistance(goalPoseTF, robotPoseTF);
         }
         
     }
@@ -214,7 +248,7 @@ namespace {
     }
   }
 
-  protected:
+  private:
     ros::NodeHandle nh;
     
     // Actionlib classes

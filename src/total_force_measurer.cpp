@@ -36,12 +36,6 @@ class TotalForceMeasurer {
 
       // Get the current joint state
       sensor_msgs::JointStateConstPtr jointState = ros::topic::waitForMessage<sensor_msgs::JointState>("joint_states", nh, ros::Duration(0.5));
-      
-      // Ignore the first measurement so we can get a clean baseline.
-      if(!lastJointState.get()){
-        lastJointState = jointState;
-        return;
-      }
 
       ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
       dogsim::GetPath getPath;
@@ -58,6 +52,12 @@ class TotalForceMeasurer {
         return;
       }
 
+      // Ignore the first measurement so we can get a clean baseline.
+      if(!lastJointState.get()){
+        lastJointState = jointState;
+        return;
+      }
+      
       // Determine the time delta
       double deltaSecs = jointState->header.stamp.toSec() - lastJointState->header.stamp.toSec();
 
@@ -74,7 +74,7 @@ class TotalForceMeasurer {
       // Save off the message.
       lastJointState = jointState;
 
-      ROS_INFO("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / (jointState->header.stamp.toSec() - getPath.response.elapsedTime));
+      ROS_DEBUG("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / getPath.response.elapsedTime);
    }
 };
 

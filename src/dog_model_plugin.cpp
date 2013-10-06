@@ -79,17 +79,18 @@ namespace gazebo {
           boost::bind(&DogModelPlugin::OnUpdate, this));
     }
 
-    private: bool getPlannedPosition(dogsim::GetDogPlannedPosition::Request& req, dogsim::GetDogPlannedPosition::Response& res) {        bool running;
-        const math::Vector3 plannedPosition = calcGoalPosition(common::Time(req.time.toSec()), running);
+    private: bool getPlannedPosition(dogsim::GetDogPlannedPosition::Request& req, dogsim::GetDogPlannedPosition::Response& res) {
+        bool unused;
+        const math::Vector3 plannedPosition = calcGoalPosition(common::Time(req.time.toSec()), unused);
         res.point.header.stamp = req.time;
         res.point.header.frame_id = "/map";
         res.point.point.x = plannedPosition.x;
         res.point.point.y = plannedPosition.y;
         res.point.point.z = plannedPosition.z;
-        return running;
+        return true;
     }
     
-    private: bool getDogOrientation(dogsim::GetDogOrientation::Request& req, dogsim::GetDogOrientation::Response& res) {        bool running;
+    private: bool getDogOrientation(dogsim::GetDogOrientation::Request& req, dogsim::GetDogOrientation::Response& res) {
         
         math::Quaternion rot = this->body->GetWorldCoGPose().rot;
         res.orientation.quaternion.x = rot.x;
@@ -154,6 +155,11 @@ namespace gazebo {
           return;
       }
       
+      // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smmothing function
+      // such that there is 100% traction at 0.1 height and 0% traction at 0.2 height.
+      double liftFactor = min(log(5 * this->model->GetWorldPose().pos.z) / log(5* 0.05), 1.0);
+      ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
+      
       // Publish the position.
       if(int(currTime.Double() * 1000) % 100 == 0 && dogGoalVizPub.getNumSubscribers() > 0){
           std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
@@ -167,20 +173,21 @@ namespace gazebo {
       }
       
       // Calculate current errors
-      math::Vector3 worldPose = this->model->GetWorldPose().pos;
-      double errorX = calcError(worldPose.x, goalPosition.x);
-      double errorY = calcError(worldPose.y, goalPosition.y);
-      common::Time deltat = currTime - this->previousTime;
+      const math::Vector3 worldPose = this->model->GetWorldPose().pos;
+      const double errorX = calcError(worldPose.x, goalPosition.x);
+      const double errorY = calcError(worldPose.y, goalPosition.y);
+      const common::Time deltat = currTime - this->previousTime;
 
-      double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
-      double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
+      const double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
+      const double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
       
-      double outputX = calcPDOutput(errorX, errorDerivativeX);
-      double outputY = calcPDOutput(errorY, errorDerivativeY);
+      const double outputX = calcPDOutput(errorX, errorDerivativeX);
+      const double outputY = calcPDOutput(errorY, errorDerivativeY);
 
       this->forceX += outputX;
       this->forceY += outputY;
       
+      // This should only happen when the leash is binding.
       if(abs(this->forceX) > MAXIMUM_FORCE){
           ROS_DEBUG("Maximum X force applied to force: %f", this->forceX);
           this->forceX = copysign(MAXIMUM_FORCE, this->forceX);
@@ -196,7 +203,7 @@ namespace gazebo {
       // Save the current error for the next iteration.
       this->previousErrorY = errorY;
       
-      body->AddForce(math::Vector3(this->forceX, this->forceY, 0.0));
+      body->AddForce(math::Vector3(this->forceX * liftFactor, this->forceY * liftFactor, 0.0));
 
       // Save the previous time.
       this->previousTime = currTime;
@@ -346,7 +353,7 @@ namespace gazebo {
 
     private: static const double KP_DEFAULT = 0.01;
     
-    private: static const double MAXIMUM_FORCE = 40;
+    private: static const double MAXIMUM_FORCE = 25;
     
     // KD term
     private: double KD;
