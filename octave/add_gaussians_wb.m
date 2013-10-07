@@ -1,4 +1,4 @@
-function x, y = add_gaussians(xorig, yorig)
+function x, y = add_gaussians_wb(xorig, yorig)
 
   # Gaussian parameters
   pNewGauss = 0.09;
