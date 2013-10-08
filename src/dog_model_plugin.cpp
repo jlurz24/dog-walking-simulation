@@ -123,17 +123,24 @@ namespace gazebo {
         
         double pNewGauss;
         nh.param<double>("p_new_gauss", pNewGauss, P_NEW_GAUSS_DEFAULT);
-        
+        double gaussHeight;
+        nh.param<double>("gauss_height", gaussHeight, 1.0);
+        double gaussMinWidth;
+        nh.param<double>("gauss_min_width", gaussMinWidth, 0.5);
+        double gaussMaxWidth;
+        nh.param<double>("gauss_max_width", gaussMaxWidth, 8.0);
+        ROS_INFO("Gaussian parameters -  pNewGauss: %f gaussHeight: %f gaussMinWidth: %f gaussMaxWidth: %f", pNewGauss, gaussHeight, gaussMinWidth, gaussMaxWidth);
+            
         ROS_DEBUG("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
         // Precompute all the lissajous cycles.
         for(double t = 0; t <= maxTime.response.maximumTime; t += 1.0 / SIMULATOR_CYCLES_PER_SECOND){
             if(randomZeroToOne(rng) < pNewGauss / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
                 // Create a structure with the parameters.
                 GaussParams params;
-                boost::uniform_real<> randomA(-pi, pi);
+                boost::uniform_real<> randomA(-gaussHeight * pi, gaussHeight * pi);
                 params.a = randomA(rng);
        
-                boost::uniform_real<> randomC(pi / 2, 8.0 * pi);
+                boost::uniform_real<> randomC(gaussMinWidth * pi, gaussMaxWidth * pi);
                 params.c = randomC(rng);
 
                 ROS_DEBUG("New gaussian created with a: %f c: %f at time %f", params.a, params.c, t);
@@ -176,14 +183,17 @@ namespace gazebo {
       const math::Vector3 worldPose = this->model->GetWorldPose().pos;
       const double errorX = calcError(worldPose.x, goalPosition.x);
       const double errorY = calcError(worldPose.y, goalPosition.y);
-      const common::Time deltat = currTime - this->previousTime;
 
+      const common::Time deltat = currTime - this->previousTime;
+    
+    
       const double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
       const double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
+
       
       const double outputX = calcPDOutput(errorX, errorDerivativeX);
       const double outputY = calcPDOutput(errorY, errorDerivativeY);
-
+      
       this->forceX += outputX;
       this->forceY += outputY;
       
@@ -196,15 +206,21 @@ namespace gazebo {
       this->previousErrorX = errorX;
       
       if(abs(this->forceY) > MAXIMUM_FORCE){
-          ROS_DEBUG("Maximum Y force applied to force: %f", this->forceX);
+          ROS_DEBUG("Maximum Y force applied to force: %f", this->forceY);
           this->forceY = copysign(MAXIMUM_FORCE, this->forceY);
       }
       
       // Save the current error for the next iteration.
       this->previousErrorY = errorY;
-      
-      body->AddForce(math::Vector3(this->forceX * liftFactor, this->forceY * liftFactor, 0.0));
 
+      body->AddForce(math::Vector3(this->forceX * liftFactor, this->forceY * liftFactor, 0.0));
+      
+      // Calculate the torque      
+      const math::Vector3 relativeForce = body->GetRelativeForce();
+      const double forceZ = atan2(relativeForce.y, relativeForce.x) / (3 * pi);
+
+      body->AddRelativeTorque(math::Vector3(0.0, 0.0, forceZ));
+      
       // Save the previous time.
       this->previousTime = currTime;
     }
@@ -312,13 +328,13 @@ namespace gazebo {
 
     // Previous iteration's error in Y
     private: double previousErrorY;
-
+    
     // X Force
     private: double forceX;
 
     // Y Force
     private: double forceY;
-
+    
     // Previous goal
     private: math::Vector3 previousBase;
 
@@ -351,14 +367,14 @@ namespace gazebo {
     // KP term
     private: double KP;
 
-    private: static const double KP_DEFAULT = 0.01;
+    private: static const double KP_DEFAULT = 0.0075;
     
-    private: static const double MAXIMUM_FORCE = 25;
+    private: static const double MAXIMUM_FORCE = 10;
     
     // KD term
     private: double KD;
 
-    private: static const double KD_DEFAULT = 0.2;
+    private: static const double KD_DEFAULT = 0.15;
     
     // Probability of starting a new gaussian in each second
     private: static const double P_NEW_GAUSS_DEFAULT = 0.16;

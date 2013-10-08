@@ -220,7 +220,7 @@ public:
 
       bool ended = false;
       bool started = false;
-      const geometry_msgs::PointStamped dogGoal = getDogGoalPosition(event.current_real + ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL / 2.0), started, ended);
+      const geometry_msgs::PointStamped dogGoal = getDogGoalPosition(event.current_real + ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL), started, ended);
 
       if(ended){
           ROS_INFO("Walk ended");
@@ -231,7 +231,7 @@ public:
           return;
       }
       
-      const geometry_msgs::PointStamped goal2 = getDogGoalPosition(ros::Time(event.current_real.toSec() + MOVE_ROBOT_UPDATE_INTERVAL / 2.0 + SLOPE_DELTA), started, ended);
+      const geometry_msgs::PointStamped goal2 = getDogGoalPosition(ros::Time(event.current_real.toSec() + MOVE_ROBOT_UPDATE_INTERVAL + SLOPE_DELTA), started, ended);
       
       // Calculate the vector of the tangent line.
       btVector3 tangent = btVector3(goal2.point.x, goal2.point.y, 0) - btVector3(dogGoal.point.x, dogGoal.point.y, 0);

@@ -1,0 +1,7 @@
+<launch>
+  <include file="$(find dogsim)/launch/all.launch" />
+  <param name="p_new_gauss" value="0.09"/>
+  <param name="gauss_height" value="0.25" />
+  <param name="gauss_min_width" value="0.5" />
+  <param name="gauss_max_width" value="1.0" />
+</launch>

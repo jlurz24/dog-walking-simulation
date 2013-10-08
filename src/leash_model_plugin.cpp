@@ -7,6 +7,7 @@
 #include <boost/math/constants/constants.hpp>
 #include <stdlib.h>
 #include <time.h>
+#include <dogsim/LeashInfo.h>
 
 using namespace std;
 
@@ -14,6 +15,7 @@ namespace gazebo {
   class LeashModelPlugin : public ModelPlugin {
     public: LeashModelPlugin() {
       ROS_INFO("Creating Leash Model Plugin");
+      leashInfoPub = nh.advertise<dogsim::LeashInfo>("leash_model/info", 1);
     }
     
     public: ~LeashModelPlugin() {
@@ -75,8 +77,8 @@ namespace gazebo {
       // function.
       // Octave function:
       // x = [0:0.01:2.5];
-      // y = 1 ./ (1 + e.^(-24*(x - 1.25)));
-      const double ratio = 1.0 / (1.0 + exp(-24.0 * (abs(distance) - leashLength)));
+      // y = 1 ./ (1 + e.^(-42*(x - 1.25)));
+      const double ratio = 1.0 / (1.0 + exp(-42.0 * (abs(distance) - leashLength)));
 
       // The hand force is a spring like attractive force between the hand and
       // the dog.
@@ -93,16 +95,22 @@ namespace gazebo {
       const math::Vector3 appliedForce = SPRING_FORCE * handForce * ratio;
 
       ROS_DEBUG("Applying force x: %f y: %f z: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, appliedForce.z, a, ratio, distance);
-      if(distance > leashLength * 1.05){
-          ROS_INFO("Distance exceeding the leash length. Distance: %f", distance);
+ 
+      if(leashInfoPub.getNumSubscribers() > 0){
+          dogsim::LeashInfo info;
+          info.force.x = appliedForce.x;
+          info.force.y = appliedForce.y;
+          info.force.z = appliedForce.z;
+          info.distance = distance;
+          info.ratio = ratio;
+          leashInfoPub.publish(info);
       }
       // Apply the force to the dog.
       dogBody->AddForce(appliedForce);
  
       // Don't allow the extra spring force to be applied to the arm.
       // Apply the opposite force to the hand.
-      // TODO: Activate this when it doesn't impact the arm so much
-      // robotHand->AddForce(math::Vector3(-min(appliedForce.x, MAXIMUM_DOG_FORCE), -min(appliedForce.y, MAXIMUM_DOG_FORCE), -min(appliedForce.z, MAXIMUM_DOG_FORCE)));
+      robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, -appliedForce.z));
     }
     
     // Pointer to the hand
@@ -119,13 +127,13 @@ namespace gazebo {
 
     // Amount of force the leash can apply at its maximum
     // This is 2x the maximum force the dog can apply.
-    private: static const double SPRING_FORCE = 50.0;
-    
-    private: static const double MAXIMUM_DOG_FORCE = 25.0;
-    
+    private: static const double SPRING_FORCE = 25.0;
+        
     double leashLength;
     
     ros::NodeHandle nh;
+    
+    ros::Publisher leashInfoPub;
   };
 
   // Register this plugin with the simulator

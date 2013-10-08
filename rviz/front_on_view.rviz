@@ -27,7 +27,7 @@ Panels:
         - /FlatPath1
         - /DogDirection1
       Splitter Ratio: 0.5
-    Tree Height: 570
+    Tree Height: 359
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -725,7 +725,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_position_viz_ephem
       Name: Dog Position
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -741,7 +741,7 @@ Visualization Manager:
       Marker Topic: /path/walk_goal_viz_ephem
       Name: Walk Goal
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -781,7 +781,7 @@ Visualization Manager:
       Marker Topic: /leash_visualizer/leash_viz
       Name: Leash
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -789,7 +789,7 @@ Visualization Manager:
       Marker Topic: /path/walk_goal_viz_complete
       Name: FlatPath
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -797,7 +797,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_direction_viz
       Name: DogDirection
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -825,10 +825,10 @@ Visualization Manager:
         Z: 0
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.5248
+      Pitch: 0.4898
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.23363
+      Yaw: 6.27363
     Saved: ~
 Window Geometry:
   Displays:

@@ -100,6 +100,8 @@ namespace {
         
         if(dogDirectionVizPub.getNumSubscribers() > 0){
             // Get the direction
+            static const double PI = boost::math::constants::pi<double>();
+
             geometry_msgs::QuaternionStamped orientation = getDogOrientation();
             visualization_msgs::Marker marker;
             marker.header = orientation.header;

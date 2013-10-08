@@ -3,6 +3,7 @@ from ._MoveDogAwayResult import *
 from ._AdjustDogPositionAction import *
 from ._MoveArmToBasePositionAction import *
 from ._AdjustDogPositionActionGoal import *
+from ._LeashInfo import *
 from ._MoveRobotAction import *
 from ._MoveArmToBasePositionGoal import *
 from ._AdjustDogPositionResult import *

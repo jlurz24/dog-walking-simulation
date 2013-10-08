@@ -5,8 +5,8 @@
   </node>
  <param name="add_gaussians_to_path" value="true"/>
  <param name="solo_dog" value="true" />
- <param name="dog_kp" value="0.01" />
- <param name="dog_kd" value="0.2" />
+ <param name="dog_kp" value="0.0075" />
+ <param name="dog_kd" value="0.15" />
 
  <param name="dog" textfile="$(find dogsim)/models/dog.model" />
   <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.1" respawn="false" output="screen" />

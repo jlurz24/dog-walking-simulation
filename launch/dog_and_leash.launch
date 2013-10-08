@@ -2,8 +2,8 @@
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen"/>
  <param name="solo_dog" value="true" />
- <param name="dog_kp" value="0.6" />
- <param name="dog_kd" value="0.35" />
+ <param name="dog_kp" value="0.005" />
+ <param name="dog_kd" value="0.2" />
  <param name="leash_length" value="1.25"/>
 
  <param name="dog" textfile="$(find dogsim)/models/dog.model" />
