@@ -53,7 +53,7 @@ namespace {
     
     ROS_INFO("Adjusting torso to height %f", torsoHeight);
     pr2_controllers_msgs::SingleJointPositionGoal up;
-    up.position = torseHeight;
+    up.position = torsoHeight;
     up.min_duration = ros::Duration(0.0);
     up.max_velocity = 2.0;
     

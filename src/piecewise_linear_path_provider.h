@@ -142,6 +142,7 @@ namespace {
         
         void calculateTotalLength(){
             // Calculate the total length
+            double totalLength = 0;
             for(unsigned int i = 0; i < segments.size(); ++i){
               totalLength += segments[i].w();
             }
@@ -151,7 +152,6 @@ namespace {
         
      private:
         double totalDuration;
-        double totalLength;
         
         vector<btVector3> segments;
         

@@ -131,7 +131,7 @@ namespace gazebo {
         nh.param<double>("gauss_max_width", gaussMaxWidth, 8.0);
         ROS_INFO("Gaussian parameters -  pNewGauss: %f gaussHeight: %f gaussMinWidth: %f gaussMaxWidth: %f", pNewGauss, gaussHeight, gaussMinWidth, gaussMaxWidth);
             
-        ROS_DEBUG("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
+        ROS_INFO("Initializing gaussians. Maximum time is %f", maxTime.response.maximumTime);
         // Precompute all the lissajous cycles.
         for(double t = 0; t <= maxTime.response.maximumTime; t += 1.0 / SIMULATOR_CYCLES_PER_SECOND){
             if(randomZeroToOne(rng) < pNewGauss / static_cast<double>(SIMULATOR_CYCLES_PER_SECOND)){
@@ -163,7 +163,7 @@ namespace gazebo {
       }
       
       // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smmothing function
-      // such that there is 100% traction at 0.1 height and 0% traction at 0.2 height.
+      // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
       double liftFactor = min(log(5 * this->model->GetWorldPose().pos.z) / log(5* 0.05), 1.0);
       ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
       

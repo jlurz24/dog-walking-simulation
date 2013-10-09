@@ -86,8 +86,8 @@ namespace gazebo {
       double a = atan2(handPosition.y - dogPosition.y, handPosition.x - dogPosition.x);
 
       math::Vector3 handForce;
-      handForce.x = cos(a);
-      handForce.y = sin(a);
+      handForce.x = handPosition.x - dogPosition.x;
+      handForce.y = handPosition.y - dogPosition.y;
       handForce.z = handPosition.z - dogPosition.z;
       handForce = handForce.Normalize();
 
@@ -126,8 +126,8 @@ namespace gazebo {
     private: event::ConnectionPtr updateConnection;
 
     // Amount of force the leash can apply at its maximum
-    // This is 2x the maximum force the dog can apply.
-    private: static const double SPRING_FORCE = 25.0;
+    // This is 3x the maximum force the dog can apply.
+    private: static const double SPRING_FORCE = 30.0;
         
     double leashLength;
     
