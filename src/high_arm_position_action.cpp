@@ -15,12 +15,15 @@ namespace {
 
   class HighArmPositionAction {
     public:
-      HighArmPositionAction(const string& name): as(nh, name, boost::bind(&HighArmPositionAction::adjust, this, _1), false),
+      HighArmPositionAction(const string& name): pnh("~"),
+                                                 as(nh, name, boost::bind(&HighArmPositionAction::adjust, this, _1), false),
                                                  actionName(name),
                                                  rightArm("right_arm"),
-                                                 torsoClient("torso_controller/position_joint_action", true){
+                                                 torsoClient("torso_controller/position_joint_action", true),
+                                                 torsoHeight(0){
         
         as.registerPreemptCallback(boost::bind(&HighArmPositionAction::preemptCB, this));
+        pnh.param<double>("torso_height", torsoHeight, 0.1);
         torsoClient.waitForServer();
         as.start();
     }
@@ -48,9 +51,9 @@ namespace {
         return false;
     }
     
-    ROS_INFO("Adjusting torso");
+    ROS_INFO("Adjusting torso to height %f", torsoHeight);
     pr2_controllers_msgs::SingleJointPositionGoal up;
-    up.position = 0.1;
+    up.position = torseHeight;
     up.min_duration = ros::Duration(0.0);
     up.max_velocity = 2.0;
     
@@ -74,12 +77,14 @@ namespace {
   
     protected:
         ros::NodeHandle nh;
-    
+        ros::NodeHandle pnh;
+        
         // Actionlib classes
         actionlib::SimpleActionServer<dogsim::AdjustDogPositionAction> as;
         string actionName;
         move_group_interface::MoveGroup rightArm;
         TorsoClient torsoClient;
+        double torsoHeight;
     };
 }
 
