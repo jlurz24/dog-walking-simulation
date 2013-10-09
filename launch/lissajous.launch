@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen">
+      <param name="path_type" value="lissajous"/>
+  </node>
+</launch>

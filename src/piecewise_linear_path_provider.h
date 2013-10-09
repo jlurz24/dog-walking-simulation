@@ -26,7 +26,13 @@ namespace {
         }
         
         virtual geometry_msgs::PointStamped positionAtTime(const double t) const {
-            assert(t >= 0.0);
+            geometry_msgs::PointStamped goal;
+            goal.header.frame_id = "/map";
+            goal.header.stamp = ros::Time::now();
+            
+            if(t < 0){
+                return goal;
+            }
             
             double distance = VELOCITY * t;
             btVector3 result = btVector3(0, 0, 0);
@@ -123,9 +129,7 @@ namespace {
                 result = rounding;
             }
             
-            geometry_msgs::PointStamped goal;
-            goal.header.frame_id = "/map";
-            goal.header.stamp = ros::Time::now();
+
             goal.point.x = result.x() + 1.0; // Offset the start position
             goal.point.y = result.y();
             goal.point.z = 0;

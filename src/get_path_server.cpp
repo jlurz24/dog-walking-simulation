@@ -47,6 +47,7 @@ namespace {
             ROS_ERROR("Unknown path provider type: %s", pathType.c_str());
             return;
         }
+        ROS_INFO("%s path type selected", pathType.c_str());
         pathProvider->init();
       }
       

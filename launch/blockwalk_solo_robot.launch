@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find dogsim)/launch/solo_robot.launch" />
+  <include file="$(find dogsim)/launch/blockwalk.launch" />
+  <include file="$(find dogsim)/launch/force_scoring.launch" />
+</launch>

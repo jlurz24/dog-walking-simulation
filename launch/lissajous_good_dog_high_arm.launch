@@ -1,0 +1,6 @@
+<launch>
+  <include file="$(find dogsim)/launch/high_arm.launch" />
+  <include file="$(find dogsim)/launch/good_dog.launch" />
+  <include file="$(find dogsim)/launch/lissajous.launch" />
+  <include file="$(find dogsim)/launch/scoring.launch" />
+</launch>

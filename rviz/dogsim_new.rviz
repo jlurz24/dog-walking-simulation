@@ -14,9 +14,8 @@ Panels:
         - /Hand Start Viz1
         - /Planned Move Viz1
         - /DogGoal1
-        - /Dog Direction1
       Splitter Ratio: 0.5
-    Tree Height: 595
+    Tree Height: 570
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -765,14 +764,6 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: false
-    - Class: rviz/Marker
-      Enabled: false
-      Marker Topic: /dog_position_detector/dog_direction_viz
-      Name: Dog Direction
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: false
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -791,7 +782,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 30.4091
+      Distance: 23.3358
       Focal Point:
         X: 8.85836
         Y: -1.41193
@@ -805,13 +796,13 @@ Visualization Manager:
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: false
+    collapsed: true
   Height: 808
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730100000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff0000023a000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002c9fc0200000001fb000000100044006900730070006c0061007900730000000041000002c9000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002ad000002c900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
-  Width: 994
-  X: 58
-  Y: 24
+  Width: 685
+  X: 0
+  Y: 21
