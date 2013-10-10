@@ -13,28 +13,28 @@ namespace {
         virtual std::vector<btVector3> getSegments() const {
             std::vector<btVector3> segments(8);
             segments[0] = btVector3(0, 1, 0);
-            segments[0].setW(btScalar(2.5));
+            segments[0].setW(btScalar(5));
 
             segments[1] = btVector3(1, 0, 0);
-            segments[1].setW(btScalar(2.5));
+            segments[1].setW(btScalar(5));
 
             segments[2] = btVector3(0, 1, 0);
-            segments[2].setW(btScalar(2.5));
+            segments[2].setW(btScalar(5));
           
             segments[3] = btVector3(-1, 0, 0);
-            segments[3].setW(btScalar(2.5));
+            segments[3].setW(btScalar(5));
             
             segments[4] = btVector3(0, 1, 0);
-            segments[4].setW(btScalar(2.5));
+            segments[4].setW(btScalar(5));
             
             segments[5] = btVector3(1, 0, 0);
-            segments[5].setW(btScalar(5));
+            segments[5].setW(btScalar(10));
             
             segments[6] = btVector3(0, -1, 0);
-            segments[6].setW(btScalar(7.5));
+            segments[6].setW(btScalar(15));
             
             segments[7] = btVector3(-1, 0, 0);
-            segments[7].setW(btScalar(5));
+            segments[7].setW(btScalar(10));
             return segments;
         }
   };
