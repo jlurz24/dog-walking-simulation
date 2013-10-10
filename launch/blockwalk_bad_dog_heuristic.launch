@@ -1,6 +1,6 @@
 <launch>
   <include file="$(find dogsim)/launch/heuristic.launch" />
   <include file="$(find dogsim)/launch/bad_dog.launch" />
-  <include file="$(find dogsim)/launch/blockwise.launch" />
+  <include file="$(find dogsim)/launch/blockwalk.launch" />
   <include file="$(find dogsim)/launch/scoring.launch" />
 </launch>
