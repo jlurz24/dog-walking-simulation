@@ -164,7 +164,8 @@ namespace gazebo {
       
       // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smmothing function
       // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
-      double liftFactor = min(log(5 * this->model->GetWorldPose().pos.z) / log(5* 0.05), 1.0);
+      // TODO: Change this to 10
+      double liftFactor = min(log(5 * this->model->GetWorldPose().pos.z) / log(5*0.05), 1.0);
       ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
       
       // Publish the position.

@@ -47,7 +47,7 @@ public:
                  moveDogAwayClient("move_dog_away_action", true),
                  avoidingDog(false){      
     
-    dogPositionSub.reset(new message_filters::Subscriber<DogPosition> (nh, "/dog_position", 1));
+    dogPositionSub.reset(new message_filters::Subscriber<DogPosition> (nh, "dog_position_detector/dog_position", 1));
     dogPositionSub->registerCallback(boost::bind(&AvoidDog::dogPositionCallback, this, _1));
     
     avoidingDogPub = nh.advertise<AvoidingDog>("/avoid_dog/avoiding", 1);
@@ -59,8 +59,12 @@ public:
     
     // Convert the positions to the robot frame.
     geometry_msgs::PoseStamped dogPoseInBaseFrame;
-    tf.transformPose("/base_footprint", ros::Time(0), dogPosition->pose, dogPosition->pose.header.frame_id, dogPoseInBaseFrame);
-
+    try {
+        tf.transformPose("/base_footprint", ros::Time(0), dogPosition->pose, dogPosition->pose.header.frame_id, dogPoseInBaseFrame);
+    } catch(...){
+        ROS_ERROR("Failed to transform pose in DogAvoider");
+        return;
+    }
     // Determine if we should avoid the dog.
     bool dogInFront = dogPoseInBaseFrame.pose.position.x < (FRONT_AVOIDANCE_THRESHOLD - BASE_RADIUS) && dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS && abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS;
     if(dogInFront){
@@ -92,7 +96,9 @@ public:
         msg.avoiding = false;
         avoidingDogPub.publish(msg);
     }
-  }
+  
+    ROS_DEBUG("Dog position callback completed @ %f", ros::Time::now().toSec());
+} 
 };
 }
 
