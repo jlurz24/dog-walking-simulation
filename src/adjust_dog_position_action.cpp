@@ -171,7 +171,8 @@ namespace {
     PointStamped handStart = calculateStart(goalInBaseFrame, dogInBaseFrame, armHeight, leashLength, 0);
         
     // The caller should abort the movement if it takes too long.
-    bool found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
+    vector<double> positions;
+    bool found = moveRightArm(applyTransform(handStart, baseToPlanningTransform), positions);
     
     static const double angles[5] = { 0.0,
                                       boost::math::constants::pi<double>() / 8.0,
@@ -194,16 +195,27 @@ namespace {
                     handStartPub.publish(startMsg);
                 }
                 
-                found = moveRightArm(applyTransform(handStart, baseToPlanningTransform));
-                if(found){
-                    ROS_INFO("IK succeeded at height %f and length %f and angle %f in time %f", height, leashLength, angles[i], ros::Time::now().toSec() - startTime.toSec());
-                }
+                found = moveRightArm(applyTransform(handStart, baseToPlanningTransform), positions);
             }
         }
     }
     
-    if(!found){
-        ROS_INFO("Failed to find solution after %f time search", ros::Time::now().toSec() - startTime.toSec());
+   if(found){
+     ROS_DEBUG("IK succeeded in %f", ros::Time::now().toSec() - startTime.toSec());
+     ros::Time planStartTime = ros::Time::now();
+     rightArm.setJointValueTarget(positions);
+     moveit::planning_interface::MoveGroup::Plan plan;
+     bool success = rightArm.plan(plan);
+     ROS_DEBUG("Planning completed in %f", ros::Time::now().toSec() - planStartTime.toSec());
+     if(success){
+        rightArm.execute(plan);
+     }
+     else {
+       ROS_INFO("Planning failed after %f", ros::Time::now().toSec() - planStartTime.toSec());
+     }
+   }
+   else {
+        ROS_INFO("Failed to find solution after %f", ros::Time::now().toSec() - startTime.toSec());
     }
 
     if(found && handStartPub.getNumSubscribers() > 0){
@@ -226,7 +238,7 @@ namespace {
     return msgGoal;
   }
   
-  bool moveRightArm(const Point goalPoint){
+  bool moveRightArm(const Point goalPoint, vector<double>& positions){
      // Transform to the planning frame.
      ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.x, goalPoint.y, goalPoint.z, rightArm.getPlanningFrame().c_str(), ros::Time::now().toSec());
      
@@ -256,7 +268,7 @@ namespace {
      if(res.error_code.val == res.error_code.SUCCESS){
          
          // For some reason this returns all joints. Copy over ones we need.
-         vector<double> positions(jointNames.size());
+         positions.resize(jointNames.size());
          for(unsigned int i = 0; i < jointNames.size(); ++i){
              for(unsigned int j = 0; j < res.solution.joint_state.name.size(); ++j){
                  if(jointNames[i] == res.solution.joint_state.name[j]){
@@ -265,9 +277,6 @@ namespace {
                  }
              }
          }
-
-         rightArm.setJointValueTarget(positions);
-         rightArm.move();
      }
      else {
          ROS_DEBUG_STREAM("Failed to find IK solution. Error code " << res.error_code);
