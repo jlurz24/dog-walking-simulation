@@ -17,7 +17,7 @@ namespace {
     private:
       NodeHandle nh;
       NodeHandle pnh;
-	  ros::ServiceServer service;
+      ros::ServiceServer service;
       ros::ServiceServer startService;
       ros::ServiceServer maxService;
       ros::ServiceServer entirePathService;
@@ -100,7 +100,8 @@ namespace {
 int main(int argc, char** argv){
   ros::init(argc, argv, "get_path");
   GetPathServer getPathServer;
-  ros::spin();
+  ros::MultiThreadedSpinner spinner(4);
+  spinner.spin();
   return 0;
 }
 

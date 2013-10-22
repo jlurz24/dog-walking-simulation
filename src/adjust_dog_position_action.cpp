@@ -3,9 +3,7 @@
 #include <actionlib/server/simple_action_server.h>
 #include <dogsim/utils.h>
 #include <tf/transform_listener.h>
-#include <arm_navigation_msgs/SimplePoseConstraint.h>
 #include <moveit_msgs/MoveGroupAction.h>
-#include <arm_navigation_msgs/utils.h>
 #include <visualization_msgs/Marker.h>
 #include <boost/math/constants/constants.hpp>
 #include <moveit/kinematic_constraints/utils.h>
@@ -13,7 +11,6 @@
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
-#include <moveit/robot_state/joint_state_group.h>
 #include <tf2/LinearMath/btVector3.h>
 #include <moveit_msgs/GetPositionIK.h>
 
@@ -259,7 +256,7 @@ namespace {
      // Default is 0.05
      req.ik_request.timeout = ros::Duration(0.05);
      
-     robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
+     const robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
      const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
      
      // Seed state defaults to current positions

@@ -3,7 +3,6 @@
 #include <actionlib/server/simple_action_server.h>
 #include <dogsim/utils.h>
 #include <tf/transform_listener.h>
-#include <arm_navigation_msgs/utils.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Twist.h>
 #include <tf2/LinearMath/btVector3.h>

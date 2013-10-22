@@ -25,6 +25,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 find_package(Eigen REQUIRED)
+find_package(gazebo REQUIRED)
 include_directories(${Eigen_INCLUDE_DIRS})
 
 include_directories(${GAZEBO_INCLUDE_DIRS})
@@ -38,25 +39,22 @@ set(CMAKE_INSTALL_RPATH "${roscpp_LIBRARY_DIRS}")
 add_library(dog_model_plugin SHARED src/dog_model_plugin.cpp)
 set_target_properties(dog_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
 set_target_properties(dog_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
-target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES})
+target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
 install (TARGETS dog_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
-
-rosbuild_add_executable(dog_model_plugin_driver src/dog_model_plugin_driver.cpp)
-target_link_libraries(dog_model_plugin_driver dog_model_plugin)
 
 # Leash plugin
 add_library(leash_model_plugin SHARED src/leash_model_plugin.cpp)
 set_target_properties(leash_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
 set_target_properties(leash_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
-target_link_libraries(leash_model_plugin ${roscpp_LIBRARIES})
+target_link_libraries(leash_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
 install (TARGETS leash_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
 
-rosbuild_add_executable(leash_model_plugin_driver src/leash_model_plugin_driver.cpp)
-target_link_libraries(leash_model_plugin_driver leash_model_plugin)
 rosbuild_add_executable(robot_driver src/robot_driver.cpp)
 
 rosbuild_add_executable(total_force_measurer src/total_force_measurer.cpp)
 rosbuild_add_executable(path_scorer src/path_scorer.cpp)
+target_link_libraries(path_scorer ${GAZEBO_LIBRARIES})
+
 rosbuild_add_executable(set_max_update_rate src/set_max_update_rate.cpp)
 rosbuild_add_executable(dog_position_detector src/dog_position_detector.cpp)
 rosbuild_add_executable(get_path_server src/get_path_server.cpp)

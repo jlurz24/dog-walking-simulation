@@ -39,7 +39,7 @@ namespace gazebo {
       this->previousTime = this->model->GetWorld()->GetSimTime();
 
       this->previousErrorX = this->previousErrorY = 0;
-      this->forceX = this->forceY = 0.0;
+      this->forceX = this->forceY = this->forceZ = 0.0;
 
       getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path", true);
       
@@ -164,12 +164,11 @@ namespace gazebo {
       
       // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smmothing function
       // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
-      // TODO: Change this to 10
-      double liftFactor = min(log(5 * this->model->GetWorldPose().pos.z) / log(5*0.05), 1.0);
+      double liftFactor = min(log(10 * this->model->GetWorldPose().pos.z) / log(10*0.05), 1.0);
       ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
       
       // Publish the position.
-      if(int(currTime.Double() * 1000) % 100 == 0 && dogGoalVizPub.getNumSubscribers() > 0){
+      if(int(currTime.Double() * 1000) % (1000 / PUBLISH_FREQUENCY) == 0 && dogGoalVizPub.getNumSubscribers() > 0){
           std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
           geometry_msgs::PointStamped goalPoint;
           goalPoint.point.x = goalPosition.x;
@@ -180,47 +179,48 @@ namespace gazebo {
           dogGoalVizPub.publish(utils::createMarker(goalPoint.point, goalPoint.header, RED, true));
       }
       
-      // Calculate current errors
-      const math::Vector3 worldPose = this->model->GetWorldPose().pos;
-      const double errorX = calcError(worldPose.x, goalPosition.x);
-      const double errorY = calcError(worldPose.y, goalPosition.y);
+      if(int(currTime.Double() * 1000) % (1000 / UPDATE_FREQUENCY) == 0){
+        // Calculate current errors
+        const math::Vector3 worldPose = this->model->GetWorldPose().pos;
+        const double errorX = calcError(worldPose.x, goalPosition.x);
+        const double errorY = calcError(worldPose.y, goalPosition.y);
 
-      const common::Time deltat = currTime - this->previousTime;
+        const common::Time deltat = currTime - this->previousTime;    
     
-    
-      const double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
-      const double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
+        const double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
+        const double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
 
+        const double outputX = calcPDOutput(errorX, errorDerivativeX);
+        const double outputY = calcPDOutput(errorY, errorDerivativeY);
       
-      const double outputX = calcPDOutput(errorX, errorDerivativeX);
-      const double outputY = calcPDOutput(errorY, errorDerivativeY);
+        this->forceX += outputX;
+        this->forceY += outputY;
       
-      this->forceX += outputX;
-      this->forceY += outputY;
-      
-      // This should only happen when the leash is binding.
-      if(abs(this->forceX) > MAXIMUM_FORCE){
+        // This should only happen when the leash is binding.
+        if(abs(this->forceX) > MAXIMUM_FORCE){
           ROS_DEBUG("Maximum X force applied to force: %f", this->forceX);
           this->forceX = copysign(MAXIMUM_FORCE, this->forceX);
-      }
-      // Save the current error for the next iteration.
-      this->previousErrorX = errorX;
+        }
+        // Save the current error for the next iteration.
+        this->previousErrorX = errorX;
       
-      if(abs(this->forceY) > MAXIMUM_FORCE){
+        if(abs(this->forceY) > MAXIMUM_FORCE){
           ROS_DEBUG("Maximum Y force applied to force: %f", this->forceY);
           this->forceY = copysign(MAXIMUM_FORCE, this->forceY);
+        }
+      
+        // Save the current error for the next iteration.
+        this->previousErrorY = errorY;
       }
       
-      // Save the current error for the next iteration.
-      this->previousErrorY = errorY;
-
       body->AddForce(math::Vector3(this->forceX * liftFactor, this->forceY * liftFactor, 0.0));
       
-      // Calculate the torque      
-      const math::Vector3 relativeForce = body->GetRelativeForce();
-      const double forceZ = atan2(relativeForce.y, relativeForce.x) / (3 * pi);
-
-      body->AddRelativeTorque(math::Vector3(0.0, 0.0, forceZ));
+      if(int(currTime.Double() * 1000) % (1000 / UPDATE_FREQUENCY) == 0){
+        // Calculate the torque      
+        const math::Vector3 relativeForce = body->GetRelativeForce();
+        this->forceZ = atan2(relativeForce.y, relativeForce.x) / (3 * pi);
+      }
+      body->AddRelativeTorque(math::Vector3(0.0, 0.0, this->forceZ));
       
       // Save the previous time.
       this->previousTime = currTime;
@@ -336,6 +336,9 @@ namespace gazebo {
     // Y Force
     private: double forceY;
     
+    // Z Force
+    private: double forceZ;
+    
     // Previous goal
     private: math::Vector3 previousBase;
 
@@ -382,6 +385,10 @@ namespace gazebo {
 
     // Multiple of sigma that captures nearly half of a gaussians width.
     private: static const double GAUSS_HALF_WIDTH = 3;
+    
+    private: static const unsigned int PUBLISH_FREQUENCY = 10;
+    
+    private: static const unsigned int UPDATE_FREQUENCY = 100;
   };
 
   // Register this plugin with the simulator

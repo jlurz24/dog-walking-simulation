@@ -8,16 +8,16 @@
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/dogsim</url>
-  <depend package="gazebo" />
+  <rosdep name="bullet" />
+  <rosdep name="boost" />
+  <rosdep name="gazebo" />
+  <depend package="gazebo_msgs" />
   <depend package="actionlib_msgs" />
   <depend package="actionlib" />
-  <depend package="arm_navigation_msgs" />
   <depend package="pr2_controllers_msgs" />
-  <depend package="bullet" />
-  <depend package="kinematics_msgs"/>
-  <depend package="kinematics_base" />
   <depend package="moveit_core" />
   <depend package="moveit_ros_planning_interface" />
+  <depend package="tf" />
    <export>
     <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
   </export>
