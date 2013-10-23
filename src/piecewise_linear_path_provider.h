@@ -16,6 +16,8 @@ namespace {
         PiecewiseLinearPathProvider(){
         }
         
+        virtual ~PiecewiseLinearPathProvider(){}
+
         virtual void init(){
             segments = getSegments();
             calculateTotalLength();
@@ -116,8 +118,7 @@ namespace {
 
                     }
                 }
-                // ROS_INFO("Quadrant %u Clockwise %i", quadrant, clockwise ? 1 : -1);
-                // ROS_INFO("Sx %f sy %f s2x %f s2y %f", segment1.x(), segment1.y(), segment2.x(), segment2.y());
+
                 if(!clockwise){
                     a *= -1;
                 }

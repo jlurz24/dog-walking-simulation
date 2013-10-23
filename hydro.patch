@@ -1,0 +1,583 @@
+diff --git a/dogsim/CMakeLists.txt b/dogsim/CMakeLists.txt
+index 71beaa9..0ab00b4 100644
+--- a/dogsim/CMakeLists.txt
++++ b/dogsim/CMakeLists.txt
+@@ -25,6 +25,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+ 
+ find_package(Eigen REQUIRED)
++find_package(gazebo REQUIRED)
+ include_directories(${Eigen_INCLUDE_DIRS})
+ 
+ include_directories(${GAZEBO_INCLUDE_DIRS})
+@@ -38,25 +39,22 @@ set(CMAKE_INSTALL_RPATH "${roscpp_LIBRARY_DIRS}")
+ add_library(dog_model_plugin SHARED src/dog_model_plugin.cpp)
+ set_target_properties(dog_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
+ set_target_properties(dog_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
+-target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES})
++target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
+ install (TARGETS dog_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
+ 
+-rosbuild_add_executable(dog_model_plugin_driver src/dog_model_plugin_driver.cpp)
+-target_link_libraries(dog_model_plugin_driver dog_model_plugin)
+-
+ # Leash plugin
+ add_library(leash_model_plugin SHARED src/leash_model_plugin.cpp)
+ set_target_properties(leash_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
+ set_target_properties(leash_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
+-target_link_libraries(leash_model_plugin ${roscpp_LIBRARIES})
++target_link_libraries(leash_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
+ install (TARGETS leash_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
+ 
+-rosbuild_add_executable(leash_model_plugin_driver src/leash_model_plugin_driver.cpp)
+-target_link_libraries(leash_model_plugin_driver leash_model_plugin)
+ rosbuild_add_executable(robot_driver src/robot_driver.cpp)
+ 
+ rosbuild_add_executable(total_force_measurer src/total_force_measurer.cpp)
+ rosbuild_add_executable(path_scorer src/path_scorer.cpp)
++target_link_libraries(path_scorer ${GAZEBO_LIBRARIES})
++
+ rosbuild_add_executable(set_max_update_rate src/set_max_update_rate.cpp)
+ rosbuild_add_executable(dog_position_detector src/dog_position_detector.cpp)
+ rosbuild_add_executable(get_path_server src/get_path_server.cpp)
+diff --git a/dogsim/manifest.xml b/dogsim/manifest.xml
+index 536cd31..04968af 100644
+--- a/dogsim/manifest.xml
++++ b/dogsim/manifest.xml
+@@ -8,14 +8,13 @@
+   <license>BSD</license>
+   <review status="unreviewed" notes=""/>
+   <url>http://ros.org/wiki/dogsim</url>
+-  <depend package="gazebo" />
++  <rosdep name="bullet" />
++  <rosdep name="boost" />
++  <rosdep name="gazebo" />
++  <depend package="gazebo_ros" />
+   <depend package="actionlib_msgs" />
+   <depend package="actionlib" />
+-  <depend package="arm_navigation_msgs" />
+   <depend package="pr2_controllers_msgs" />
+-  <depend package="bullet" />
+-  <depend package="kinematics_msgs"/>
+-  <depend package="kinematics_base" />
+   <depend package="moveit_core" />
+   <depend package="moveit_ros_planning_interface" />
+    <export>
+diff --git a/dogsim/src/adjust_dog_position_action.cpp b/dogsim/src/adjust_dog_position_action.cpp
+index bed9be4..71ef220 100644
+--- a/dogsim/src/adjust_dog_position_action.cpp
++++ b/dogsim/src/adjust_dog_position_action.cpp
+@@ -3,9 +3,7 @@
+ #include <actionlib/server/simple_action_server.h>
+ #include <dogsim/utils.h>
+ #include <tf/transform_listener.h>
+-#include <arm_navigation_msgs/SimplePoseConstraint.h>
+ #include <moveit_msgs/MoveGroupAction.h>
+-#include <arm_navigation_msgs/utils.h>
+ #include <visualization_msgs/Marker.h>
+ #include <boost/math/constants/constants.hpp>
+ #include <moveit/kinematic_constraints/utils.h>
+@@ -13,8 +11,7 @@
+ #include <moveit/robot_model_loader/robot_model_loader.h>
+ #include <moveit/robot_model/robot_model.h>
+ #include <moveit/robot_state/robot_state.h>
+-#include <moveit/robot_state/joint_state_group.h>
+-#include <tf2/LinearMath/btVector3.h>
++#include <tf2/LinearMath/Vector3.h>
+ #include <moveit_msgs/GetPositionIK.h>
+ 
+ // Generated messages
+@@ -74,18 +71,18 @@ namespace {
+ 
+         // Find the angle between the dog and the goal point.
+         // Calculate the unit vector given x1, y1 = dog and x2, y2 = goal
+-        btVector3 dogToGoal = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - btVector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
++        tf2::Vector3 dogToGoal = tf2::Vector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - tf2::Vector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+         dogToGoal.normalize();
+     
+         double distanceFromDogToGoal = utils::pointToPointXYDistance(goalInBaseFrame.point, dogInBaseFrame.pose.position);
+         ROS_DEBUG("Distance from dog to goal %f", distanceFromDogToGoal);
+     
+-        btVector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+-        btVector3 startVector = dogVector + btScalar(distanceFromDogToGoal) * dogToGoal;
++        tf2::Vector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
++        tf2::Vector3 startVector = dogVector + tf2Scalar(distanceFromDogToGoal) * dogToGoal;
+         
+         // Now add the leash length.
+-        btVector3 leashToGoal = dogToGoal.rotate(btVector3(0, 0, 1), btScalar(angle));
+-        startVector = startVector + btScalar(planarLeashLength) * leashToGoal;
++        tf2::Vector3 leashToGoal = dogToGoal.rotate(tf2::Vector3(0, 0, 1), tf2Scalar(angle));
++        startVector = startVector + tf2Scalar(planarLeashLength) * leashToGoal;
+         
+         // Now update the goal to move to the dog to the goal point.
+         PointStamped start;
+@@ -259,8 +256,8 @@ namespace {
+      // Default is 0.05
+      req.ik_request.timeout = ros::Duration(0.05);
+      
+-     robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
+-     const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
++     const robot_state::JointModelGroup* jointStateGroup = kinematicState->getJointModelGroup("right_arm");
++     const vector<string>& jointNames = jointStateGroup->getJointModelNames();
+      
+      // Seed state defaults to current positions
+      
+diff --git a/dogsim/src/block_walk_path_provider.h b/dogsim/src/block_walk_path_provider.h
+index 85b7bb9..2fc54a3 100644
+--- a/dogsim/src/block_walk_path_provider.h
++++ b/dogsim/src/block_walk_path_provider.h
+@@ -1,7 +1,7 @@
+ #include "path_provider.h"
+ #include "piecewise_linear_path_provider.h"
+ #include <vector>
+-#include <tf2/LinearMath/btVector3.h>
++#include <tf2/LinearMath/Vector3.h>
+ 
+ namespace {
+   
+@@ -10,31 +10,31 @@ namespace {
+         BlockWalkPathProvider(){}
+         
+       protected:
+-        virtual std::vector<btVector3> getSegments() const {
+-            std::vector<btVector3> segments(8);
+-            segments[0] = btVector3(0, 1, 0);
+-            segments[0].setW(btScalar(5));
++        virtual std::vector<tf2::Vector3> getSegments() const {
++            std::vector<tf2::Vector3> segments(8);
++            segments[0] = tf2::Vector3(0, 1, 0);
++            segments[0].setW(tf2Scalar(5));
+ 
+-            segments[1] = btVector3(1, 0, 0);
+-            segments[1].setW(btScalar(5));
++            segments[1] = tf2::Vector3(1, 0, 0);
++            segments[1].setW(tf2Scalar(5));
+ 
+-            segments[2] = btVector3(0, 1, 0);
+-            segments[2].setW(btScalar(5));
++            segments[2] = tf2::Vector3(0, 1, 0);
++            segments[2].setW(tf2Scalar(5));
+           
+-            segments[3] = btVector3(-1, 0, 0);
+-            segments[3].setW(btScalar(5));
++            segments[3] = tf2::Vector3(-1, 0, 0);
++            segments[3].setW(tf2Scalar(5));
+             
+-            segments[4] = btVector3(0, 1, 0);
+-            segments[4].setW(btScalar(5));
++            segments[4] = tf2::Vector3(0, 1, 0);
++            segments[4].setW(tf2Scalar(5));
+             
+-            segments[5] = btVector3(1, 0, 0);
+-            segments[5].setW(btScalar(10));
++            segments[5] = tf2::Vector3(1, 0, 0);
++            segments[5].setW(tf2Scalar(10));
+             
+-            segments[6] = btVector3(0, -1, 0);
+-            segments[6].setW(btScalar(15));
++            segments[6] = tf2::Vector3(0, -1, 0);
++            segments[6].setW(tf2Scalar(15));
+             
+-            segments[7] = btVector3(-1, 0, 0);
+-            segments[7].setW(btScalar(10));
++            segments[7] = tf2::Vector3(-1, 0, 0);
++            segments[7].setW(tf2Scalar(10));
+             return segments;
+         }
+   };
+diff --git a/dogsim/src/dog_model_plugin.cpp b/dogsim/src/dog_model_plugin.cpp
+index 0ad9c05..c2889da 100644
+--- a/dogsim/src/dog_model_plugin.cpp
++++ b/dogsim/src/dog_model_plugin.cpp
+@@ -39,7 +39,7 @@ namespace gazebo {
+       this->previousTime = this->model->GetWorld()->GetSimTime();
+ 
+       this->previousErrorX = this->previousErrorY = 0;
+-      this->forceX = this->forceY = 0.0;
++      this->forceX = this->forceY = this->forceZ = 0.0;
+ 
+       getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path", true);
+       
+@@ -164,12 +164,11 @@ namespace gazebo {
+       
+       // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smmothing function
+       // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
+-      // TODO: Change this to 10
+-      double liftFactor = min(log(5 * this->model->GetWorldPose().pos.z) / log(5*0.05), 1.0);
++      double liftFactor = min(log(10 * this->model->GetWorldPose().pos.z) / log(10*0.05), 1.0);
+       ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
+       
+       // Publish the position.
+-      if(int(currTime.Double() * 1000) % 100 == 0 && dogGoalVizPub.getNumSubscribers() > 0){
++      if(int(currTime.Double() * 1000) % (1000 / PUBLISH_FREQUENCY) == 0 && dogGoalVizPub.getNumSubscribers() > 0){
+           std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
+           geometry_msgs::PointStamped goalPoint;
+           goalPoint.point.x = goalPosition.x;
+@@ -180,47 +179,48 @@ namespace gazebo {
+           dogGoalVizPub.publish(utils::createMarker(goalPoint.point, goalPoint.header, RED, true));
+       }
+       
+-      // Calculate current errors
+-      const math::Vector3 worldPose = this->model->GetWorldPose().pos;
+-      const double errorX = calcError(worldPose.x, goalPosition.x);
+-      const double errorY = calcError(worldPose.y, goalPosition.y);
++      if(int(currTime.Double() * 1000) % (1000 / UPDATE_FREQUENCY) == 0){
++        // Calculate current errors
++        const math::Vector3 worldPose = this->model->GetWorldPose().pos;
++        const double errorX = calcError(worldPose.x, goalPosition.x);
++        const double errorY = calcError(worldPose.y, goalPosition.y);
+ 
+-      const common::Time deltat = currTime - this->previousTime;
++        const common::Time deltat = currTime - this->previousTime;    
+     
+-    
+-      const double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
+-      const double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
++        const double errorDerivativeX = calcErrorDerivative(this->previousErrorX, errorX, deltat);
++        const double errorDerivativeY = calcErrorDerivative(this->previousErrorY, errorY, deltat);
+ 
++        const double outputX = calcPDOutput(errorX, errorDerivativeX);
++        const double outputY = calcPDOutput(errorY, errorDerivativeY);
+       
+-      const double outputX = calcPDOutput(errorX, errorDerivativeX);
+-      const double outputY = calcPDOutput(errorY, errorDerivativeY);
+-      
+-      this->forceX += outputX;
+-      this->forceY += outputY;
++        this->forceX += outputX;
++        this->forceY += outputY;
+       
+-      // This should only happen when the leash is binding.
+-      if(abs(this->forceX) > MAXIMUM_FORCE){
++        // This should only happen when the leash is binding.
++        if(abs(this->forceX) > MAXIMUM_FORCE){
+           ROS_DEBUG("Maximum X force applied to force: %f", this->forceX);
+           this->forceX = copysign(MAXIMUM_FORCE, this->forceX);
+-      }
+-      // Save the current error for the next iteration.
+-      this->previousErrorX = errorX;
++        }
++        // Save the current error for the next iteration.
++        this->previousErrorX = errorX;
+       
+-      if(abs(this->forceY) > MAXIMUM_FORCE){
++        if(abs(this->forceY) > MAXIMUM_FORCE){
+           ROS_DEBUG("Maximum Y force applied to force: %f", this->forceY);
+           this->forceY = copysign(MAXIMUM_FORCE, this->forceY);
++        }
++      
++        // Save the current error for the next iteration.
++        this->previousErrorY = errorY;
+       }
+       
+-      // Save the current error for the next iteration.
+-      this->previousErrorY = errorY;
+-
+       body->AddForce(math::Vector3(this->forceX * liftFactor, this->forceY * liftFactor, 0.0));
+       
+-      // Calculate the torque      
+-      const math::Vector3 relativeForce = body->GetRelativeForce();
+-      const double forceZ = atan2(relativeForce.y, relativeForce.x) / (3 * pi);
+-
+-      body->AddRelativeTorque(math::Vector3(0.0, 0.0, forceZ));
++      if(int(currTime.Double() * 1000) % (1000 / UPDATE_FREQUENCY) == 0){
++        // Calculate the torque      
++        const math::Vector3 relativeForce = body->GetRelativeForce();
++        this->forceZ = atan2(relativeForce.y, relativeForce.x) / (3 * pi);
++      }
++      body->AddRelativeTorque(math::Vector3(0.0, 0.0, this->forceZ));
+       
+       // Save the previous time.
+       this->previousTime = currTime;
+@@ -336,6 +336,9 @@ namespace gazebo {
+     // Y Force
+     private: double forceY;
+     
++    // Z Force
++    private: double forceZ;
++    
+     // Previous goal
+     private: math::Vector3 previousBase;
+ 
+@@ -382,6 +385,10 @@ namespace gazebo {
+ 
+     // Multiple of sigma that captures nearly half of a gaussians width.
+     private: static const double GAUSS_HALF_WIDTH = 3;
++    
++    private: static const unsigned int PUBLISH_FREQUENCY = 10;
++    
++    private: static const unsigned int UPDATE_FREQUENCY = 100;
+   };
+ 
+   // Register this plugin with the simulator
+diff --git a/dogsim/src/dog_model_plugin_driver.cpp b/dogsim/src/dog_model_plugin_driver.cpp
+deleted file mode 100644
+index ad3d00a..0000000
+--- a/dogsim/src/dog_model_plugin_driver.cpp
++++ /dev/null
+@@ -1,10 +0,0 @@
+-/**
+- * Driver to test linking plugin
+- */
+-#include <stdio.h>
+-#include "dog_model_plugin.cpp"
+-
+-int main(int argc, const char* argv[]){
+-   gazebo::DogModelPlugin* plugin = new gazebo::DogModelPlugin();
+-   delete plugin;  
+-}
+diff --git a/dogsim/src/get_path_server.cpp b/dogsim/src/get_path_server.cpp
+index b4d6a33..606a197 100644
+--- a/dogsim/src/get_path_server.cpp
++++ b/dogsim/src/get_path_server.cpp
+@@ -17,7 +17,7 @@ namespace {
+     private:
+       NodeHandle nh;
+       NodeHandle pnh;
+-	  ros::ServiceServer service;
++      ros::ServiceServer service;
+       ros::ServiceServer startService;
+       ros::ServiceServer maxService;
+       ros::ServiceServer entirePathService;
+@@ -100,7 +100,8 @@ namespace {
+ int main(int argc, char** argv){
+   ros::init(argc, argv, "get_path");
+   GetPathServer getPathServer;
+-  ros::spin();
++  ros::MultiThreadedSpinner spinner(4);
++  spinner.spin();
+   return 0;
+ }
+ 
+diff --git a/dogsim/src/leash_model_plugin_driver.cpp b/dogsim/src/leash_model_plugin_driver.cpp
+deleted file mode 100644
+index 8942595..0000000
+--- a/dogsim/src/leash_model_plugin_driver.cpp
++++ /dev/null
+@@ -1,10 +0,0 @@
+-/**
+- * Driver to test linking plugin
+- */
+-#include <stdio.h>
+-#include "leash_model_plugin.cpp"
+-
+-int main(int argc, const char* argv[]){
+-   gazebo::LeashModelPlugin* plugin = new gazebo::LeashModelPlugin();
+-   delete plugin;  
+-}
+diff --git a/dogsim/src/move_robot_action.cpp b/dogsim/src/move_robot_action.cpp
+index b49f002..b72e3eb 100644
+--- a/dogsim/src/move_robot_action.cpp
++++ b/dogsim/src/move_robot_action.cpp
+@@ -3,10 +3,9 @@
+ #include <actionlib/server/simple_action_server.h>
+ #include <dogsim/utils.h>
+ #include <tf/transform_listener.h>
+-#include <arm_navigation_msgs/utils.h>
+ #include <visualization_msgs/Marker.h>
+ #include <geometry_msgs/Twist.h>
+-#include <tf2/LinearMath/btVector3.h>
++#include <tf2/LinearMath/Vector3.h>
+ 
+ // Generated messages
+ #include <dogsim/MoveRobotAction.h>
+@@ -52,7 +51,7 @@ namespace {
+   }
+   
+   static double calcQDistance(const tf::Quaternion& q1, const tf::Quaternion& q2){
+-      return (1 - btPow(q1.dot(q2), btScalar(2)));
++      return (1 - tf2Pow(q1.dot(q2), tf2Scalar(2)));
+   }
+   
+   void move(const dogsim::MoveRobotGoalConstPtr& goal){
+@@ -143,8 +142,8 @@ namespace {
+         ROS_DEBUG("Total distance %f current distance %f ratio %f", totalDistance, currentDistance, ratio);
+         
+         // Interpolate between the starting orientation and goal.
+-        btVector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
+-        btScalar yawToTarget = btAtan2(goalVector.y(), goalVector.x());
++        tf2::Vector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
++        tf2Scalar yawToTarget = tf2Atan2(goalVector.y(), goalVector.x());
+         tf::Quaternion goalOrientation = tf::createQuaternionFromYaw(yawToTarget);
+         
+         tf::Quaternion interp = tf::slerp(goalOrientation, goalPoseTF, ratio);
+diff --git a/dogsim/src/piecewise_linear_path_provider.h b/dogsim/src/piecewise_linear_path_provider.h
+index 4354ddc..6c62f9c 100644
+--- a/dogsim/src/piecewise_linear_path_provider.h
++++ b/dogsim/src/piecewise_linear_path_provider.h
+@@ -3,7 +3,7 @@
+ #include "path_provider.h"
+ #include <boost/math/constants/constants.hpp>
+ #include <vector>
+-#include <tf2/LinearMath/btVector3.h>
++#include <tf2/LinearMath/Vector3.h>
+ 
+ namespace {
+   using namespace std;
+@@ -35,7 +35,7 @@ namespace {
+             }
+             
+             double distance = VELOCITY * t;
+-            btVector3 result = btVector3(0, 0, 0);
++            tf2::Vector3 result = tf2::Vector3(0, 0, 0);
+             bool roundingRequired = false;
+             bool firstRoundingSegment = false;
+             unsigned int lastSegmentNumber = 0;
+@@ -50,19 +50,19 @@ namespace {
+                 // Determine if rounding will be required.
+                 if(segments[i].w() - distance < ROUNDING_DISTANCE && i != segments.size() - 1){
+                     // Only add the distance up to the point where rounding will begin
+-                    result += segments[i] * btScalar(segments[i].w() - ROUNDING_DISTANCE);
++                    result += segments[i] * tf2Scalar(segments[i].w() - ROUNDING_DISTANCE);
+                     roundingRequired = true;
+                     lastSegmentNumber = i;
+                     firstRoundingSegment = true;
+                 }
+                 // Beginning of rounded segment
+                 else if(distance < ROUNDING_DISTANCE && i != 0){
+-                    result += segments[i] * btScalar(ROUNDING_DISTANCE);
++                    result += segments[i] * tf2Scalar(ROUNDING_DISTANCE);
+                     roundingRequired = true;
+                     lastSegmentNumber = i;
+                 }
+                 else {
+-                    result += segments[i] * btScalar(distance);
++                    result += segments[i] * tf2Scalar(distance);
+                 }
+                 break;
+               }
+@@ -70,16 +70,16 @@ namespace {
+ 
+             if(roundingRequired){
+                 // Find the center point.
+-                btVector3 center;
++                tf2::Vector3 center;
+                 if(firstRoundingSegment){
+-                    center = result + segments[lastSegmentNumber + 1] * btScalar(ROUNDING_DISTANCE);
++                    center = result + segments[lastSegmentNumber + 1] * tf2Scalar(ROUNDING_DISTANCE);
+                 }
+                 else {
+-                    center = result + segments[lastSegmentNumber - 1] * -1 * btScalar(ROUNDING_DISTANCE);
++                    center = result + segments[lastSegmentNumber - 1] * -1 * tf2Scalar(ROUNDING_DISTANCE);
+                 }
+                 double a;
+                 double ratio;
+-                btVector3 segment1, segment2;
++                tf2::Vector3 segment1, segment2;
+                 if(firstRoundingSegment){
+                     ratio = 1 - (segments[lastSegmentNumber].w() - distance) / ROUNDING_DISTANCE;
+                     a = ratio * pi / 4.0;
+@@ -125,7 +125,7 @@ namespace {
+                 
+                 // Now add the circular radius
+ 
+-                btVector3 rounding(center.x() + ROUNDING_DISTANCE * cos(a), center.y() + ROUNDING_DISTANCE * -sin(a), 0);
++                tf2::Vector3 rounding(center.x() + ROUNDING_DISTANCE * cos(a), center.y() + ROUNDING_DISTANCE * -sin(a), 0);
+                 result = rounding;
+             }
+             
+@@ -138,7 +138,7 @@ namespace {
+         
+     protected:
+     
+-        virtual vector<btVector3> getSegments() const = 0;
++        virtual vector<tf2::Vector3> getSegments() const = 0;
+         
+         void calculateTotalLength(){
+             // Calculate the total length
+@@ -153,7 +153,7 @@ namespace {
+      private:
+         double totalDuration;
+         
+-        vector<btVector3> segments;
++        vector<tf2::Vector3> segments;
+         
+         static const double ROUNDING_DISTANCE = 1.0;
+   };
+diff --git a/dogsim/src/rectangle_path_provider.h b/dogsim/src/rectangle_path_provider.h
+index b59c77c..054789c 100644
+--- a/dogsim/src/rectangle_path_provider.h
++++ b/dogsim/src/rectangle_path_provider.h
+@@ -1,7 +1,7 @@
+ #include "path_provider.h"
+ #include "piecewise_linear_path_provider.h"
+ #include <vector>
+-#include <tf2/LinearMath/btVector3.h>
++#include <tf2/LinearMath/Vector3.h>
+ 
+ namespace {
+   
+@@ -10,19 +10,19 @@ namespace {
+         RectanglePathProvider(){}
+         
+     protected:
+-        virtual vector<btVector3> getSegments() const {
+-            vector<btVector3> segments(4);
+-            segments[0] = btVector3(0, 1, 0);
+-            segments[0].setW(btScalar(5));
++        virtual vector<tf2::Vector3> getSegments() const {
++            vector<tf2::Vector3> segments(4);
++            segments[0] = tf2::Vector3(0, 1, 0);
++            segments[0].setW(tf2Scalar(5));
+ 
+-            segments[1] = btVector3(1, 0, 0);
+-            segments[1].setW(btScalar(10));
++            segments[1] = tf2::Vector3(1, 0, 0);
++            segments[1].setW(tf2Scalar(10));
+ 
+-            segments[2] = btVector3(0, -1, 0);
+-            segments[2].setW(btScalar(5));
++            segments[2] = tf2::Vector3(0, -1, 0);
++            segments[2].setW(tf2Scalar(5));
+           
+-            segments[3] = btVector3(-1, 0, 0);
+-            segments[3].setW(btScalar(10));
++            segments[3] = tf2::Vector3(-1, 0, 0);
++            segments[3].setW(tf2Scalar(10));
+             return segments;
+         }
+   };
+diff --git a/dogsim/src/robot_driver.cpp b/dogsim/src/robot_driver.cpp
+index e35a4c4..9ecd265 100644
+--- a/dogsim/src/robot_driver.cpp
++++ b/dogsim/src/robot_driver.cpp
+@@ -12,7 +12,7 @@
+ #include <dogsim/MoveRobotAction.h>
+ #include <dogsim/MoveDogAwayAction.h>
+ #include <actionlib/client/simple_action_client.h>
+-#include <tf2/LinearMath/btVector3.h>
++#include <tf2/LinearMath/Vector3.h>
+ 
+ namespace {
+   using namespace std;
+@@ -234,17 +234,17 @@ public:
+       const geometry_msgs::PointStamped goal2 = getDogGoalPosition(ros::Time(event.current_real.toSec() + MOVE_ROBOT_UPDATE_INTERVAL + SLOPE_DELTA), started, ended);
+       
+       // Calculate the vector of the tangent line.
+-      btVector3 tangent = btVector3(goal2.point.x, goal2.point.y, 0) - btVector3(dogGoal.point.x, dogGoal.point.y, 0);
++      tf2::Vector3 tangent = tf2::Vector3(goal2.point.x, goal2.point.y, 0) - tf2::Vector3(dogGoal.point.x, dogGoal.point.y, 0);
+       tangent.normalize();
+  
+       // Now select a point on the vector but slightly behind.
+-      btVector3 backGoal = btVector3(dogGoal.point.x, dogGoal.point.y, 0) - tangent * btScalar(TRAILING_DISTANCE);
++      tf2::Vector3 backGoal = tf2::Vector3(dogGoal.point.x, dogGoal.point.y, 0) - tangent * tf2Scalar(TRAILING_DISTANCE);
+    
+       // Rotate the vector to perpendicular
+-      btVector3 perp = tangent.rotate(btVector3(0, 0, 1), btScalar(boost::math::constants::pi<double>() / 2.0));
++      tf2::Vector3 perp = tangent.rotate(tf2::Vector3(0, 0, 1), tf2Scalar(boost::math::constants::pi<double>() / 2.0));
+ 
+       // Select a point on the perpindicular line.
+-      btVector3 finalGoal = backGoal + perp * btScalar(SHIFT_DISTANCE);
++      tf2::Vector3 finalGoal = backGoal + perp * tf2Scalar(SHIFT_DISTANCE);
+   
+       geometry_msgs::Point robotGoal;
+       robotGoal.x = finalGoal.x();
+@@ -256,7 +256,7 @@ public:
+       moveRobotGoal.pose.pose.position = robotGoal;
+       
+       // Calculate the yaw so we can create an orientation.
+-      btScalar yaw = btAtan2(tangent.y(), tangent.x());
++      tf2Scalar yaw = tf2Atan2(tangent.y(), tangent.x());
+       moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw); 
+       ROS_DEBUG("Sending move goal with yaw: %f", yaw);
+       

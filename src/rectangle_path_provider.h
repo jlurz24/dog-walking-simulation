@@ -4,10 +4,11 @@
 #include <tf2/LinearMath/btVector3.h>
 
 namespace {
-  
+  using namespace std;
+
   class RectanglePathProvider : public PiecewiseLinearPathProvider {
       public:
-        RectanglePathProvider(){}
+        virtual RectanglePathProvider(){}
         
     protected:
         virtual vector<btVector3> getSegments() const {

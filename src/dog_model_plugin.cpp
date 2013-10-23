@@ -1,6 +1,7 @@
 #include <boost/bind.hpp>
 #include <gazebo/gazebo.hh>
 #include <physics/physics.hh>
+#include <physics/Model.hh>
 #include <common/common.hh>
 #include <stdio.h>
 #include <boost/math/constants/constants.hpp>

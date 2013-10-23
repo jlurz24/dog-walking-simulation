@@ -11,6 +11,7 @@
   <rosdep name="bullet" />
   <rosdep name="boost" />
   <rosdep name="gazebo" />
+  <depend package="gazebo" />
   <depend package="gazebo_msgs" />
   <depend package="actionlib_msgs" />
   <depend package="actionlib" />

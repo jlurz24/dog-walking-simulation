@@ -15,6 +15,7 @@ namespace {
       public:
         LissajousPathProvider(){
         }
+        virtual ~LissajousPathProvider(){}
         
         virtual void init(){
         }
