@@ -34,7 +34,7 @@ namespace {
             ROS_DEBUG("Preempting the high arm position action");
 
             if(!as.isActive()){
-                ROS_DEBUG("High arm position action cancelled prior to start");
+                ROS_DEBUG("High arm position action canceled prior to start");
                 return;
             }
 

@@ -56,7 +56,11 @@ public:
     
   void dogPositionCallback(const DogPositionConstPtr& dogPosition){
     ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
-    
+    if(dogPosition->unknown){
+    	ROS_DEBUG("Dog position is unknown - cannot avoid");
+    	return;
+    }
+
     // Convert the positions to the robot frame.
     geometry_msgs::PoseStamped dogPoseInBaseFrame;
     try {

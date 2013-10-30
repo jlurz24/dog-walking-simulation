@@ -1,0 +1,6 @@
+time time
+---
+bool started
+bool ended
+float64 elapsedTime
+geometry_msgs/PoseStamped pose

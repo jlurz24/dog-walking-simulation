@@ -16,4 +16,6 @@
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
 
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
+  <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer" />
+
 </launch>

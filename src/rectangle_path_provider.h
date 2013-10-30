@@ -8,8 +8,8 @@ namespace {
 
   class RectanglePathProvider : public PiecewiseLinearPathProvider {
       public:
-        virtual RectanglePathProvider(){}
-        
+        RectanglePathProvider(){}
+        virtual ~RectanglePathProvider(){}
     protected:
         virtual vector<btVector3> getSegments() const {
             vector<btVector3> segments(4);

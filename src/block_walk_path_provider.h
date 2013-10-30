@@ -7,8 +7,8 @@ namespace {
   
   class BlockWalkPathProvider : public PiecewiseLinearPathProvider {
       public:
-        virtual BlockWalkPathProvider(){}
-        
+        BlockWalkPathProvider(){}
+        virtual ~BlockWalkPathProvider(){}
       protected:
         virtual std::vector<btVector3> getSegments() const {
             std::vector<btVector3> segments(8);

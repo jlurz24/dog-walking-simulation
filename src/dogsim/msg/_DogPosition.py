@@ -8,11 +8,12 @@ import geometry_msgs.msg
 import std_msgs.msg
 
 class DogPosition(genpy.Message):
-  _md5sum = "61818c56dce9a5d5d32c4f616d354742"
+  _md5sum = "0704f3affb77a927f13ed7361f228672"
   _type = "dogsim/DogPosition"
   _has_header = True #flag to mark the presence of a Header object
   _full_text = """Header header
 geometry_msgs/PoseStamped pose
+bool unknown
 
 ================================================================================
 MSG: std_msgs/Header
@@ -61,8 +62,8 @@ float64 z
 float64 w
 
 """
-  __slots__ = ['header','pose']
-  _slot_types = ['std_msgs/Header','geometry_msgs/PoseStamped']
+  __slots__ = ['header','pose','unknown']
+  _slot_types = ['std_msgs/Header','geometry_msgs/PoseStamped','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -72,7 +73,7 @@ float64 w
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       header,pose
+       header,pose,unknown
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -85,9 +86,12 @@ float64 w
         self.header = std_msgs.msg.Header()
       if self.pose is None:
         self.pose = geometry_msgs.msg.PoseStamped()
+      if self.unknown is None:
+        self.unknown = False
     else:
       self.header = std_msgs.msg.Header()
       self.pose = geometry_msgs.msg.PoseStamped()
+      self.unknown = False
 
   def _get_types(self):
     """
@@ -118,7 +122,7 @@ float64 w
         length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_7d.pack(_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w))
+      buff.write(_struct_7dB.pack(_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w, _x.unknown))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -161,8 +165,9 @@ float64 w
         self.pose.header.frame_id = str[start:end]
       _x = self
       start = end
-      end += 56
-      (_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w,) = _struct_7d.unpack(str[start:end])
+      end += 57
+      (_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w, _x.unknown,) = _struct_7dB.unpack(str[start:end])
+      self.unknown = bool(self.unknown)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -192,7 +197,7 @@ float64 w
         length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_7d.pack(_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w))
+      buff.write(_struct_7dB.pack(_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w, _x.unknown))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -236,12 +241,13 @@ float64 w
         self.pose.header.frame_id = str[start:end]
       _x = self
       start = end
-      end += 56
-      (_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w,) = _struct_7d.unpack(str[start:end])
+      end += 57
+      (_x.pose.pose.position.x, _x.pose.pose.position.y, _x.pose.pose.position.z, _x.pose.pose.orientation.x, _x.pose.pose.orientation.y, _x.pose.pose.orientation.z, _x.pose.pose.orientation.w, _x.unknown,) = _struct_7dB.unpack(str[start:end])
+      self.unknown = bool(self.unknown)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
 _struct_3I = struct.Struct("<3I")
-_struct_7d = struct.Struct("<7d")
+_struct_7dB = struct.Struct("<7dB")

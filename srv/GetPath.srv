@@ -1,6 +1,6 @@
-float64 time
+time time
 ---
 bool started
 bool ended
-float64 elapsedTime
+duration elapsedTime
 geometry_msgs/PointStamped point

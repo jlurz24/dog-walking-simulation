@@ -15,9 +15,4 @@
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
 
  <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
-
-  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen">
-    <param name="known_position_window" value="2.0"/>
-  </node>
-
 </launch>

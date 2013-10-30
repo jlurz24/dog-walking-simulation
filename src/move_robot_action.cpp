@@ -33,15 +33,16 @@ namespace {
     ROS_DEBUG("Preempting the move robot action");
 
     if(!as.isActive()){
-      ROS_INFO("Move robot position action cancelled prior to start");
+      ROS_INFO("Move robot position action canceled prior to start");
       return;
     }
 
-    // Do not stop the robot as this will be called if we are pre-empted by the sequencer.
+    // Do not stop the robot as this will be called if we are preempted by the sequencer.
     as.setPreempted();
   }
 
   void stop(){
+	ROS_INFO("Stopping the base");
     geometry_msgs::Twist baseCmd;
     baseCmd.linear.x = 0.0;
     baseCmd.angular.z = 0.0;
@@ -56,7 +57,7 @@ namespace {
   
   void move(const dogsim::MoveRobotGoalConstPtr& goal){
     if(!as.isActive()){
-      ROS_INFO("Move robot action cancelled prior to start");
+      ROS_INFO("Move robot action canceled prior to start");
       return;
     }
     
@@ -74,7 +75,7 @@ namespace {
             tf.transformPose("/map", ros::Time(0), goal->pose, goal->pose.header.frame_id, absoluteGoal);
         }
         catch(tf::TransformException& ex){
-            ROS_ERROR("Failed to transform goal to map frame");
+            ROS_ERROR("Failed to transform goal from %s to /map frame", goal->pose.header.frame_id.c_str());
             as.setAborted();
             return;
         }
@@ -89,14 +90,14 @@ namespace {
         tf.transformPose("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPose);
     }
     catch(tf::TransformException& ex){
-        ROS_ERROR("Failed to transform absolute goal to base footprint");
+        ROS_ERROR("Failed to transform absolute goal from %s to /base_footprint frame", absoluteGoal.header.frame_id.c_str());
         as.setAborted();
         return;
     }
     
     // Loop and move the robot, checking the position of the goal in the base
     // frame after each move.
-    static const unsigned int HZ = 10;
+    static const unsigned int HZ = 50;
     ros::Rate r(HZ);
     
     // How close to the goal we need to get.
@@ -217,6 +218,7 @@ namespace {
             const std_msgs::ColorRGBA GREEN = utils::createColor(0, 1, 0);
             movePub.publish(utils::createArrow(yaw, arrowHeader, GREEN));
         }
+
         // Publish the command to the base
         cmdVelocityPub.publish(baseCmd);
 
@@ -227,7 +229,7 @@ namespace {
                 tf.transformPose("/base_footprint", ros::Time(0), absoluteGoal, absoluteGoal.header.frame_id, goalPose);
             }
             catch(tf::TransformException& ex){
-                ROS_ERROR("Failed to transform absolute goal to base footprint");
+                ROS_ERROR("Failed to transform absolute goal from %s to /base_footprint frame", absoluteGoal.header.frame_id.c_str());
                 // Continue and hope that it transforms next time.
             }
             currentDistance = utils::pointToPointXYDistance(goalPose.pose.position, robotPose.position);

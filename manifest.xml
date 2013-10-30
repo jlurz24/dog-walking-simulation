@@ -19,6 +19,7 @@
   <depend package="moveit_core" />
   <depend package="moveit_ros_planning_interface" />
   <depend package="tf" />
+  <depend package="position_tracker" />
    <export>
     <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
   </export>

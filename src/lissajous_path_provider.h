@@ -20,18 +20,18 @@ namespace {
         virtual void init(){
         }
     
-        virtual double getMaximumTime() const {
-            return FULL_CYCLE_T * TIMESCALE_FACTOR;
+        virtual ros::Duration getMaximumTime() const {
+            return ros::Duration(FULL_CYCLE_T * TIMESCALE_FACTOR);
         }
         
-        virtual geometry_msgs::PointStamped positionAtTime(const double baseT) const {
+        virtual geometry_msgs::PointStamped positionAtTime(const ros::Duration baseT) const {
             // Lissajous parameters.
             static const double a = sqrt(2);
             static const double delta = boost::math::constants::pi<long double>() / 2.0;
             static const double A = 8.0;
             static const double B = 4.0;
             static const double b = 2 * a;
-            double t = baseT / TIMESCALE_FACTOR;
+            double t = baseT.toSec() / TIMESCALE_FACTOR;
             
             geometry_msgs::PointStamped goal;
             goal.header.frame_id = "/map";

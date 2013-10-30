@@ -2,7 +2,6 @@
 #include <visualization_msgs/Marker.h>
 #include <dogsim/GetPath.h>
 #include <dogsim/GetEntirePath.h>
-#include <dogsim/MaximumTime.h>
 #include <dogsim/utils.h>
 
 namespace {
@@ -36,8 +35,6 @@ private:
   //! Cached service client.
   ros::ServiceClient getPathClient;
   ros::ServiceClient getEntirePathClient;
-    
-  double maximumTime;
 public:
   //! ROS node initialization
   PathVisualizer(): pnh("~"){
@@ -48,19 +45,9 @@ public:
     goalPubComplete = nh.advertise<visualization_msgs::Marker>("path/walk_goal_viz_complete", 1);
    
     ros::service::waitForService("/dogsim/get_path");
-    ros::service::waitForService("/dogsim/maximum_time");
     ros::service::waitForService("/dogsim/get_entire_path");
     getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
     getEntirePathClient = nh.serviceClient<GetEntirePath>("/dogsim/get_entire_path", true /* persist */);
-    
-    // Precalc the maximum time
-    ros::ServiceClient maxTimeClient = nh.serviceClient<dogsim::MaximumTime>("/dogsim/maximum_time", false);
-    // Fetch the maximum time.
-    dogsim::MaximumTime maxTime;
-    if(!maxTimeClient.call(maxTime)){
-        ROS_ERROR("Failed to call maximum time");
-    }
-    maximumTime = maxTime.response.maximumTime;
             
     displayTimer = nh.createTimer(ros::Duration(0.1), &PathVisualizer::displayCallback, this);
     displayTimerComplete = nh.createTimer(ros::Duration(0.25), &PathVisualizer::displayCompleteCallback, this);
@@ -69,7 +56,7 @@ public:
   geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started, bool& ended){
       // Determine the goal.
       GetPath getPath;
-      getPath.request.time = time.toSec();
+      getPath.request.time = time;
       getPathClient.call(getPath);
       started = getPath.response.started;
       ended = getPath.response.ended;

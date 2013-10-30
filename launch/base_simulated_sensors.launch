@@ -1,0 +1,4 @@
+<launch>
+  <include file="$(find dogsim)/base_no_sensors.launch" />
+  <include file="$(find dogsim)/simulated_sensors.launch" />
+</launch>

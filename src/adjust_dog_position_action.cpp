@@ -13,6 +13,7 @@
 #include <moveit/robot_state/robot_state.h>
 #include <tf2/LinearMath/btVector3.h>
 #include <moveit_msgs/GetPositionIK.h>
+#include <boost/bind.hpp>
 
 // Generated messages
 #include <dogsim/AdjustDogPositionAction.h>
@@ -51,7 +52,7 @@ namespace {
         ROS_DEBUG("Preempting the adjust dog position action");
 
         if(!as.isActive()){
-            ROS_DEBUG("Adjust dog position action cancelled prior to start");
+            ROS_DEBUG("Adjust dog position action canceled prior to start");
             return;
         }
 

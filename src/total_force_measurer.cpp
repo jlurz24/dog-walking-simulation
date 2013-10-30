@@ -39,7 +39,7 @@ class TotalForceMeasurer {
 
       ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
       dogsim::GetPath getPath;
-      getPath.request.time = timerEvent.current_real.toSec();
+      getPath.request.time = timerEvent.current_real;
       getPathClient.call(getPath);
 
       if(!getPath.response.started){
@@ -82,7 +82,7 @@ class TotalForceMeasurer {
       // Save off the message.
       lastJointState = jointState;
 
-      ROS_DEBUG("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / getPath.response.elapsedTime);
+      ROS_DEBUG("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / getPath.response.elapsedTime.sec);
    }
 };
 

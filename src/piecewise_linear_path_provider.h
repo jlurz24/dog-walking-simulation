@@ -23,20 +23,20 @@ namespace {
             calculateTotalLength();
         }
     
-        virtual double getMaximumTime() const {
-            return totalDuration;
+        virtual ros::Duration getMaximumTime() const {
+            return ros::Duration(totalDuration);
         }
         
-        virtual geometry_msgs::PointStamped positionAtTime(const double t) const {
+        virtual geometry_msgs::PointStamped positionAtTime(const ros::Duration t) const {
             geometry_msgs::PointStamped goal;
             goal.header.frame_id = "/map";
             goal.header.stamp = ros::Time::now();
             
-            if(t < 0){
+            if(t.toSec() < 0){
                 return goal;
             }
             
-            double distance = VELOCITY * t;
+            double distance = VELOCITY * t.toSec();
             btVector3 result = btVector3(0, 0, 0);
             bool roundingRequired = false;
             bool firstRoundingSegment = false;

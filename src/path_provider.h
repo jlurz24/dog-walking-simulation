@@ -4,10 +4,10 @@
 namespace {
   class PathProvider {
     public:
-	    virtual ~PathProvider() = 0;
+	    virtual ~PathProvider(){};
         virtual void init() = 0;
-        virtual geometry_msgs::PointStamped positionAtTime(const double t) const = 0;
-        virtual double getMaximumTime() const = 0;
+        virtual geometry_msgs::PointStamped positionAtTime(const ros::Duration t) const = 0;
+        virtual ros::Duration getMaximumTime() const = 0;
   };
 }
 
