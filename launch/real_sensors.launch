@@ -1,5 +1,5 @@
 <launch>
-<node pkg="position_tracker" type="dynamic_object_detector" name="dynamic_object_detector" output="screen">
+<!--<node pkg="position_tracker" type="dynamic_object_detector" name="dynamic_object_detector" output="screen">
     <param name="object_name" value="dog" />
     <param name="frame" value="/base_footprint" />
     <param name="initial_velocity" value="0.0" />
@@ -9,7 +9,7 @@
     <param name="association_max_success_score" value="2" />
     <param name="filter_stale_threshold" value="1" />
     <param name="max_correlation_distance" value="5" />
-  </node>
+  </node>-->
   <node pkg="position_tracker" type="multi_object_detector" name="multi_object_detector" output="screen">
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="0.1" />

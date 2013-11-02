@@ -23,13 +23,14 @@ public:
 
 		as.registerPreemptCallback(
 				boost::bind(&SearchForDogAction::preemptCB, this));
+		pointHeadClient.waitForServer();
 		as.start();
 	}
 
 private:
 
 	void preemptCB() {
-		ROS_DEBUG("Preempting the search ford dog action");
+		ROS_INFO("Preempting the search for dog action");
 
 		if (!as.isActive()) {
 			ROS_DEBUG("Search for dog action canceled prior to start");
@@ -40,7 +41,7 @@ private:
 	}
 
 	bool search(const dogsim::SearchForDogGoalConstPtr& goal) {
-		ROS_DEBUG("Searching for dog");
+		ROS_INFO("Requesting search on search for dog action");
 
 		pr2_controllers_msgs::PointHeadGoal phGoal;
 		// If the last position is known, use that as our start point.
@@ -52,13 +53,13 @@ private:
 			PointStamped handInBaseFrame;
 			{
 				PointStamped handInHandFrame;
-				handInHandFrame.header.frame_id = "r_wrist_roll_joint";
+				handInHandFrame.header.frame_id = "r_wrist_roll_link";
 				try {
 					tf.transformPoint("/base_footprint", ros::Time(0),
 							handInHandFrame, handInHandFrame.header.frame_id,
 							handInBaseFrame);
 				} catch (tf::TransformException& ex) {
-					ROS_INFO(
+					ROS_ERROR(
 							"Failed to transform hand position to /base_footprint");
 					as.setAborted();
 					return false;
@@ -69,8 +70,8 @@ private:
 			handInBaseFrame.point.z = 0;
 			phGoal.target = handInBaseFrame;
 		}
-		ROS_INFO("Sending goal to PHC");
-		utils::sendGoal(&pointHeadClient, phGoal, nh);
+
+		pointHeadClient.sendGoalAndWait(phGoal);
 		as.setSucceeded();
 		return true;
 	}

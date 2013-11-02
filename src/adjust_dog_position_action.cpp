@@ -125,7 +125,7 @@ namespace {
             tf.transformPose("/base_footprint", ros::Time(0), goal->dogPose, goal->dogPose.header.frame_id, dogInBaseFrame);
         }
         catch(tf::TransformException& ex){
-            ROS_INFO("Failed to transform dog pose to /base_footprint");
+            ROS_ERROR("Failed to transform dog pose from %s to /base_footprint frame", goal->dogPose.header.frame_id.c_str());
             as.setAborted();
             return false;
         }
