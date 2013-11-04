@@ -19,7 +19,7 @@ public:
 	SearchForDogAction(const string& name) :
 		as(nh, name, boost::bind(&SearchForDogAction::search, this, _1),
 				false), actionName(name), pointHeadClient(
-						"/head_traj_controller/point_head_action") {
+						"/head_traj_controller/point_head_action", true) {
 
 		as.registerPreemptCallback(
 				boost::bind(&SearchForDogAction::preemptCB, this));
@@ -71,9 +71,24 @@ private:
 			phGoal.target = handInBaseFrame;
 		}
 
-		pointHeadClient.sendGoalAndWait(phGoal);
-		as.setSucceeded();
-		return true;
+		pointHeadClient.sendGoal(phGoal);
+        if(!pointHeadClient.waitForResult(ros::Duration(1.0))){
+            ROS_INFO("Look for dog timed out");
+            pointHeadClient.cancelGoal();
+            as.setAborted();
+            return false;
+        }
+
+        if(pointHeadClient.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+            ROS_INFO("Look for dog succeeded");
+            as.setSucceeded();
+            return true;
+        }
+
+        ROS_INFO("Look for dog failed: %s", pointHeadClient.getState().toString().c_str());
+        as.setAborted();
+        return false;
+
 	}
 
 protected:

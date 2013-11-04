@@ -1,5 +1,10 @@
 <launch>
   <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
   <node pkg="dogsim" type="path_scorer" name="path_scorer" output="screen"/>
+
+  <node pkg="position_tracker" type="position_velocity_measurer" name="position_velocity_measurer" output="screen">
+    <param name="model_prefix" value="dog"/>
+    <param name="group_name" value="dog"/>
+  </node>
 </launch>
 

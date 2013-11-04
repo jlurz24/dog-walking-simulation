@@ -6,7 +6,8 @@
 #include <dogsim/AvoidingDog.h>
 #include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
-
+#include <position_tracker/StartMeasurement.h>
+#include <position_tracker/StopMeasurement.h>
 #include <message_filters/subscriber.h>
 #include <dogsim/AdjustDogPositionAction.h>
 #include <dogsim/MoveArmToBasePositionAction.h>
@@ -93,6 +94,10 @@ private:
     //! Last known dog position
     geometry_msgs::PointStamped lastKnownDogPosition;
 
+    //! Publishers for starting and stopping measurement.
+    ros::Publisher startMeasuringPub;
+    ros::Publisher stopMeasuringPub;
+
 public:
     //! ROS node initialization
     RobotDriver() :
@@ -117,6 +122,8 @@ public:
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
         lookAtPathClient.waitForServer();
+        startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1, true);
+        stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1, true);
 
         // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
         // move the arm.
@@ -176,6 +183,11 @@ public:
         startPath.request.time = currentTime;
         ros::ServiceClient startPathClient = nh.serviceClient<StartPath>("/dogsim/start", false);
         startPathClient.call(startPath);
+
+        // Notify clients to start measuring.
+        position_tracker::StartMeasurement startMeasuringMsg;
+        startMeasuringMsg.header.stamp = ros::Time::now();
+        startMeasuringPub.publish(startMeasuringMsg);
     }
 
     void avoidingDogCallback(const AvoidingDogConstPtr& avoidDogMsg) {
@@ -235,9 +247,10 @@ public:
         // Ensure no search is ongoing.
         if (searchForDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE
                 || searchForDogClient.getState() == actionlib::SimpleClientGoalState::PENDING) {
-            ROS_INFO("Canceling current search for dog. Previous state was: %s", searchForDogClient.getState().toString().c_str());
+            ROS_INFO("Canceling current search for dog because dog was found. Previous state was: %s", searchForDogClient.getState().toString().c_str());
             searchForDogClient.cancelGoal();
         }
+
         // Save the state for search
         this->anyDogPositionsDetected = true;
         this->lastKnownDogPosition.header = dogPosition->header;
@@ -290,6 +303,13 @@ public:
                 moveRobotClient.cancelGoal();
             }
             driverTimer.stop();
+            dogPositionSub->unsubscribe();
+            avoidingDogSub->unsubscribe();
+
+            // Notify clients to stop measuring.
+            position_tracker::StopMeasurement stopMeasuringMsg;
+            stopMeasuringMsg.header.stamp = ros::Time::now();
+            stopMeasuringPub.publish(stopMeasuringMsg);
             return;
         }
 
@@ -297,12 +317,15 @@ public:
         lookGoal.futurePathPosition.header = getPlannedPose.response.pose.header;
         lookGoal.futurePathPosition.point = getPlannedPose.response.pose.pose.position;
 
-        // Ensure no search is ongoing.
-        if (searchForDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE) {
-            ROS_INFO("Canceling current search for dog");
+        // Explicitly preempt and search action
+        if (searchForDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE
+                || searchForDogClient.getState() == actionlib::SimpleClientGoalState::PENDING) {
+            ROS_INFO("Look at path is pre-empting search for dog");
             searchForDogClient.cancelGoal();
         }
+
         // Execute asynchronously. Interrupting a previous look is ok.
+        ROS_INFO("Requesting look at path action");
         lookAtPathClient.sendGoal(lookGoal);
 
         // This will automatically cancel the last goal.
