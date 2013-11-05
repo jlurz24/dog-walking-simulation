@@ -30,9 +30,7 @@ public:
         as.registerCancelCallback(boost::bind(&FocusHead::cancelCallback, this, _1));
 
         pointHeadClient.waitForServer();
-        timeout = nh.createTimer(ros::Duration(1.0), &FocusHead::timeoutCallback, this,
-                true /* One shot */);
-        timeout.stop();
+
         as.start();
     }
 
@@ -149,7 +147,8 @@ private:
 
         pointHeadClient.sendGoal(phGoal,
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
-        timeout.start();
+        timeout = nh.createTimer(ros::Duration(1.0), &FocusHead::timeoutCallback, this,
+                true /* One shot */);
 
         return true;
     }
