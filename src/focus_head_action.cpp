@@ -4,6 +4,8 @@
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <dogsim/utils.h>
 #include <tf/transform_listener.h>
+#include <dogsim/DogPosition.h>
+#include <message_filters/subscriber.h>
 
 // Generated messages
 #include <dogsim/FocusHeadAction.h>
@@ -29,6 +31,11 @@ public:
         as.registerGoalCallback(boost::bind(&FocusHead::goalCallback, this, _1));
         as.registerCancelCallback(boost::bind(&FocusHead::cancelCallback, this, _1));
 
+        dogPositionSub.reset(
+                new message_filters::Subscriber<DogPosition>(nh,
+                        "/dog_position_detector/dog_position", 1));
+        dogPositionSub->registerCallback(boost::bind(&FocusHead::dogPositionCallback, this, _1));
+        dogPositionSub->unsubscribe();
         pointHeadClient.waitForServer();
 
         as.start();
@@ -38,11 +45,14 @@ private:
 
     void cancelCallback(FocusHeadActionServer::GoalHandle& gh) {
         boost::mutex::scoped_lock lock(stateMutex);
-        ROS_INFO("Canceling the focus head action");
+        ROS_DEBUG("Canceling the focus head action");
         // See if our current goal is the one that needs to be canceled
         if (currentGH != gh) {
-            ROS_INFO("Got a cancel request for some other goal. Ignoring it");
+            ROS_DEBUG("Ignoring cancel request for unknown goal");
             return;
+        }
+        if(state == FocusHead::LOOKING_FOR_DOG){
+            dogPositionSub->unsubscribe();
         }
         currentGH.setCanceled();
         pointHeadClient.cancelGoal();
@@ -50,11 +60,16 @@ private:
 
     void timeoutCallback(const ros::TimerEvent& e){
         boost::mutex::scoped_lock lock(stateMutex);
+        ROS_DEBUG("Received timeout callback");
+
         // Ignore any timeouts after completion
         if(state == FocusHead::IDLE){
             return;
         }
-        ROS_INFO("Received timeout callback");
+
+        if(state == FocusHead::LOOKING_FOR_DOG){
+            dogPositionSub->unsubscribe();
+        }
         currentGH.setAborted();
         pointHeadClient.cancelAllGoals();
         state = FocusHead::IDLE;
@@ -62,21 +77,21 @@ private:
 
     bool goalCallback(FocusHeadActionServer::GoalHandle gh) {
         boost::mutex::scoped_lock lock(stateMutex);
-        ROS_INFO("Executing goal callback for FocusHeadAction");
+        ROS_DEBUG("Executing goal callback for FocusHeadAction");
 
         if (state == FocusHead::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
-            ROS_INFO("Rejecting dog target because currently looking at path");
+            ROS_DEBUG("Rejecting dog target because currently looking at path");
             gh.setRejected();
             return false;
         }
         if (state == FocusHead::LOOKING_FOR_DOG && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
-            ROS_INFO("Ignoring additional request to look for dog");
+            ROS_DEBUG("Ignoring additional request to look for dog");
             gh.setRejected();
             return false;
         }
 
         if (state != FocusHead::IDLE) {
-            ROS_INFO("Pre-empting current focus head target for new goal");
+            ROS_DEBUG("Prempting current focus head target for new goal");
             currentGH.setCanceled();
             pointHeadClient.cancelGoal();
         }
@@ -95,15 +110,16 @@ private:
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result){
         boost::mutex::scoped_lock lock(stateMutex);
-        ROS_INFO("Received point head complete callback");
+        ROS_DEBUG("Received point head complete callback");
         currentGH.setSucceeded();
         timeout.stop();
+        if(state == FocusHead::LOOKING_FOR_DOG){
+            dogPositionSub->unsubscribe();
+        }
         state = FocusHead::IDLE;
     }
 
     bool execute(const FocusHeadActionServer::GoalConstPtr goal) {
-        ROS_INFO("Inside execute for focusHead");
-
         pr2_controllers_msgs::PointHeadGoal phGoal;
         if (goal->target == FocusHeadGoal::DOG_TARGET) {
             state = FocusHead::LOOKING_FOR_DOG;
@@ -149,8 +165,21 @@ private:
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
         timeout = nh.createTimer(ros::Duration(1.0), &FocusHead::timeoutCallback, this,
                 true /* One shot */);
-
+        dogPositionSub->subscribe();
         return true;
+    }
+
+    void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
+        if(dogPosition->unknown || state != FocusHead::LOOKING_FOR_DOG){
+            return;
+        }
+        boost::mutex::scoped_lock lock(stateMutex);
+        ROS_INFO("Search for dog located the dog");
+
+        currentGH.setSucceeded();
+        timeout.stop();
+        state = FocusHead::IDLE;
+        dogPositionSub->unsubscribe();
     }
 
 protected:
@@ -165,6 +194,9 @@ protected:
     FocusHeadActionServer::GoalHandle currentGH;
     ActionState state;
     ros::Timer timeout;
+
+    //! Dog position subscriber
+    auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub;
 };
 }
 
