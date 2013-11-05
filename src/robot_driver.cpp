@@ -13,8 +13,7 @@
 #include <dogsim/MoveArmToBasePositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
-#include <dogsim/SearchForDogAction.h>
-#include <dogsim/LookAtPathAction.h>
+#include <dogsim/FocusHeadAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <tf2/LinearMath/btVector3.h>
 
@@ -25,8 +24,7 @@ using namespace dogsim;
 typedef actionlib::SimpleActionClient<AdjustDogPositionAction> AdjustDogClient;
 typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
-typedef actionlib::SimpleActionClient<SearchForDogAction> SearchForDogClient;
-typedef actionlib::SimpleActionClient<LookAtPathAction> LookAtPathClient;
+typedef actionlib::SimpleActionClient<FocusHeadAction> FocusHeadClient;
 
 class RobotDriver {
 private:
@@ -61,14 +59,11 @@ private:
     //! Client for the movement of the robot base.
     MoveRobotClient moveRobotClient;
 
-    //! Client for dog search
-    SearchForDogClient searchForDogClient;
+    //! Client to adjust head
+    FocusHeadClient focusHeadClient;
 
     //! Client to adjust the arm of the robot to the start position
     MoveArmToBasePositionClient moveArmToBasePositionClient;
-
-    //! Client to adjust head to look at path
-    LookAtPathClient lookAtPathClient;
 
     //! Cached service client.
     ros::ServiceClient getPathClient;
@@ -102,9 +97,8 @@ public:
     //! ROS node initialization
     RobotDriver() :
             pnh("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient(
-                    "move_robot_action", true), searchForDogClient("search_for_dog_action", true), moveArmToBasePositionClient(
-                    "move_arm_to_base_position_action", true), lookAtPathClient(
-                    "look_at_path_action", true), soloMode(false), noSteeringMode(false), avoidingDog(
+                    "move_robot_action", true), focusHeadClient("focus_head_action", true), moveArmToBasePositionClient(
+                    "move_arm_to_base_position_action", true), soloMode(false), noSteeringMode(false), avoidingDog(
                     false), anyDogPositionsDetected(false) {
 
         ROS_INFO( "Initializing the robot driver @ %f", ros::Time::now().toSec());
@@ -121,7 +115,7 @@ public:
 
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
-        lookAtPathClient.waitForServer();
+        focusHeadClient.waitForServer();
         startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1, true);
         stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1, true);
 
@@ -134,7 +128,6 @@ public:
         else {
             ROS_INFO("Running regular mode");
             adjustDogClient.waitForServer();
-            searchForDogClient.waitForServer();
         }
 
         pnh.param<bool>("no_steering_mode", noSteeringMode, false);
@@ -198,7 +191,7 @@ public:
             adjustDogClient.cancelGoal();
             moveRobotClient.cancelGoal();
             moveArmToBasePositionClient.cancelGoal();
-            searchForDogClient.cancelGoal();
+            focusHeadClient.cancelGoal();
         }
         else if (avoidingDog) {
             ROS_INFO("Resetting arm as the avoiding flag is not set");
@@ -219,37 +212,19 @@ public:
         }
 
         if (dogPosition->unknown) {
-            // Already searching for dog. Keep searching.
-            if (searchForDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE
-                    || searchForDogClient.getState() == actionlib::SimpleClientGoalState::PENDING) {
-                ROS_DEBUG(
-                        "Search for dog already ongoing: %s", searchForDogClient.getState().toString().c_str());
-                return;
-            }
-
-            // Currently looking at path
-             if (lookAtPathClient.getState() == actionlib::SimpleClientGoalState::ACTIVE
-                     || lookAtPathClient.getState() == actionlib::SimpleClientGoalState::PENDING) {
-                 ROS_INFO(
-                         "Search for dog cannot be started because lookAtPath is ongoing: %s", lookAtPathClient.getState().toString().c_str());
-                 return;
-             }
             // Start the search for the dog.
             ROS_INFO("Beginning search for dog");
-            SearchForDogGoal searchGoal;
-            searchGoal.anyLastPosition = this->anyDogPositionsDetected;
-            searchGoal.lastKnownPosition = this->lastKnownDogPosition;
+            FocusHeadGoal searchGoal;
+            searchGoal.isPositionSet = this->anyDogPositionsDetected;
+            searchGoal.position = this->lastKnownDogPosition;
+            searchGoal.target = FocusHeadGoal::DOG_TARGET;
             // Execute asynchronously
-            searchForDogClient.sendGoal(searchGoal);
+            focusHeadClient.sendGoal(searchGoal);
             return;
         }
 
-        // Ensure no search is ongoing.
-        if (searchForDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE
-                || searchForDogClient.getState() == actionlib::SimpleClientGoalState::PENDING) {
-            ROS_INFO("Canceling current search for dog because dog was found. Previous state was: %s", searchForDogClient.getState().toString().c_str());
-            searchForDogClient.cancelGoal();
-        }
+        // TODO: How do we signal that the search is complete?
+        //       The action should start listening for events on its own.
 
         // Save the state for search
         this->anyDogPositionsDetected = true;
@@ -313,20 +288,14 @@ public:
             return;
         }
 
-        LookAtPathGoal lookGoal;
-        lookGoal.futurePathPosition.header = getPlannedPose.response.pose.header;
-        lookGoal.futurePathPosition.point = getPlannedPose.response.pose.pose.position;
-
-        // Explicitly preempt and search action
-        if (searchForDogClient.getState() == actionlib::SimpleClientGoalState::ACTIVE
-                || searchForDogClient.getState() == actionlib::SimpleClientGoalState::PENDING) {
-            ROS_INFO("Look at path is pre-empting search for dog");
-            searchForDogClient.cancelGoal();
-        }
+        FocusHeadGoal lookGoal;
+        lookGoal.position.header = getPlannedPose.response.pose.header;
+        lookGoal.position.point = getPlannedPose.response.pose.pose.position;
+        lookGoal.target = FocusHeadGoal::PATH_TARGET;
 
         // Execute asynchronously. Interrupting a previous look is ok.
         ROS_INFO("Requesting look at path action");
-        lookAtPathClient.sendGoal(lookGoal);
+        focusHeadClient.sendGoal(lookGoal);
 
         // This will automatically cancel the last goal.
         MoveRobotGoal goal;

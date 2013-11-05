@@ -6,106 +6,173 @@
 #include <tf/transform_listener.h>
 
 // Generated messages
-#include <dogsim/SearchForDogAction.h>
+#include <dogsim/FocusHeadAction.h>
+#include <dogsim/FocusHeadGoal.h>
 
 namespace {
+using namespace dogsim;
 using namespace std;
 using namespace geometry_msgs;
 
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
+typedef actionlib::ActionServer<FocusHeadAction> FocusHeadActionServer;
 
-class SearchForDogAction {
+class FocusHead {
+    enum ActionState {
+        IDLE, LOOKING_AT_PATH, LOOKING_FOR_DOG
+    };
 public:
-	SearchForDogAction(const string& name) :
-		as(nh, name, boost::bind(&SearchForDogAction::search, this, _1),
-				false), actionName(name), pointHeadClient(
-						"/head_traj_controller/point_head_action", true) {
+    FocusHead(const string& name) :
+        as(nh, name, false), actionName(name),
+        pointHeadClient("/head_traj_controller/point_head_action", true), state(IDLE) {
 
-		as.registerPreemptCallback(
-				boost::bind(&SearchForDogAction::preemptCB, this));
-		pointHeadClient.waitForServer();
-		as.start();
-	}
+        as.registerGoalCallback(boost::bind(&FocusHead::goalCallback, this, _1));
+        as.registerCancelCallback(boost::bind(&FocusHead::cancelCallback, this, _1));
+
+        pointHeadClient.waitForServer();
+        timeout = nh.createTimer(ros::Duration(1.0), &FocusHead::timeoutCallback, this,
+                true /* One shot */);
+        timeout.stop();
+        as.start();
+    }
 
 private:
 
-	void preemptCB() {
-		ROS_INFO("Preempting the search for dog action");
+    void cancelCallback(FocusHeadActionServer::GoalHandle& gh) {
+        boost::mutex::scoped_lock lock(stateMutex);
+        ROS_INFO("Canceling the focus head action");
+        // See if our current goal is the one that needs to be canceled
+        if (currentGH != gh) {
+            ROS_INFO("Got a cancel request for some other goal. Ignoring it");
+            return;
+        }
+        currentGH.setCanceled();
+        pointHeadClient.cancelGoal();
+    }
 
-		if (!as.isActive()) {
-			ROS_DEBUG("Search for dog action canceled prior to start");
-			return;
-		}
-		pointHeadClient.cancelGoal();
-		as.setPreempted();
-	}
+    void timeoutCallback(const ros::TimerEvent& e){
+        boost::mutex::scoped_lock lock(stateMutex);
+        // Ignore any timeouts after completion
+        if(state == FocusHead::IDLE){
+            return;
+        }
+        ROS_INFO("Received timeout callback");
+        currentGH.setAborted();
+        pointHeadClient.cancelAllGoals();
+        state = FocusHead::IDLE;
+    }
 
-	bool search(const dogsim::SearchForDogGoalConstPtr& goal) {
-		ROS_INFO("Requesting search on search for dog action");
+    bool goalCallback(FocusHeadActionServer::GoalHandle gh) {
+        boost::mutex::scoped_lock lock(stateMutex);
+        ROS_INFO("Executing goal callback for FocusHeadAction");
 
-		pr2_controllers_msgs::PointHeadGoal phGoal;
-		// If the last position is known, use that as our start point.
-		if (goal->anyLastPosition) {
-			phGoal.target = goal->lastKnownPosition;
-		} else {
-			// Use the current right hand position at height 0 as the starting point.
-			// Determine the position of the hand in the base frame.
-			PointStamped handInBaseFrame;
-			{
-				PointStamped handInHandFrame;
-				handInHandFrame.header.frame_id = "r_wrist_roll_link";
-				try {
-					tf.transformPoint("/base_footprint", ros::Time(0),
-							handInHandFrame, handInHandFrame.header.frame_id,
-							handInBaseFrame);
-				} catch (tf::TransformException& ex) {
-					ROS_ERROR(
-							"Failed to transform hand position to /base_footprint");
-					as.setAborted();
-					return false;
-				}
-			}
-			handInBaseFrame.header.frame_id = "/base_footprint";
-			handInBaseFrame.header.stamp = ros::Time::now();
-			handInBaseFrame.point.z = 0;
-			phGoal.target = handInBaseFrame;
-		}
-
-		pointHeadClient.sendGoal(phGoal);
-        if(!pointHeadClient.waitForResult(ros::Duration(1.0))){
-            ROS_INFO("Look for dog timed out");
-            pointHeadClient.cancelGoal();
-            as.setAborted();
+        if (state == FocusHead::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
+            ROS_INFO("Rejecting dog target because currently looking at path");
+            gh.setRejected();
+            return false;
+        }
+        if (state == FocusHead::LOOKING_FOR_DOG && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
+            ROS_INFO("Ignoring additional request to look for dog");
+            gh.setRejected();
             return false;
         }
 
-        if(pointHeadClient.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-            ROS_INFO("Look for dog succeeded");
-            as.setSucceeded();
-            return true;
+        if (state != FocusHead::IDLE) {
+            ROS_INFO("Pre-empting current focus head target for new goal");
+            currentGH.setCanceled();
+            pointHeadClient.cancelGoal();
         }
 
-        ROS_INFO("Look for dog failed: %s", pointHeadClient.getState().toString().c_str());
-        as.setAborted();
-        return false;
+        currentGH = gh;
+        currentGH.setAccepted();
+        if(!execute(currentGH.getGoal())){
+            ROS_ERROR("Failed to schedule point head action");
+            currentGH.setAborted();
+            state = FocusHead::IDLE;
+            return false;
+        }
+        return true;
+    }
 
-	}
+    void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
+            const pr2_controllers_msgs::PointHeadResultConstPtr result){
+        boost::mutex::scoped_lock lock(stateMutex);
+        ROS_INFO("Received point head complete callback");
+        currentGH.setSucceeded();
+        timeout.stop();
+        state = FocusHead::IDLE;
+    }
+
+    bool execute(const FocusHeadActionServer::GoalConstPtr goal) {
+        ROS_INFO("Inside execute for focusHead");
+
+        pr2_controllers_msgs::PointHeadGoal phGoal;
+        if (goal->target == FocusHeadGoal::DOG_TARGET) {
+            state = FocusHead::LOOKING_FOR_DOG;
+            // If the last position is known, use that as our start point.
+            if (goal->isPositionSet) {
+                phGoal.target = goal->position;
+            }
+            else {
+                // Use the current right hand position at height 0 as the starting point.
+                // Determine the position of the hand in the base frame.
+                PointStamped handInBaseFrame;
+                {
+                    PointStamped handInHandFrame;
+                    handInHandFrame.header.frame_id = "r_wrist_roll_link";
+                    try {
+                        tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame,
+                                handInHandFrame.header.frame_id, handInBaseFrame);
+                    }
+                    catch (tf::TransformException& ex) {
+                        ROS_ERROR(
+                                "Failed to transform hand position to /base_footprint");
+                        return false;
+                    }
+                }
+                handInBaseFrame.header.frame_id = "/base_footprint";
+                handInBaseFrame.header.stamp = ros::Time::now();
+                handInBaseFrame.point.z = 0;
+                phGoal.target = handInBaseFrame;
+            }
+        }
+        else if (goal->target == FocusHeadGoal::PATH_TARGET) {
+            state = FocusHead::LOOKING_AT_PATH;
+            phGoal.target = goal->position;
+            // rosrun tf tf_echo base_link wide_stereo_link
+            phGoal.target.point.z = 1.25;
+        }
+        else {
+            ROS_ERROR("Unknown focus target type: %s", goal->target.c_str());
+            return false;
+        }
+
+        pointHeadClient.sendGoal(phGoal,
+                boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
+        timeout.start();
+
+        return true;
+    }
 
 protected:
-	ros::NodeHandle nh;
+    ros::NodeHandle nh;
 
-	// Actionlib classes
-	actionlib::SimpleActionServer<dogsim::SearchForDogAction> as;
-	string actionName;
-	PointHeadClient pointHeadClient;
-	tf::TransformListener tf;
+    // Actionlib classes
+    actionlib::ActionServer<dogsim::FocusHeadAction> as;
+    string actionName;
+    PointHeadClient pointHeadClient;
+    tf::TransformListener tf;
+    boost::mutex stateMutex;
+    FocusHeadActionServer::GoalHandle currentGH;
+    ActionState state;
+    ros::Timer timeout;
 };
 }
 
 int main(int argc, char** argv) {
-	ros::init(argc, argv, "search_for_dog_action");
-	SearchForDogAction action(ros::this_node::getName());
-	ros::spin();
+    ros::init(argc, argv, "focus_head_action");
+    FocusHead action(ros::this_node::getName());
+    ros::spin();
 
-	return 0;
+    return 0;
 }
