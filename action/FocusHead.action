@@ -1,6 +1,6 @@
 # goal definition
-string DOG_TARGET="dog"
-string PATH_TARGET="path"
+string DOG_TARGET=dog
+string PATH_TARGET=path
 string target
 geometry_msgs/PointStamped position
 bool isPositionSet

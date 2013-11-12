@@ -26,12 +26,10 @@ public:
 		ROS_INFO("Creating Dog Plugin");
 	}
 
-public:
 	~DogModelPlugin() {
 		ROS_INFO("Destroying Dog Plugin");
 	}
 
-public:
 	void Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/) {
 		ROS_INFO("Loading Dog Plugin");
 
@@ -50,9 +48,9 @@ public:
 		// Fetch the body link.
 		body = this->model->GetLink("body");
 
-		ros::service::waitForService("/dogsim/get_path");
-		ros::service::waitForService("/dogsim/start");
-		ros::service::waitForService("/dogsim/maximum_time");
+		waitForService("/dogsim/get_path");
+		waitForService("/dogsim/start");
+		waitForService("/dogsim/maximum_time");
 
 		dogGoalVizPub = nh.advertise<visualization_msgs::Marker>(
 				"dogsim/dog_goal_viz", 1);
@@ -81,6 +79,15 @@ public:
 	}
 
 private:
+	/**
+	 * This is not a standard ROS thread, so waitForService does not work. Mimic it with a simple spin-wait.
+	 */
+	void waitForService(const string& serviceName){
+        while(!ros::service::exists(serviceName, false)){
+            // Spin-wait
+        }
+	}
+
 	void startPath() {
 		dogsim::StartPath startPath;
 		startPath.request.time = ros::Time(this->model->GetWorld()->GetSimTime().Double());

@@ -6,6 +6,7 @@
 #include <tf/transform_listener.h>
 #include <dogsim/DogPosition.h>
 #include <message_filters/subscriber.h>
+#include <type_traits>
 
 // Generated messages
 #include <dogsim/FocusHeadAction.h>
@@ -19,17 +20,41 @@ using namespace geometry_msgs;
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
 typedef actionlib::ActionServer<FocusHeadAction> FocusHeadActionServer;
 
+struct XYOffset {
+    double x;
+    double y;
+};
+
+/**
+ * Array that instructs how to search
+ */
+static const XYOffset searchOffsets[] = { {0, 0}, {0, 0}, {1, 0}, {0, -1}, {-1, 0}, {0, 1} };
+
+static const double FOCUS_TIMEOUT = 2.0;
+
 class FocusHead {
-    enum ActionState {
+    enum class ActionState {
         IDLE, LOOKING_AT_PATH, LOOKING_FOR_DOG
     };
+
+    enum class SearchState {
+        NONE,
+        CENTER,
+        TOP,
+        LEFT,
+        BOTTOM,
+        RIGHT,
+        DONE
+    };
+
 public:
     FocusHead(const string& name) :
         as(nh, name, false), actionName(name),
-        pointHeadClient("/head_traj_controller/point_head_action", true), state(IDLE) {
+        pointHeadClient("/head_traj_controller/point_head_action", true), state(ActionState::IDLE), searchState(SearchState::NONE) {
 
         as.registerGoalCallback(boost::bind(&FocusHead::goalCallback, this, _1));
         as.registerCancelCallback(boost::bind(&FocusHead::cancelCallback, this, _1));
+        nh.param("leash_length", leashLength, 2.0);
 
         dogPositionSub.reset(
                 new message_filters::Subscriber<DogPosition>(nh,
@@ -51,135 +76,185 @@ private:
             ROS_DEBUG("Ignoring cancel request for unknown goal");
             return;
         }
-        if(state == FocusHead::LOOKING_FOR_DOG){
-            dogPositionSub->unsubscribe();
-        }
+        clearState();
         currentGH.setCanceled();
         pointHeadClient.cancelGoal();
     }
 
     void timeoutCallback(const ros::TimerEvent& e){
         boost::mutex::scoped_lock lock(stateMutex);
-        ROS_DEBUG("Received timeout callback");
 
         // Ignore any timeouts after completion
-        if(state == FocusHead::IDLE){
+        if(state == ActionState::IDLE){
+            ROS_DEBUG("Timeout received when state is idle");
             return;
         }
 
-        if(state == FocusHead::LOOKING_FOR_DOG){
-            dogPositionSub->unsubscribe();
+        if(state == ActionState::LOOKING_FOR_DOG && execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
+            ROS_DEBUG("Continuing search after timeout");
+            return;
         }
+
         currentGH.setAborted();
-        pointHeadClient.cancelAllGoals();
-        state = FocusHead::IDLE;
+        pointHeadClient.cancelGoal();
+        clearState();
     }
 
     bool goalCallback(FocusHeadActionServer::GoalHandle gh) {
         boost::mutex::scoped_lock lock(stateMutex);
         ROS_DEBUG("Executing goal callback for FocusHeadAction");
 
-        if (state == FocusHead::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
+        if (state == ActionState::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
             ROS_DEBUG("Rejecting dog target because currently looking at path");
             gh.setRejected();
             return false;
         }
-        if (state == FocusHead::LOOKING_FOR_DOG && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
+        if (state == ActionState::LOOKING_FOR_DOG && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
             ROS_DEBUG("Ignoring additional request to look for dog");
             gh.setRejected();
             return false;
         }
 
-        if (state != FocusHead::IDLE) {
-            ROS_DEBUG("Prempting current focus head target for new goal");
+        if (state != ActionState::IDLE) {
+            ROS_DEBUG("Preempting current focus head target for new goal");
+            assert(state == ActionState::LOOKING_AT_PATH || state == ActionState::LOOKING_FOR_DOG);
+            state = ActionState::IDLE;
+            searchState = SearchState::NONE;
             currentGH.setCanceled();
             pointHeadClient.cancelGoal();
         }
 
         currentGH = gh;
         currentGH.setAccepted();
-        if(!execute(currentGH.getGoal())){
+        if(!execute(currentGH.getGoal()->position, currentGH.getGoal()->target, currentGH.getGoal()->isPositionSet)){
             ROS_ERROR("Failed to schedule point head action");
             currentGH.setAborted();
-            state = FocusHead::IDLE;
+            clearState();
             return false;
         }
         return true;
     }
 
+    PointStamped handInBaseFrame() const {
+        // Use the current right hand position at height 0 as the starting point.
+        // Determine the position of the hand in the base frame.
+        PointStamped handInBaseFrame;
+        PointStamped handInHandFrame;
+        handInHandFrame.header.frame_id = "r_wrist_roll_link";
+        try {
+            tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame,
+                    handInHandFrame.header.frame_id, handInBaseFrame);
+        }
+        catch (tf::TransformException& ex) {
+            ROS_ERROR(
+                    "Failed to transform hand position to /base_footprint");
+            throw ex;
+        }
+        handInBaseFrame.header.frame_id = "/base_footprint";
+        handInBaseFrame.header.stamp = ros::Time::now();
+        return handInBaseFrame;
+
+    }
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result){
         boost::mutex::scoped_lock lock(stateMutex);
         ROS_DEBUG("Received point head complete callback");
-        currentGH.setSucceeded();
-        timeout.stop();
-        if(state == FocusHead::LOOKING_FOR_DOG){
-            dogPositionSub->unsubscribe();
-        }
-        state = FocusHead::IDLE;
-    }
 
-    bool execute(const FocusHeadActionServer::GoalConstPtr goal) {
-        pr2_controllers_msgs::PointHeadGoal phGoal;
-        if (goal->target == FocusHeadGoal::DOG_TARGET) {
-            state = FocusHead::LOOKING_FOR_DOG;
-            // If the last position is known, use that as our start point.
-            if (goal->isPositionSet) {
-                phGoal.target = goal->position;
+        if(state == ActionState::IDLE){
+            // Spurious late callback.
+            return;
+        }
+
+        if(state == ActionState::LOOKING_FOR_DOG){
+            if(!execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
+                ROS_DEBUG("Failed to schedule next search location. Search may have completed.");
+                currentGH.setAborted();
+                clearState();
             }
             else {
-                // Use the current right hand position at height 0 as the starting point.
-                // Determine the position of the hand in the base frame.
-                PointStamped handInBaseFrame;
-                {
-                    PointStamped handInHandFrame;
-                    handInHandFrame.header.frame_id = "r_wrist_roll_link";
-                    try {
-                        tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame,
-                                handInHandFrame.header.frame_id, handInBaseFrame);
-                    }
-                    catch (tf::TransformException& ex) {
-                        ROS_ERROR(
-                                "Failed to transform hand position to /base_footprint");
-                        return false;
-                    }
-                }
-                handInBaseFrame.header.frame_id = "/base_footprint";
-                handInBaseFrame.header.stamp = ros::Time::now();
-                handInBaseFrame.point.z = 0;
-                phGoal.target = handInBaseFrame;
+                ROS_DEBUG("Continuing search after successfully pointing head.");
             }
         }
-        else if (goal->target == FocusHeadGoal::PATH_TARGET) {
-            state = FocusHead::LOOKING_AT_PATH;
-            phGoal.target = goal->position;
-            // rosrun tf tf_echo base_link wide_stereo_link
-            phGoal.target.point.z = 1.25;
+        // Looking at path currently.
+        else {
+            assert(state == ActionState::LOOKING_AT_PATH);
+            assert(searchState == SearchState::NONE);
+            currentGH.setSucceeded();
+            clearState();
+        }
+    }
+
+    void clearState(){
+        dogPositionSub->unsubscribe();
+        state = ActionState::IDLE;
+        searchState = SearchState::NONE;
+    }
+
+    bool execute(const PointStamped& target, const string& targetType, const bool isPositionSet) {
+        pr2_controllers_msgs::PointHeadGoal phGoal;
+        if (targetType == FocusHeadGoal::DOG_TARGET) {
+            state = ActionState::LOOKING_FOR_DOG;
+            // If the last position is known, check that location.
+            if (isPositionSet) {
+                ROS_DEBUG("Searching last known position");
+                phGoal.target = target;
+                // Last known position is not a search and therefore has no search state.
+            }
+            // Execute a search
+            else {
+                int nextStep = static_cast<int>(searchState) + 1;
+                searchState = static_cast<SearchState>(nextStep);
+                ROS_DEBUG("Executing search step %i", searchState);
+
+                if(searchState == SearchState::DONE){
+                    ROS_INFO("No more search steps to execute");
+                    return false;
+                }
+
+                PointStamped handPosition = handInBaseFrame();
+                // Calculate the x distance.
+                double planarLeashLength = sqrt(utils::square(leashLength) - utils::square(handPosition.point.z));
+                phGoal.target.header = handPosition.header;
+                phGoal.target.point.z = 0;
+                phGoal.target.point.x = handPosition.point.x + planarLeashLength * searchOffsets[nextStep].x;
+                phGoal.target.point.y = handPosition.point.y + planarLeashLength * searchOffsets[nextStep].y;
+                ROS_DEBUG("Search target - x: %f, y: %f, z: %f", phGoal.target.point.x, phGoal.target.point.y, phGoal.target.point.z);
+            }
+            dogPositionSub->subscribe();
+        }
+        else if (targetType == FocusHeadGoal::PATH_TARGET) {
+            assert(searchState == SearchState::NONE);
+            state = ActionState::LOOKING_AT_PATH;
+            phGoal.target = target;
+            phGoal.target.point.z = 0;
         }
         else {
-            ROS_ERROR("Unknown focus target type: %s", goal->target.c_str());
+            ROS_ERROR("Unknown focus target type: %s. Options are[%s, %s]", targetType.c_str(), FocusHeadGoal::DOG_TARGET.c_str(), FocusHeadGoal::PATH_TARGET.c_str());
             return false;
         }
 
+        phGoal.pointing_frame = "wide_stereo_link";
+        // Pointing axis defaults to the x-axis.
+
         pointHeadClient.sendGoal(phGoal,
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
-        timeout = nh.createTimer(ros::Duration(1.0), &FocusHead::timeoutCallback, this,
+        timeout = nh.createTimer(ros::Duration(FOCUS_TIMEOUT), &FocusHead::timeoutCallback, this,
                 true /* One shot */);
-        dogPositionSub->subscribe();
+
         return true;
     }
 
     void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
-        if(dogPosition->unknown || state != FocusHead::LOOKING_FOR_DOG){
+        if(dogPosition->unknown || state != ActionState::LOOKING_FOR_DOG){
             return;
         }
         boost::mutex::scoped_lock lock(stateMutex);
         ROS_INFO("Search for dog located the dog");
+        assert(searchState != SearchState::NONE);
 
         currentGH.setSucceeded();
-        timeout.stop();
-        state = FocusHead::IDLE;
-        dogPositionSub->unsubscribe();
+        pointHeadClient.cancelGoal();
+        clearState();
     }
 
 protected:
@@ -193,7 +268,9 @@ protected:
     boost::mutex stateMutex;
     FocusHeadActionServer::GoalHandle currentGH;
     ActionState state;
+    SearchState searchState;
     ros::Timer timeout;
+    double leashLength;
 
     //! Dog position subscriber
     auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub;

@@ -17,7 +17,6 @@
     <param name="min_cluster_size" value="75" />
     <param name="max_cluster_size" value="25000" />
   </node>
-
    <param name="cmvision/color_file" type="string" value="$(find dogsim)/colors.txt"/>
   	<param name="cmvision/debug_on" type="bool" value="false"/>
   	<include file="$(find cmvision)/cmvision.launch"/>

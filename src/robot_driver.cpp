@@ -213,18 +213,19 @@ public:
 
         if (dogPosition->unknown) {
             // Start the search for the dog.
-            ROS_INFO("Beginning search for dog");
+            ROS_DEBUG("Beginning search for dog");
             FocusHeadGoal searchGoal;
             searchGoal.isPositionSet = this->anyDogPositionsDetected;
             searchGoal.position = this->lastKnownDogPosition;
+
+            // Don't reuse the position for search.
+            this->anyDogPositionsDetected = false;
+
             searchGoal.target = FocusHeadGoal::DOG_TARGET;
             // Execute asynchronously
             focusHeadClient.sendGoal(searchGoal);
             return;
         }
-
-        // TODO: How do we signal that the search is complete?
-        //       The action should start listening for events on its own.
 
         // Save the state for search
         this->anyDogPositionsDetected = true;
