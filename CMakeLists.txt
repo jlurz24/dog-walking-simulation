@@ -71,3 +71,5 @@ rosbuild_add_executable(high_arm_position_action src/high_arm_position_action)
 rosbuild_add_executable(no_op_adjust_arm_position_action src/no_op_adjust_arm_position_action.cpp)
 rosbuild_add_executable(focus_head_action src/focus_head_action.cpp)
 rosbuild_add_compile_flags(focus_head_action -std=c++0x)
+
+rosbuild_add_executable(path_visibility_measurer src/path_visibility_measurer.cpp)
