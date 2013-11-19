@@ -11,6 +11,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <tf2/LinearMath/btVector3.h>
 
 namespace {
 
@@ -23,20 +24,40 @@ typedef vector<cv::Point> Contour;
 static const double BASE_WIDTH = 0.668;
 static const double PATH_LENGTH = 5.0;
 
-static cv::Point3d point32ToCV(const geometry_msgs::Point32& p){
-    cv::Point3d r;
-    r.x = p.x;
-    r.y = p.y;
-    r.z = p.z;
-    return r;
-}
-
 static geometry_msgs::Point32 createPoint(double x, double y, double z){
     geometry_msgs::Point32 p;
     p.x = x;
     p.y = y;
     p.z = z;
     return p;
+}
+
+static vector<cv::Point> to2DPoints(const vector<geometry_msgs::Point32>& points, const cv::Point3d& centerPoint){
+    vector<cv::Point> results(points.size());
+    for(unsigned int i = 0; i < points.size(); ++i){
+        const btVector3 pVector = btVector3(points[i].x, points[i].y, points[i].z);
+        // The points have varying z values. We need to ray trace back to the focal point
+        // of the lens to distance Z=1 to match the raytraced values from the image.
+        const btVector3 focal = btVector3(centerPoint.x, centerPoint.y, centerPoint.z);
+        const btVector3 focalToP = (pVector - focal).normalized();
+        const btScalar angle = focalToP.angle(btVector3(0, 0, 1));
+        const btScalar length = btScalar(1) / btCos(angle);
+
+        const btVector3 adjusted = focal + length * focalToP;
+
+        // Multiply by 1000 because the area calculation is pixel based.
+        results[i] = cv::Point(adjusted.x() * 1000, adjusted.y() * 1000);
+    }
+    return results;
+}
+
+static vector<cv::Point> to2DPoints(const vector<cv::Point3d>& points){
+    vector<cv::Point> results(points.size());
+    for(unsigned int i = 0; i < points.size(); ++i){
+        // Multiply by 1000 because the area calculation is pixel based.
+        results[i] = cv::Point(points[i].x * 1000, points[i].y * 1000);
+    }
+    return results;
 }
 
 class PathVisibilityMeasurer {
@@ -47,8 +68,6 @@ private:
 
     ros::Time lastTime;
     ros::Time startTime;
-
-    bool debug;
 
     double totalScore;
 
@@ -61,7 +80,7 @@ private:
 
 public:
     PathVisibilityMeasurer() :
-            pnh("~"), debug(true), totalScore(0), startMeasuringSub(nh, "start_measuring", 1), stopMeasuringSub(nh,
+            pnh("~"), totalScore(0), startMeasuringSub(nh, "start_measuring", 1), stopMeasuringSub(nh,
                     "stop_measuring", 1) {
 
         leftCameraSub.reset(new Subscriber<CameraInfo>(nh, "/wide_stereo/left/camera_info", 1));
@@ -78,7 +97,6 @@ private:
     void startMeasuring(const position_tracker::StartMeasurementConstPtr msg) {
         startTime = lastTime = msg->header.stamp;
         cameraInfoSub->registerCallback(boost::bind(&PathVisibilityMeasurer::callback, this, _1, _2));
-
         ROS_INFO("Measurement initiated");
     }
 
@@ -89,35 +107,27 @@ private:
     }
 
     void callback( const CameraInfoConstPtr& lCameraInfo,  const CameraInfoConstPtr& rCameraInfo) {
-        ROS_INFO("Received a message @ %f", ros::Time::now().toSec());
+        ROS_DEBUG("Received a message @ %f", ros::Time::now().toSec());
+
         // Note: camera info timestamps are incorrect
         ros::Time messageTime = ros::Time::now();
         ros::Duration timePassed = messageTime - lastTime;
-        ROS_INFO("Time passed: %f", timePassed.toSec());
 
         image_geometry::StereoCameraModel cameraModel;
         cameraModel.fromCameraInfo(lCameraInfo, rCameraInfo);
-
-        sensor_msgs::ImageConstPtr image;
-
-        if(debug){
-            ROS_INFO("In debug mode - waiting for image");
-            image = ros::topic::waitForMessage<sensor_msgs::Image>("/wide_stereo/left/image_rect", nh, ros::Duration(30.0));
-            ROS_INFO("Image aquired");
-            cv::namedWindow("Path Visibility", 1);
-        }
 
         // Create the contour in the base footprint frame.
         PointCloudPtr pathRectInBaseFrame(new PointCloud());
         pathRectInBaseFrame->header.frame_id = "/base_footprint";
         pathRectInBaseFrame->header.stamp = messageTime;
-        pathRectInBaseFrame->points.resize(4);
+        pathRectInBaseFrame->points.resize(5);
         pathRectInBaseFrame->points[0] = createPoint(1 + BASE_WIDTH / 2.0, -BASE_WIDTH / 2.0, 0);
         pathRectInBaseFrame->points[1] = createPoint(1 + BASE_WIDTH / 2.0, BASE_WIDTH / 2.0, 0);
         pathRectInBaseFrame->points[2] = createPoint(PATH_LENGTH + BASE_WIDTH / 2.0, BASE_WIDTH / 2.0, 0);
         pathRectInBaseFrame->points[3] = createPoint(PATH_LENGTH + BASE_WIDTH / 2.0, -BASE_WIDTH / 2.0, 0);
+        pathRectInBaseFrame->points[4] = pathRectInBaseFrame->points[0];
 
-        // Convert to base link frame.
+        // Convert to image frame.
         PointCloudPtr pathRectInImageFrame(new PointCloud());
         try {
             tf.transformPointCloud(cameraModel.tfFrame(), ros::Time(0), *pathRectInBaseFrame, pathRectInBaseFrame->header.frame_id, *pathRectInImageFrame);
@@ -127,22 +137,6 @@ private:
             return;
         }
 
-        // Raytrace the corners of the image
-        vector<cv::Point> corners(5);
-        for(unsigned int i = 0; i < pathRectInImageFrame->points.size(); ++i){
-            ROS_INFO("Point: x %f y %f z %f", pathRectInImageFrame->points[i].x, pathRectInBaseFrame->points[i].y, pathRectInBaseFrame->points[i].z);
-        }
-
-        // TODO: Not sure about the left/right here.
-        corners[0] = cameraModel.left().project3dToPixel(point32ToCV(pathRectInImageFrame->points[0]));
-        corners[1] = cameraModel.left().project3dToPixel(point32ToCV(pathRectInImageFrame->points[1]));
-        corners[2] = cameraModel.left().project3dToPixel(point32ToCV(pathRectInImageFrame->points[2]));
-        corners[3] = cameraModel.left().project3dToPixel(point32ToCV(pathRectInImageFrame->points[3]));
-        corners[4] = corners[0]; // Close the loop
-
-        for(unsigned int i = 0; i < corners.size(); ++i){
-            ROS_INFO("Pixel: x %i y %i", corners[i].x, corners[i].y);
-        }
         // Create contour of the image rect
         Contour imageRect(5);
         imageRect[0] = cv::Point(0, 0);
@@ -150,31 +144,31 @@ private:
         imageRect[2] = cv::Point(cameraModel.left().fullResolution().width, cameraModel.left().fullResolution().height);
         imageRect[3] = cv::Point(0, cameraModel.left().fullResolution().height);
         imageRect[4] = imageRect[0]; // Close the loop
+
+        vector<cv::Point3d> imageRectInCameraFrame(imageRect.size());
         for(unsigned int i = 0; i < imageRect.size(); ++i){
-            ROS_INFO("Image rect pixel: x %i y %i", imageRect[i].x, imageRect[i].y);
+            // Raytrace into 3d points.
+            imageRectInCameraFrame[i] = cameraModel.left().projectPixelTo3dRay(imageRect[i]);
         }
 
-        if(debug){
-            cv_bridge::CvImagePtr share = cv_bridge::toCvCopy(image);
+        // PR2 wide camera lens is has a 2.5mm focal length.
+        cv::Point3d centerPoint = cameraModel.left().projectPixelTo3dRay(cv::Point(0, 0));
+        centerPoint.z = -0.0025;
 
-            // draw the square as a closed polyline
-            vector<Contour> contours(2);
-            contours[0] = corners;
-            contours[1] = imageRect;
-            cv::drawContours(share->image, contours, -1, CV_RGB(0, 255, 0), 3, CV_AA);
-
-            // show the resultant image
-            cv::imshow("Path Visibility", share->image);
-            cv::waitKey(0);
-        }
+        vector<cv::Point> pathPointsIn2D = to2DPoints(pathRectInImageFrame->points, centerPoint);
+        vector<cv::Point> imagePointsIn2D = to2DPoints(imageRectInCameraFrame);
 
         // Now calculate the area
         Contour result;
-        double intersectingArea = cv::intersectConvexConvex(imageRect, corners, result, true);
-        ROS_INFO("Intersecting area: %f path area: %f: ", intersectingArea, cv::contourArea(corners));
+        double intersectingArea = cv::intersectConvexConvex(imagePointsIn2D, pathPointsIn2D, result, true);
+        double pathArea = cv::contourArea(pathPointsIn2D);
+
+        ROS_DEBUG("Intersecting area: %f path area: %f: ", intersectingArea, pathArea);
+
         // Update the score
-        ROS_INFO("Incrementing total score by %f", timePassed.toSec() * intersectingArea / cv::contourArea(corners));
-        totalScore += timePassed.toSec() * intersectingArea / cv::contourArea(corners);
+        double increment = timePassed.toSec() * intersectingArea / pathArea;
+        ROS_DEBUG("Incrementing total score by %f", increment);
+        totalScore += increment;
         lastTime = messageTime;
     }
 };
