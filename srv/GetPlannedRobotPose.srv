@@ -2,5 +2,5 @@ time time
 ---
 bool started
 bool ended
-float64 elapsedTime
+duration elapsedTime
 geometry_msgs/PoseStamped pose

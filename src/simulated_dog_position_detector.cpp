@@ -55,6 +55,7 @@ namespace {
         DogPosition dogPositionMsg;
         dogPositionMsg.pose = dogPose;
         dogPositionMsg.unknown = false;
+        dogPositionMsg.measuredTime = event.current_real;
         // Publish the event
         ROS_DEBUG("Publishing a dog position event");
         

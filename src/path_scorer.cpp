@@ -5,54 +5,64 @@
 #include <dogsim/GetPath.h>
 #include <common/common.hh>
 #include <physics/physics.hh>
+#include <message_filters/subscriber.h>
+#include <position_tracker/StartMeasurement.h>
+#include <position_tracker/StopMeasurement.h>
 
-using namespace std;
+namespace {
+    using namespace std;
+    using namespace ros;
 
 class PathScorer {
   private:
-    ros::NodeHandle nh;
-    ros::NodeHandle privateHandle;
+    NodeHandle nh;
+    NodeHandle privateHandle;
     double totalDistanceDeviation;
-    ros::Timer timer;
-    ros::Time lastTime;
+    Timer timer;
+    Time lastTime;
+    message_filters::Subscriber<position_tracker::StartMeasurement> startMeasuringSub;
+    message_filters::Subscriber<position_tracker::StopMeasurement> stopMeasuringSub;
  public:
     PathScorer() : 
        privateHandle("~"), 
-       totalDistanceDeviation(0){
-         timer = nh.createTimer(ros::Duration(0.1), &PathScorer::callback, this);
+       totalDistanceDeviation(0),
+       startMeasuringSub(nh, "start_measuring", 1),
+       stopMeasuringSub(nh, "stop_measuring", 1){
+         timer = nh.createTimer(Duration(0.1), &PathScorer::callback, this);
+         timer.stop();
          // Wait for the service that will provide us simulated object locations.
-         ros::service::waitForService("/gazebo/get_model_state");
-         ros::service::waitForService("/dogsim/get_path");
+         service::waitForService("/gazebo/get_model_state");
+         service::waitForService("/dogsim/get_path");
 
-         timer.start();
-         ROS_INFO("Path measurement initiated");
-    }
-  
-    ~PathScorer(){
-      ROS_INFO("Path measurement ended. Total position deviation squared(m): %f", totalDistanceDeviation);
+         startMeasuringSub.registerCallback(
+                 boost::bind(&PathScorer::startMeasuring, this, _1));
+         stopMeasuringSub.registerCallback(
+                 boost::bind(&PathScorer::stopMeasuring, this, _1));
     }
     
  private:
-    void callback(const ros::TimerEvent& timerEvent){
+    void startMeasuring(const position_tracker::StartMeasurementConstPtr msg) {
+        timer.start();
+        ROS_INFO("Path measurement initiated");
+    }
+
+    void stopMeasuring(const position_tracker::StopMeasurementConstPtr msg) {
+        timer.stop();
+        ROS_INFO("Path measurement ended. Total position deviation squared(m): %f", totalDistanceDeviation);
+    }
+
+    void callback(const TimerEvent& timerEvent){
       ROS_DEBUG("Received a message @ %f", timerEvent.current_real.toSec());
  
-      ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
+      ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
       dogsim::GetPath getPath;
       getPath.request.time = timerEvent.current_real;
       getPathClient.call(getPath);
      
-      if(!getPath.response.started){
-        return;
-      }
+      assert(getPath.response.started);
+      assert(!getPath.response.ended);
 
-      if(getPath.response.ended){
-        // Write out the final result
-        ROS_INFO("Total Position Deviation squared(m): %f", totalDistanceDeviation);
-        timer.stop();
-        return;
-      }
-
-      ros::ServiceClient modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
+      ServiceClient modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
       gazebo_msgs::GetModelState modelState;
       modelState.request.model_name = "dog";
       modelStateServ.call(modelState);
@@ -73,6 +83,7 @@ class PathScorer {
       ROS_DEBUG("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
    }
 };
+}
 
 int main(int argc, char **argv){
   ros::init(argc, argv, "path_scorer");

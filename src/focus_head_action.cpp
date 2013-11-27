@@ -77,6 +77,7 @@ private:
             return;
         }
         clearState();
+        searchState = SearchState::NONE;
         currentGH.setCanceled();
         pointHeadClient.cancelGoal();
     }
@@ -97,6 +98,7 @@ private:
 
         currentGH.setAborted();
         pointHeadClient.cancelGoal();
+        searchState = SearchState::NONE;
         clearState();
     }
 
@@ -119,16 +121,25 @@ private:
             ROS_DEBUG("Preempting current focus head target for new goal");
             assert(state == ActionState::LOOKING_AT_PATH || state == ActionState::LOOKING_FOR_DOG);
             state = ActionState::IDLE;
-            searchState = SearchState::NONE;
+            // Do not reset search state as we want the search to continue when it is
+            // resumed.
             currentGH.setCanceled();
             pointHeadClient.cancelGoal();
         }
 
         currentGH = gh;
         currentGH.setAccepted();
+
+        // Clear the search state if it completed.
+        // TODO: Move this to a more appropriate location.
+        if(searchState == SearchState::DONE){
+            searchState = SearchState::NONE;
+        }
+
         if(!execute(currentGH.getGoal()->position, currentGH.getGoal()->target, currentGH.getGoal()->isPositionSet)){
             ROS_ERROR("Failed to schedule point head action");
             currentGH.setAborted();
+            searchState = SearchState::NONE;
             clearState();
             return false;
         }
@@ -169,6 +180,7 @@ private:
             if(!execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
                 ROS_DEBUG("Failed to schedule next search location. Search may have completed.");
                 currentGH.setAborted();
+                searchState = SearchState::NONE;
                 clearState();
             }
             else {
@@ -178,7 +190,6 @@ private:
         // Looking at path currently.
         else {
             assert(state == ActionState::LOOKING_AT_PATH);
-            assert(searchState == SearchState::NONE);
             currentGH.setSucceeded();
             clearState();
         }
@@ -187,7 +198,6 @@ private:
     void clearState(){
         dogPositionSub->unsubscribe();
         state = ActionState::IDLE;
-        searchState = SearchState::NONE;
     }
 
     bool execute(const PointStamped& target, const string& targetType, const bool isPositionSet) {
@@ -202,6 +212,9 @@ private:
             }
             // Execute a search
             else {
+                // This may increment the search step if the last movement
+                // was interupted, but accept that as most of the movement likely
+                // completed.
                 int nextStep = static_cast<int>(searchState) + 1;
                 searchState = static_cast<SearchState>(nextStep);
                 ROS_DEBUG("Executing search step %i", searchState);
@@ -223,7 +236,6 @@ private:
             dogPositionSub->subscribe();
         }
         else if (targetType == FocusHeadGoal::PATH_TARGET) {
-            assert(searchState == SearchState::NONE);
             state = ActionState::LOOKING_AT_PATH;
             phGoal.target = target;
             phGoal.target.point.z = 0;
@@ -250,10 +262,10 @@ private:
         }
         boost::mutex::scoped_lock lock(stateMutex);
         ROS_INFO("Search for dog located the dog");
-        assert(searchState != SearchState::NONE);
 
         currentGH.setSucceeded();
         pointHeadClient.cancelGoal();
+        searchState = SearchState::NONE;
         clearState();
     }
 

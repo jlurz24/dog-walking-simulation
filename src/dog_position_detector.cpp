@@ -70,6 +70,7 @@ private:
 
             dogPositionMsg.pose.pose.position = msg->positions[0].point;
             dogPositionMsg.unknown = false;
+            dogPositionMsg.measuredTime = msg->measuredTimes[0];
         }
 
         ROS_DEBUG("Publishing a dog position event");

@@ -6,5 +6,7 @@
     <param name="model_prefix" value="dog"/>
     <param name="group_name" value="dog"/>
   </node>
+
+  <node pkg="dogsim" type="path_visibility_measurer" name="path_visibility_measurer" output="screen"/>
 </launch>
 

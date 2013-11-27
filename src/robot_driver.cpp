@@ -30,10 +30,13 @@ class RobotDriver {
 private:
     //! Amount of time before starting walk. This provides time for the robot to finish
     //  tucking its arms.
-    static const double DELAY_TIME = 2.5;
+    static const double DELAY_TIME_DEFAULT = 2.5;
 
     //! Interval to update the move_robot_action
-    static const double MOVE_ROBOT_UPDATE_INTERVAL = 2.0;
+    static const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
+
+    //! Default amount of time prior to searching for the dog.
+    static const double MAX_DOG_UNKNOWN_TIME = 1.0;
 
     //! Node handle
     ros::NodeHandle nh;
@@ -74,6 +77,15 @@ private:
     //! Length of the leash
     double leashLength;
 
+    //! Frequency to update the path of the robot
+    ros::Duration moveRobotUpdateInterval;
+
+    //! Amount of time prior to starting
+    ros::Duration delayTime;
+
+    //! Amount of time prior to searching for the dog
+    ros::Duration maxDogUnknownTime;
+
     //! Whether the robot is operating on its own
     bool soloMode;
 
@@ -92,6 +104,7 @@ private:
     //! Publishers for starting and stopping measurement.
     ros::Publisher startMeasuringPub;
     ros::Publisher stopMeasuringPub;
+
 
 public:
     //! ROS node initialization
@@ -119,6 +132,18 @@ public:
         startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1, true);
         stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1, true);
 
+        double moveRobotUpdateIntervalD;
+        pnh.param<double>("move_robot_update_interval", moveRobotUpdateIntervalD, MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT);
+        moveRobotUpdateInterval.fromSec(moveRobotUpdateIntervalD);
+
+        double delayTimeD;
+        pnh.param<double>("start_delay", delayTimeD, DELAY_TIME_DEFAULT);
+        delayTime.fromSec(delayTimeD);
+
+        double maxDogUnknownTimeD;
+        pnh.param<double>("max_dog_unknown_time", maxDogUnknownTimeD, MAX_DOG_UNKNOWN_TIME);
+        maxDogUnknownTime.fromSec(maxDogUnknownTimeD);
+
         // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
         // move the arm.
         pnh.param<bool>("solo_mode", soloMode, false);
@@ -132,7 +157,7 @@ public:
 
         pnh.param<bool>("no_steering_mode", noSteeringMode, false);
 
-        initTimer = nh.createTimer(ros::Duration(DELAY_TIME), &RobotDriver::init, this,
+        initTimer = nh.createTimer(ros::Duration(delayTime), &RobotDriver::init, this,
                 true /* One shot */);
         ROS_INFO( "Robot driver initialization complete @ %f", ros::Time::now().toSec());
     }
@@ -165,7 +190,7 @@ public:
         startPath(ros::Time::now());
 
         if (!noSteeringMode) {
-            driverTimer = nh.createTimer(ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL),
+            driverTimer = nh.createTimer(moveRobotUpdateInterval,
                     &RobotDriver::steeringCallback, this);
         }
         ROS_INFO("Delayed init complete");
@@ -211,7 +236,7 @@ public:
             return;
         }
 
-        if (dogPosition->unknown) {
+        if (dogPosition->unknown || (dogPosition->header.stamp - dogPosition->measuredTime) < maxDogUnknownTime) {
             // Start the search for the dog.
             ROS_DEBUG("Beginning search for dog");
             FocusHeadGoal searchGoal;
@@ -227,7 +252,8 @@ public:
             return;
         }
 
-        // Save the state for search
+        // Save the state for search. We only want to use recent dog positions
+        // as search locations.
         this->anyDogPositionsDetected = true;
         this->lastKnownDogPosition.header = dogPosition->header;
         this->lastKnownDogPosition.point = dogPosition->pose.pose.position;
@@ -268,11 +294,11 @@ public:
                 "Received steering callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
 
         dogsim::GetPlannedRobotPose getPlannedPose;
-        getPlannedPose.request.time = event.current_real
-                + ros::Duration(MOVE_ROBOT_UPDATE_INTERVAL);
+        getPlannedPose.request.time = event.current_real + moveRobotUpdateInterval;
         getPlannedRobotPoseClient.call(getPlannedPose);
         assert(getPlannedPose.response.started);
 
+        // TODO: This is slightly wrong as its planned, not current.
         if (getPlannedPose.response.ended) {
             ROS_INFO("Walk ended");
             if (moveRobotClient.getState() == actionlib::SimpleClientGoalState::ACTIVE) {
