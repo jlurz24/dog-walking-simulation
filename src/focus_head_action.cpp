@@ -30,7 +30,7 @@ struct XYOffset {
  */
 static const XYOffset searchOffsets[] = { {0, 0}, {0, 0}, {1, 0}, {0, -1}, {-1, 0}, {0, 1} };
 
-static const double FOCUS_TIMEOUT = 2.0;
+static const ros::Duration FOCUS_TIMEOUT(2.0);
 
 class FocusHead {
     enum class ActionState {
@@ -103,8 +103,9 @@ private:
     }
 
     bool goalCallback(FocusHeadActionServer::GoalHandle gh) {
-        boost::mutex::scoped_lock lock(stateMutex);
         ROS_DEBUG("Executing goal callback for FocusHeadAction");
+
+        boost::mutex::scoped_lock lock(stateMutex);
 
         if (state == ActionState::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
             ROS_DEBUG("Rejecting dog target because currently looking at path");
@@ -118,7 +119,7 @@ private:
         }
 
         if (state != ActionState::IDLE) {
-            ROS_DEBUG("Preempting current focus head target for new goal");
+            ROS_INFO("Preempting current focus head target for new goal");
             assert(state == ActionState::LOOKING_AT_PATH || state == ActionState::LOOKING_FOR_DOG);
             state = ActionState::IDLE;
             // Do not reset search state as we want the search to continue when it is
@@ -127,12 +128,14 @@ private:
             pointHeadClient.cancelGoal();
         }
 
+        ROS_INFO("Execution goal accepted for target: %s", gh.getGoal()->target.c_str());
         currentGH = gh;
         currentGH.setAccepted();
 
         // Clear the search state if it completed.
         // TODO: Move this to a more appropriate location.
         if(searchState == SearchState::DONE){
+            ROS_INFO("Resetting search state");
             searchState = SearchState::NONE;
         }
 
@@ -143,6 +146,7 @@ private:
             clearState();
             return false;
         }
+        ROS_DEBUG("Execute goal callback completed");
         return true;
     }
 
@@ -164,12 +168,12 @@ private:
         handInBaseFrame.header.frame_id = "/base_footprint";
         handInBaseFrame.header.stamp = ros::Time::now();
         return handInBaseFrame;
-
     }
+
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result){
         boost::mutex::scoped_lock lock(stateMutex);
-        ROS_DEBUG("Received point head complete callback");
+        ROS_INFO("Received point head complete callback");
 
         if(state == ActionState::IDLE){
             // Spurious late callback.
@@ -206,19 +210,19 @@ private:
             state = ActionState::LOOKING_FOR_DOG;
             // If the last position is known, check that location.
             if (isPositionSet) {
-                ROS_DEBUG("Searching last known position");
+                ROS_INFO("Searching last known position");
                 phGoal.target = target;
                 // Last known position is not a search and therefore has no search state.
             }
             // Execute a search
             else {
                 // This may increment the search step if the last movement
-                // was interupted, but accept that as most of the movement likely
+                // was interrupted, but accept that as most of the movement likely
                 // completed.
                 int nextStep = static_cast<int>(searchState) + 1;
                 searchState = static_cast<SearchState>(nextStep);
-                ROS_DEBUG("Executing search step %i", searchState);
-
+                ROS_INFO("Executing search step %i", searchState);
+                // TODO: Make sure all search states are being executed.
                 if(searchState == SearchState::DONE){
                     ROS_INFO("No more search steps to execute");
                     return false;
@@ -231,12 +235,14 @@ private:
                 phGoal.target.point.z = 0;
                 phGoal.target.point.x = handPosition.point.x + planarLeashLength * searchOffsets[nextStep].x;
                 phGoal.target.point.y = handPosition.point.y + planarLeashLength * searchOffsets[nextStep].y;
-                ROS_DEBUG("Search target - x: %f, y: %f, z: %f", phGoal.target.point.x, phGoal.target.point.y, phGoal.target.point.z);
+                ROS_INFO("Search target - x: %f, y: %f, z: %f", phGoal.target.point.x, phGoal.target.point.y, phGoal.target.point.z);
             }
             dogPositionSub->subscribe();
+            ROS_DEBUG("Subscribed to the dog position");
         }
         else if (targetType == FocusHeadGoal::PATH_TARGET) {
             state = ActionState::LOOKING_AT_PATH;
+            ROS_INFO("Focusing head on path target in frame %s, %f %f %f", target.header.frame_id.c_str(), target.point.x, target.point.y, target.point.z);
             phGoal.target = target;
             phGoal.target.point.z = 0;
         }
@@ -248,16 +254,18 @@ private:
         phGoal.pointing_frame = "wide_stereo_link";
         // Pointing axis defaults to the x-axis.
 
+        ROS_INFO("Sending goal to point head client");
         pointHeadClient.sendGoal(phGoal,
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
-        timeout = nh.createTimer(ros::Duration(FOCUS_TIMEOUT), &FocusHead::timeoutCallback, this,
+        timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
                 true /* One shot */);
-
+        ROS_INFO("Focus target step completed");
         return true;
     }
 
     void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
-        if(dogPosition->unknown || state != ActionState::LOOKING_FOR_DOG){
+        ROS_INFO("Received dog position callback. Stamp is %f and measured time is %f. State is %u", dogPosition->header.stamp.toSec(), dogPosition->measuredTime.toSec(), state);
+        if(dogPosition->unknown || state != ActionState::LOOKING_FOR_DOG || dogPosition->header.stamp != dogPosition->measuredTime){
             return;
         }
         boost::mutex::scoped_lock lock(stateMutex);
@@ -267,6 +275,7 @@ private:
         pointHeadClient.cancelGoal();
         searchState = SearchState::NONE;
         clearState();
+        ROS_INFO("Exiting dog position callback");
     }
 
 protected:

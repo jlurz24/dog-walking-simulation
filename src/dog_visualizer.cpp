@@ -78,6 +78,9 @@ private:
 	}
 
 	void callback(const dogsim::DogPositionConstPtr msg) {
+	    if(msg->unknown){
+	        return;
+	    }
 
 		const geometry_msgs::PoseStamped& dogPose = msg->pose;
 

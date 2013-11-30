@@ -6,15 +6,15 @@
     <param name="kalman_observation_noise" value="0.05" />
     <param name="kalman_acceleration_dist" value="0.1" />
     <param name="association_epsilon" value="1e-6" />
-    <param name="association_max_success_score" value="2" />
-    <param name="filter_stale_threshold" value="1" />
+    <param name="association_max_success_score" value="5" />
+    <param name="filter_stale_threshold" value="60.0" />
     <param name="max_correlation_distance" value="5" />
   </node>
-<node pkg="position_tracker" type="multi_object_detector" name="multi_object_detector" output="screen">
+<node pkg="position_tracker" type="multi_object_detector" name="multi_object_detector" output="screen" respawn="true">
     <param name="object_name" value="dog" />
-    <param name="cluster_distance_tolerance" value="0.1" />
+    <param name="cluster_distance_tolerance" value="0.25" />
     <param name="voxel_leaf_size" value="0.0" />
-    <param name="min_cluster_size" value="75" />
+    <param name="min_cluster_size" value="1000" />
     <param name="max_cluster_size" value="25000" />
   </node>
    <param name="cmvision/color_file" type="string" value="$(find dogsim)/colors.txt"/>

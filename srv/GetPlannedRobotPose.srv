@@ -2,5 +2,4 @@ time time
 ---
 bool started
 bool ended
-duration elapsedTime
 geometry_msgs/PoseStamped pose

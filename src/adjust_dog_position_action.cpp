@@ -316,7 +316,6 @@ namespace {
 int main(int argc, char** argv){
   ros::init(argc, argv, "adjust_dog_position_action");
   AdjustDogPositionAction action(ros::this_node::getName());
-  ROS_INFO("Waiting for adjust_dog_position actions");
   ros::spin();
   
   return 0;

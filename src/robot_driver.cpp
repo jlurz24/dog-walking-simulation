@@ -26,18 +26,18 @@ typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 typedef actionlib::SimpleActionClient<FocusHeadAction> FocusHeadClient;
 
+//! Amount of time before starting walk. This provides time for the robot to finish
+//  tucking its arms.
+static const double DELAY_TIME_DEFAULT = 2.5;
+
+//! Interval to update the move_robot_action
+static const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
+
+//! Default amount of time prior to searching for the dog.
+static const double MAX_DOG_UNKNOWN_TIME = 1.0;
+
 class RobotDriver {
 private:
-    //! Amount of time before starting walk. This provides time for the robot to finish
-    //  tucking its arms.
-    static const double DELAY_TIME_DEFAULT = 2.5;
-
-    //! Interval to update the move_robot_action
-    static const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
-
-    //! Default amount of time prior to searching for the dog.
-    static const double MAX_DOG_UNKNOWN_TIME = 1.0;
-
     //! Node handle
     ros::NodeHandle nh;
 
@@ -105,16 +105,15 @@ private:
     ros::Publisher startMeasuringPub;
     ros::Publisher stopMeasuringPub;
 
-
 public:
     //! ROS node initialization
     RobotDriver() :
             pnh("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient(
                     "move_robot_action", true), focusHeadClient("focus_head_action", true), moveArmToBasePositionClient(
-                    "move_arm_to_base_position_action", true), soloMode(false), noSteeringMode(false), avoidingDog(
-                    false), anyDogPositionsDetected(false) {
+                    "move_arm_to_base_position_action", true), soloMode(false), noSteeringMode(
+                    false), avoidingDog(false), anyDogPositionsDetected(false) {
 
-        ROS_INFO( "Initializing the robot driver @ %f", ros::Time::now().toSec());
+        ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
 
         nh.param("leash_length", leashLength, 2.0);
 
@@ -129,11 +128,14 @@ public:
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
         focusHeadClient.waitForServer();
-        startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1, true);
-        stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1, true);
+        startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1,
+                true);
+        stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1,
+                true);
 
         double moveRobotUpdateIntervalD;
-        pnh.param<double>("move_robot_update_interval", moveRobotUpdateIntervalD, MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT);
+        pnh.param<double>("move_robot_update_interval", moveRobotUpdateIntervalD,
+                MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT);
         moveRobotUpdateInterval.fromSec(moveRobotUpdateIntervalD);
 
         double delayTimeD;
@@ -157,9 +159,9 @@ public:
 
         pnh.param<bool>("no_steering_mode", noSteeringMode, false);
 
-        initTimer = nh.createTimer(ros::Duration(delayTime), &RobotDriver::init, this,
+        initTimer = nh.createTimer(delayTime, &RobotDriver::init, this,
                 true /* One shot */);
-        ROS_INFO( "Robot driver initialization complete @ %f", ros::Time::now().toSec());
+        ROS_INFO("Robot driver initialization complete @ %f. Waiting for %f(s) to start.", ros::Time::now().toSec(), delayTime.toSec());
     }
 
     void init(const ros::TimerEvent& event) {
@@ -190,8 +192,8 @@ public:
         startPath(ros::Time::now());
 
         if (!noSteeringMode) {
-            driverTimer = nh.createTimer(moveRobotUpdateInterval,
-                    &RobotDriver::steeringCallback, this);
+            driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::steeringCallback,
+                    this);
         }
         ROS_INFO("Delayed init complete");
     }
@@ -229,16 +231,18 @@ public:
     }
 
     void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
-        ROS_DEBUG( "Received a dog position callback @ %f", ros::Time::now().toSec());
+        ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
 
         // No actions can be executed while we are avoiding the dog.
         if (avoidingDog) {
             return;
         }
 
-        if (dogPosition->unknown || (dogPosition->header.stamp - dogPosition->measuredTime) < maxDogUnknownTime) {
+        if (dogPosition->unknown
+                || (dogPosition->header.stamp - dogPosition->measuredTime) > maxDogUnknownTime) {
+            ROS_DEBUG("Last measured time for the dog was: %f. Starting search.", dogPosition->measuredTime.toSec());
+
             // Start the search for the dog.
-            ROS_DEBUG("Beginning search for dog");
             FocusHeadGoal searchGoal;
             searchGoal.isPositionSet = this->anyDogPositionsDetected;
             searchGoal.position = this->lastKnownDogPosition;
@@ -290,8 +294,8 @@ public:
     }
 
     void steeringCallback(const ros::TimerEvent& event) {
-        ROS_DEBUG(
-                "Received steering callback @ %f : %f", event.current_real.toSec(), event.current_expected.toSec());
+        ROS_DEBUG("Received steering callback @ %f : %f", event.current_real.toSec(),
+                event.current_expected.toSec());
 
         dogsim::GetPlannedRobotPose getPlannedPose;
         getPlannedPose.request.time = event.current_real + moveRobotUpdateInterval;

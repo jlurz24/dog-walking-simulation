@@ -15,6 +15,8 @@ Panels:
         - /Planned Move Viz1
         - /DogGoal1
         - /Full Path1
+        - /Possible Dog Positions1
+        - /Possible Dog Ids1
       Splitter Ratio: 0.5
     Tree Height: 595
   - Class: rviz/Tool Properties
@@ -758,17 +760,33 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /dogsim/dog_goal_viz
       Name: DogGoal
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /path/walk_goal_viz_complete
       Name: Full Path
+      Namespaces:
+        dogsim: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /object_tracks/dog/markers
+      Name: Possible Dog Positions
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /object_tracks/dog/identities
+      Name: Possible Dog Ids
       Namespaces:
         {}
       Queue Size: 100
@@ -813,5 +831,5 @@ Window Geometry:
   Tool Properties:
     collapsed: false
   Width: 685
-  X: 58
+  X: 65
   Y: 24

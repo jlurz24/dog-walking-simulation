@@ -73,3 +73,4 @@ rosbuild_add_executable(focus_head_action src/focus_head_action.cpp)
 rosbuild_add_compile_flags(focus_head_action -std=c++0x)
 
 rosbuild_add_executable(path_visibility_measurer src/path_visibility_measurer.cpp)
+rosbuild_add_executable(dog_position_measurer src/dog_position_measurer.cpp)
