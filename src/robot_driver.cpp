@@ -11,6 +11,7 @@
 #include <message_filters/subscriber.h>
 #include <dogsim/AdjustDogPositionAction.h>
 #include <dogsim/MoveArmToBasePositionAction.h>
+#include <dogsim/MoveArmToClearPositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
 #include <dogsim/FocusHeadAction.h>
@@ -24,6 +25,7 @@ using namespace dogsim;
 typedef actionlib::SimpleActionClient<AdjustDogPositionAction> AdjustDogClient;
 typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
+typedef actionlib::SimpleActionClient<MoveArmToClearPositionAction> MoveArmToClearPositionClient;
 typedef actionlib::SimpleActionClient<FocusHeadAction> FocusHeadClient;
 
 //! Amount of time before starting walk. This provides time for the robot to finish
@@ -68,6 +70,9 @@ private:
     //! Client to adjust the arm of the robot to the start position
     MoveArmToBasePositionClient moveArmToBasePositionClient;
 
+    //! Client to adjust the arm of the robot to the clear position
+    MoveArmToClearPositionClient moveArmToClearPositionClient;
+
     //! Cached service client.
     ros::ServiceClient getPathClient;
 
@@ -110,7 +115,9 @@ public:
     RobotDriver() :
             pnh("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient(
                     "move_robot_action", true), focusHeadClient("focus_head_action", true), moveArmToBasePositionClient(
-                    "move_arm_to_base_position_action", true), soloMode(false), noSteeringMode(
+                    "move_arm_to_base_position_action", true),
+                    moveArmToClearPositionClient("move_arm_to_clear_position_action", true),
+                    soloMode(false), noSteeringMode(
                     false), avoidingDog(false), anyDogPositionsDetected(false) {
 
         ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
@@ -127,6 +134,7 @@ public:
 
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
+        moveArmToClearPositionClient.waitForServer();
         focusHeadClient.waitForServer();
         startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1,
                 true);
@@ -218,6 +226,7 @@ public:
             adjustDogClient.cancelGoal();
             moveRobotClient.cancelGoal();
             moveArmToBasePositionClient.cancelGoal();
+            moveArmToClearPositionClient.cancelGoal();
             focusHeadClient.cancelGoal();
         }
         else if (avoidingDog) {
@@ -250,8 +259,9 @@ public:
             this->anyDogPositionsDetected = false;
 
             searchGoal.target = FocusHeadGoal::DOG_TARGET;
+
             // Execute asynchronously
-            focusHeadClient.sendGoal(searchGoal);
+            focusHeadClient.sendGoal(searchGoal, boost::bind(&RobotDriver::dogSearchCompletedCallback, this, _1, _2));
             return;
         }
 
@@ -279,6 +289,19 @@ public:
             adjustDogClient.sendGoal(adjustGoal);
         }
         ROS_DEBUG("Completed dog position callback");
+    }
+
+    void dogSearchCompletedCallback(const actionlib::SimpleClientGoalState& goalState,
+            const dogsim::FocusHeadResultConstPtr result){
+       if(goalState == actionlib::SimpleClientGoalState::ABORTED && result->actionCompleted){
+            ROS_INFO("Search for dog failed. Attempt to clear arm to recover");
+            if(avoidingDog){
+                ROS_INFO("Currently avoiding dog. Cannot move arm.");
+                return;
+            }
+            MoveArmToClearPositionGoal moveArmToClearPositionGoal;
+            moveArmToClearPositionClient.sendGoal(moveArmToClearPositionGoal);
+        }
     }
 
     geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started,

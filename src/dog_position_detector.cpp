@@ -95,8 +95,9 @@ public:
         // Use a fairly large error here as the arm may be currently moving
         // which will impact this distance
         nh.param("leash_stretch_error", leashStretchError, LEASH_STRETCH_ERROR_DEFAULT);
+
         double staleThresholdD;
-        nh.param("stale_threshold", staleThresholdD, STALE_THRESHOLD_DEFAULT);
+        pnh.param("stale_threshold", staleThresholdD, STALE_THRESHOLD_DEFAULT);
         staleThreshold.fromSec(staleThresholdD);
 
         dogPositionPub = nh.advertise<DogPosition>("/dog_position_detector/dog_position", 1,
@@ -176,7 +177,7 @@ private:
                     match = possiblePositions.begin();
                 }
                 else {
-                    ROS_INFO("Filters did not reduce number of possible positions to 1");
+                    ROS_DEBUG("Filters did not reduce number of possible positions to 1");
                     match = std::find_if(possiblePositions.begin(), possiblePositions.end(), MatchesID(lastId));
 
                     if(match == possiblePositions.end()){

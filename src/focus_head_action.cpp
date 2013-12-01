@@ -85,7 +85,9 @@ private:
         }
         clearState();
         searchState = SearchState::NONE;
-        currentGH.setCanceled();
+        dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+        result->actionCompleted = false;
+        currentGH.setCanceled(*result, "Action was cancelled");
         pointHeadClient.cancelGoal();
     }
 
@@ -100,16 +102,25 @@ private:
             return;
         }
 
-        if(state == ActionState::LOOKING_FOR_DOG && execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
+        if(state == ActionState::LOOKING_FOR_DOG){
             ROS_INFO("Continuing search after timeout");
-            return;
+            if(execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
+                return;
+            }
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = true;
+            currentGH.setAborted(*result, "Search for dog failed");
+        }
+        else {
+            assert(state == ActionState::LOOKING_AT_PATH);
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = false;
+            currentGH.setAborted(*result, "Point head action timed out");
         }
 
-        currentGH.setAborted();
         stateMutex.unlock();
         pointHeadClient.cancelGoal();
         stateMutex.lock();
-        searchState = SearchState::NONE;
         clearState();
     }
 
@@ -119,20 +130,26 @@ private:
         boost::mutex::scoped_lock lock(stateMutex);
 
         if (state == ActionState::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
-            ROS_INFO("Rejecting dog target because currently looking at path");
-            gh.setRejected();
+            ROS_DEBUG("Rejecting dog target because currently looking at path");
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = false;
+            gh.setRejected(*result, "Rejecting dog target because currently looking at path");
             return false;
         }
         if (state == ActionState::LOOKING_FOR_DOG && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
-            ROS_INFO("Ignoring additional request to look for dog");
-            gh.setRejected();
+            ROS_DEBUG("Ignoring additional request to look for dog");
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = false;
+            gh.setRejected(*result, "Ignoring additional request to look for dog");
             return false;
         }
         // Don't want to preempt looking at path because we could end up in a state where we never
         // finish looking at the path
         if (state == ActionState::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::PATH_TARGET) {
-            ROS_INFO("Ignoring additional request to look at path");
-            gh.setRejected();
+            ROS_DEBUG("Ignoring additional request to look at path");
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = false;
+            gh.setRejected(*result, "Ignoring additional request to look at path");
             return false;
         }
 
@@ -143,7 +160,9 @@ private:
             // Do not reset search state as we want the search to continue when it is
             // resumed.
             dogPositionSub->unsubscribe();
-            currentGH.setCanceled();
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = false;
+            currentGH.setCanceled(*result, "Search for dog was preempted by a look at path request");
             stateMutex.unlock();
             pointHeadClient.cancelGoal();
             stateMutex.lock();
@@ -161,8 +180,10 @@ private:
         }
 
         if(!execute(currentGH.getGoal()->position, currentGH.getGoal()->target, currentGH.getGoal()->isPositionSet)){
-            ROS_ERROR("Failed to schedule point head action");
-            currentGH.setAborted();
+            ROS_INFO("Failed to schedule point head action. Search must have completed unsuccessfully.");
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = true;
+            currentGH.setAborted(*result, "Search completed unsuccessfully");
             searchState = SearchState::NONE;
             clearState();
             return false;
@@ -226,7 +247,9 @@ private:
         if(state == ActionState::LOOKING_FOR_DOG){
             if(!execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
                 ROS_DEBUG("Failed to schedule next search location. Search may have completed.");
-                currentGH.setAborted();
+                dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+                result->actionCompleted = true;
+                currentGH.setAborted(*result, "Search completed unsuccessfully");
                 searchState = SearchState::NONE;
                 clearState();
             }
@@ -237,7 +260,9 @@ private:
         // Looking at path currently.
         else {
             assert(state == ActionState::LOOKING_AT_PATH);
-            currentGH.setSucceeded();
+            dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+            result->actionCompleted = true;
+            currentGH.setSucceeded(*result, "Looked at path completed successfully");
             clearState();
         }
     }
@@ -345,7 +370,9 @@ private:
         ROS_INFO("Search for dog located the dog. Unknown is %u and stale is %u and stamp is %f and measured time is %f. State is %s",
                 dogPosition->unknown, dogPosition->stale, dogPosition->header.stamp.toSec(), dogPosition->measuredTime.toSec(), STATE_NAMES[static_cast<int>(state)].c_str());
 
-        currentGH.setSucceeded();
+        dogsim::FocusHeadResultPtr result(new FocusHeadResult);
+        result->actionCompleted = true;
+        currentGH.setSucceeded(*result, "Search located dog");
         stateMutex.unlock();
         pointHeadClient.cancelGoal();
         stateMutex.lock();
