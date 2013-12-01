@@ -14,11 +14,11 @@
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="0.25" />
     <param name="voxel_leaf_size" value="0.0" />
-    <param name="min_cluster_size" value="1000" />
+    <param name="min_cluster_size" value="75" />
     <param name="max_cluster_size" value="25000" />
   </node>
    <param name="cmvision/color_file" type="string" value="$(find dogsim)/colors.txt"/>
-  	<param name="cmvision/debug_on" type="bool" value="false"/>
+  	<param name="cmvision/debug_on" type="bool" value="true"/>
   	<include file="$(find cmvision)/cmvision.launch"/>
   	
   	<node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>

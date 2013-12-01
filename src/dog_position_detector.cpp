@@ -13,6 +13,8 @@ using namespace dogsim;
 using namespace geometry_msgs;
 
 static const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
+static const double STALE_THRESHOLD_DEFAULT = 1.0;
+static const double LEASH_STRETCH_ERROR_DEFAULT = 0.5;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
 
@@ -74,6 +76,9 @@ private:
     //! Last id of the dog
     unsigned int lastId;
 
+    //! When to consider an observation stale
+    ros::Duration staleThreshold;
+
 public:
     //! ROS node initialization
     DogPositionDetector() :
@@ -89,7 +94,10 @@ public:
         nh.param("leash_length", leashLength, 2.0);
         // Use a fairly large error here as the arm may be currently moving
         // which will impact this distance
-        nh.param("leash_stretch_error", leashStretchError, 0.5);
+        nh.param("leash_stretch_error", leashStretchError, LEASH_STRETCH_ERROR_DEFAULT);
+        double staleThresholdD;
+        nh.param("stale_threshold", staleThresholdD, STALE_THRESHOLD_DEFAULT);
+        staleThreshold.fromSec(staleThresholdD);
 
         dogPositionPub = nh.advertise<DogPosition>("/dog_position_detector/dog_position", 1,
                 connectCB, disconnectCB);
@@ -182,6 +190,7 @@ private:
                 dogPositionMsg.pose.pose.position = (*match).position.point;
                 dogPositionMsg.unknown = false;
                 dogPositionMsg.measuredTime = (*match).measuredTime;
+                dogPositionMsg.stale = ((*match).position.header.stamp - (*match).measuredTime > staleThreshold);
             }
         }
 

@@ -238,9 +238,8 @@ public:
             return;
         }
 
-        if (dogPosition->unknown
-                || (dogPosition->header.stamp - dogPosition->measuredTime) > maxDogUnknownTime) {
-            ROS_DEBUG("Last measured time for the dog was: %f. Starting search.", dogPosition->measuredTime.toSec());
+        if (dogPosition->unknown || dogPosition->stale) {
+            ROS_DEBUG("Dog position is unknown or stale. Starting search.");
 
             // Start the search for the dog.
             FocusHeadGoal searchGoal;
@@ -325,7 +324,7 @@ public:
         lookGoal.target = FocusHeadGoal::PATH_TARGET;
 
         // Execute asynchronously. Interrupting a previous look is ok.
-        ROS_INFO("Requesting look at path action");
+        ROS_DEBUG("Requesting look at path action");
         focusHeadClient.sendGoal(lookGoal);
 
         // This will automatically cancel the last goal.

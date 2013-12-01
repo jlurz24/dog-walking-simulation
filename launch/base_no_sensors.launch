@@ -28,7 +28,7 @@
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
 
    <node pkg="dogsim" type="move_arm_to_base_position_action" name="move_arm_to_base_position_action" output="screen"/>
-   <node pkg="dogsim" type="focus_head_action" name="focus_head_action" output="screen"/>
+   <node pkg="dogsim" type="focus_head_action" name="focus_head_action"/>
 
    <rosparam param="/move_group/start_state_max_bounds_error">1.0</rosparam>
 </launch>

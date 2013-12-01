@@ -30,9 +30,13 @@ struct XYOffset {
  */
 static const XYOffset searchOffsets[] = { {0, 0}, {0, 0}, {1, 0}, {0, -1}, {-1, 0}, {0, 1} };
 
-static const ros::Duration FOCUS_TIMEOUT(2.0);
+static const ros::Duration FOCUS_TIMEOUT(1.0);
+
+static const string STATE_NAMES[] = {"Idle", "Looking_At_Path", "Looking_for_Dog"};
+static const string SEARCH_STATE_NAMES[] = {"None", "Center", "Top", "Left", "Bottom", "Right", "Done"};
 
 class FocusHead {
+private:
     enum class ActionState {
         IDLE, LOOKING_AT_PATH, LOOKING_FOR_DOG
     };
@@ -63,6 +67,9 @@ public:
         dogPositionSub->unsubscribe();
         pointHeadClient.waitForServer();
 
+        lookDirectionPub = nh.advertise<visualization_msgs::Marker>(
+                "/focus_head_action/look_direction_viz", 1);
+
         as.start();
     }
 
@@ -83,21 +90,25 @@ private:
     }
 
     void timeoutCallback(const ros::TimerEvent& e){
+        ROS_INFO("Point head action timed out");
+
         boost::mutex::scoped_lock lock(stateMutex);
 
-        // Ignore any timeouts after completion
+        // Ignore any timeouts after completion.
         if(state == ActionState::IDLE){
-            ROS_DEBUG("Timeout received when state is idle");
+            ROS_INFO("Timeout received when state is idle");
             return;
         }
 
         if(state == ActionState::LOOKING_FOR_DOG && execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
-            ROS_DEBUG("Continuing search after timeout");
+            ROS_INFO("Continuing search after timeout");
             return;
         }
 
         currentGH.setAborted();
+        stateMutex.unlock();
         pointHeadClient.cancelGoal();
+        stateMutex.lock();
         searchState = SearchState::NONE;
         clearState();
     }
@@ -108,24 +119,34 @@ private:
         boost::mutex::scoped_lock lock(stateMutex);
 
         if (state == ActionState::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
-            ROS_DEBUG("Rejecting dog target because currently looking at path");
+            ROS_INFO("Rejecting dog target because currently looking at path");
             gh.setRejected();
             return false;
         }
         if (state == ActionState::LOOKING_FOR_DOG && gh.getGoal()->target == FocusHeadGoal::DOG_TARGET) {
-            ROS_DEBUG("Ignoring additional request to look for dog");
+            ROS_INFO("Ignoring additional request to look for dog");
+            gh.setRejected();
+            return false;
+        }
+        // Don't want to preempt looking at path because we could end up in a state where we never
+        // finish looking at the path
+        if (state == ActionState::LOOKING_AT_PATH && gh.getGoal()->target == FocusHeadGoal::PATH_TARGET) {
+            ROS_INFO("Ignoring additional request to look at path");
             gh.setRejected();
             return false;
         }
 
         if (state != ActionState::IDLE) {
-            ROS_INFO("Preempting current focus head target for new goal");
-            assert(state == ActionState::LOOKING_AT_PATH || state == ActionState::LOOKING_FOR_DOG);
+            ROS_INFO("Preempting dog search focus head target for new goal");
+            assert(state == ActionState::LOOKING_FOR_DOG);
             state = ActionState::IDLE;
             // Do not reset search state as we want the search to continue when it is
             // resumed.
+            dogPositionSub->unsubscribe();
             currentGH.setCanceled();
+            stateMutex.unlock();
             pointHeadClient.cancelGoal();
+            stateMutex.lock();
         }
 
         ROS_INFO("Execution goal accepted for target: %s", gh.getGoal()->target.c_str());
@@ -156,6 +177,7 @@ private:
         PointStamped handInBaseFrame;
         PointStamped handInHandFrame;
         handInHandFrame.header.frame_id = "r_wrist_roll_link";
+        tf.waitForTransform("/base_footprint", handInHandFrame.header.frame_id, ros::Time(0), ros::Duration(5.0));
         try {
             tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame,
                     handInHandFrame.header.frame_id, handInBaseFrame);
@@ -170,16 +192,37 @@ private:
         return handInBaseFrame;
     }
 
+    PointStamped cameraInFrame(const string& requestedFrame) const {
+        PointStamped cameraInRequestedFrame;
+        PointStamped cameraInCameraFrame;
+        cameraInCameraFrame.header.frame_id = "wide_stereo_link";
+        tf.waitForTransform(requestedFrame, cameraInCameraFrame.header.frame_id, ros::Time(0), ros::Duration(5.0));
+
+        try {
+            tf.transformPoint(requestedFrame, ros::Time(0), cameraInCameraFrame,
+                    cameraInCameraFrame.header.frame_id, cameraInRequestedFrame);
+        }
+        catch (tf::TransformException& ex) {
+            ROS_ERROR(
+                    "Failed to transform camera position to %s", requestedFrame.c_str());
+            throw ex;
+        }
+        cameraInRequestedFrame.header.frame_id = requestedFrame;
+        cameraInRequestedFrame.header.stamp = ros::Time::now();
+        return cameraInRequestedFrame;
+    }
+
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result){
-        boost::mutex::scoped_lock lock(stateMutex);
-        ROS_INFO("Received point head complete callback");
 
+        ROS_INFO("Received point head complete callback");
+        boost::mutex::scoped_lock lock(stateMutex);
         if(state == ActionState::IDLE){
             // Spurious late callback.
             return;
         }
 
+        timeout.stop();
         if(state == ActionState::LOOKING_FOR_DOG){
             if(!execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
                 ROS_DEBUG("Failed to schedule next search location. Search may have completed.");
@@ -221,7 +264,7 @@ private:
                 // completed.
                 int nextStep = static_cast<int>(searchState) + 1;
                 searchState = static_cast<SearchState>(nextStep);
-                ROS_INFO("Executing search step %i", searchState);
+                ROS_INFO("Executing search step %s", SEARCH_STATE_NAMES[nextStep].c_str());
                 // TODO: Make sure all search states are being executed.
                 if(searchState == SearchState::DONE){
                     ROS_INFO("No more search steps to execute");
@@ -254,28 +297,61 @@ private:
         phGoal.pointing_frame = "wide_stereo_link";
         // Pointing axis defaults to the x-axis.
 
-        ROS_INFO("Sending goal to point head client");
+        ROS_INFO("Sending goal of type %s to point head client", targetType.c_str());
+
+        visualizeGoal(phGoal.target, targetType);
+        stateMutex.unlock();
         pointHeadClient.sendGoal(phGoal,
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
+        stateMutex.lock();
         timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
                 true /* One shot */);
         ROS_INFO("Focus target step completed");
         return true;
     }
 
+    void visualizeGoal(const PointStamped& goal, const string& targetType) const {
+        static const std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
+        static const std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
+
+        if (lookDirectionPub.getNumSubscribers() > 0) {
+            visualization_msgs::Marker marker;
+            marker.header = goal.header;
+            marker.ns = "dogsim";
+            marker.id = 0;
+            marker.type = visualization_msgs::Marker::ARROW;
+            marker.action = visualization_msgs::Marker::ADD;
+            marker.points.resize(2);
+            marker.points[0] = cameraInFrame(goal.header.frame_id).point;
+            marker.points[1] = goal.point;
+            marker.scale.x = 0.1;
+            marker.scale.y = 0.1;
+            marker.scale.z = 0.1;
+            marker.color = targetType == FocusHeadGoal::DOG_TARGET ? RED : BLUE;
+            marker.color.a = 1;
+            lookDirectionPub.publish(marker);
+        }
+    }
+
     void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
-        ROS_INFO("Received dog position callback. Stamp is %f and measured time is %f. State is %u", dogPosition->header.stamp.toSec(), dogPosition->measuredTime.toSec(), state);
-        if(dogPosition->unknown || state != ActionState::LOOKING_FOR_DOG || dogPosition->header.stamp != dogPosition->measuredTime){
+        ROS_DEBUG("Received dog position callback. Unknown is %u and stale is %u and stamp is %f and measured time is %f. State is %s",
+                dogPosition->unknown, dogPosition->stale, dogPosition->header.stamp.toSec(), dogPosition->measuredTime.toSec(), STATE_NAMES[static_cast<int>(state)].c_str());
+
+        if(dogPosition->unknown || dogPosition->stale || state != ActionState::LOOKING_FOR_DOG){
             return;
         }
+
         boost::mutex::scoped_lock lock(stateMutex);
-        ROS_INFO("Search for dog located the dog");
+        ROS_INFO("Search for dog located the dog. Unknown is %u and stale is %u and stamp is %f and measured time is %f. State is %s",
+                dogPosition->unknown, dogPosition->stale, dogPosition->header.stamp.toSec(), dogPosition->measuredTime.toSec(), STATE_NAMES[static_cast<int>(state)].c_str());
 
         currentGH.setSucceeded();
+        stateMutex.unlock();
         pointHeadClient.cancelGoal();
+        stateMutex.lock();
         searchState = SearchState::NONE;
         clearState();
-        ROS_INFO("Exiting dog position callback");
+        ROS_INFO("Exiting dog position callback after dog found");
     }
 
 protected:
@@ -293,6 +369,9 @@ protected:
     ros::Timer timeout;
     double leashLength;
 
+    //! Publisher for the look direction
+    ros::Publisher lookDirectionPub;
+
     //! Dog position subscriber
     auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub;
 };
@@ -302,6 +381,5 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "focus_head_action");
     FocusHead action(ros::this_node::getName());
     ros::spin();
-
     return 0;
 }
