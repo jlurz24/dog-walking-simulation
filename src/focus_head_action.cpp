@@ -107,6 +107,7 @@ private:
             if(execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
                 return;
             }
+            ROS_INFO("Failed to schedule next search location. Search may have completed.");
             dogsim::FocusHeadResultPtr result(new FocusHeadResult);
             result->actionCompleted = true;
             currentGH.setAborted(*result, "Search for dog failed");
@@ -180,7 +181,7 @@ private:
         }
 
         if(!execute(currentGH.getGoal()->position, currentGH.getGoal()->target, currentGH.getGoal()->isPositionSet)){
-            ROS_INFO("Failed to schedule point head action. Search must have completed unsuccessfully.");
+            ROS_INFO("Failed to schedule point head action. Search completed unsuccessfully.");
             dogsim::FocusHeadResultPtr result(new FocusHeadResult);
             result->actionCompleted = true;
             currentGH.setAborted(*result, "Search completed unsuccessfully");
@@ -246,7 +247,7 @@ private:
         timeout.stop();
         if(state == ActionState::LOOKING_FOR_DOG){
             if(!execute(PointStamped(), FocusHeadGoal::DOG_TARGET, false)){
-                ROS_DEBUG("Failed to schedule next search location. Search may have completed.");
+                ROS_INFO("Failed to schedule next search location. Search may have completed.");
                 dogsim::FocusHeadResultPtr result(new FocusHeadResult);
                 result->actionCompleted = true;
                 currentGH.setAborted(*result, "Search completed unsuccessfully");

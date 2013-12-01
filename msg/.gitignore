@@ -33,3 +33,10 @@ MoveRobotActionResult.msg
 MoveRobotFeedback.msg
 MoveRobotGoal.msg
 MoveRobotResult.msg
+/MoveArmToClearPositionAction.msg
+/MoveArmToClearPositionActionFeedback.msg
+/MoveArmToClearPositionActionGoal.msg
+/MoveArmToClearPositionActionResult.msg
+/MoveArmToClearPositionFeedback.msg
+/MoveArmToClearPositionGoal.msg
+/MoveArmToClearPositionResult.msg
