@@ -17,6 +17,8 @@
 #include <dogsim/FocusHeadAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <tf2/LinearMath/btVector3.h>
+#include <dogsim/ViewChangeRequest.h>
+#include <dogsim/DogSearchFailed.h>
 
 namespace {
 using namespace std;
@@ -36,7 +38,7 @@ static const double DELAY_TIME_DEFAULT = 2.5;
 static const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
 
 //! Default amount of time prior to searching for the dog.
-static const double MAX_DOG_UNKNOWN_TIME = 1.0;
+static const double MAX_DOG_UNKNOWN_TIME_DEFAULT = 0.5;
 
 class RobotDriver {
 private:
@@ -57,6 +59,12 @@ private:
 
     //! Avoiding dog listener.
     auto_ptr<message_filters::Subscriber<AvoidingDog> > avoidingDogSub;
+
+    //! View change request listener.
+    auto_ptr<message_filters::Subscriber<ViewChangeRequest> > viewChangeRequestSub;
+
+    //! Dog search failed message
+    auto_ptr<message_filters::Subscriber<DogSearchFailed> > dogSearchFailedSub;
 
     //! Client for the arm to attempt to position the dog
     AdjustDogClient adjustDogClient;
@@ -151,7 +159,7 @@ public:
         delayTime.fromSec(delayTimeD);
 
         double maxDogUnknownTimeD;
-        pnh.param<double>("max_dog_unknown_time", maxDogUnknownTimeD, MAX_DOG_UNKNOWN_TIME);
+        pnh.param<double>("max_dog_unknown_time", maxDogUnknownTimeD, MAX_DOG_UNKNOWN_TIME_DEFAULT);
         maxDogUnknownTime.fromSec(maxDogUnknownTimeD);
 
         // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
@@ -197,6 +205,15 @@ public:
                 new message_filters::Subscriber<AvoidingDog>(nh, "/avoid_dog/avoiding", 1));
         avoidingDogSub->registerCallback(boost::bind(&RobotDriver::avoidingDogCallback, this, _1));
 
+        viewChangeRequestSub.reset(
+                new message_filters::Subscriber<ViewChangeRequest>(nh, "/dogsim/view_change_request", 1));
+        viewChangeRequestSub->registerCallback(boost::bind(&RobotDriver::viewChangeRequestCallback, this, _1));
+
+        dogSearchFailedSub.reset(
+                new message_filters::Subscriber<DogSearchFailed>(nh, "/focus_head_action/dog_search_failed", 1));
+        dogSearchFailedSub->registerCallback(boost::bind(&RobotDriver::dogSearchFailedCallback, this, _1));
+
+
         startPath(ros::Time::now());
 
         if (!noSteeringMode) {
@@ -239,6 +256,18 @@ public:
         avoidingDog = avoidDogMsg->avoiding;
     }
 
+    void viewChangeRequestCallback(const ViewChangeRequestConstPtr& viewChangeRequest){
+
+        FocusHeadGoal lookGoal;
+        lookGoal.position = viewChangeRequest->center;
+        lookGoal.target = FocusHeadGoal::PATH_TARGET;
+
+        // Execute asynchronously. Interrupting a previous look is ok.
+        ROS_INFO("Requesting look at path action to position %f, %f, %f in frame %s",
+                lookGoal.position.point.x, lookGoal.position.point.y, lookGoal.position.point.z, lookGoal.position.header.frame_id.c_str());
+        focusHeadClient.sendGoal(lookGoal);
+    }
+
     void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
         ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
 
@@ -261,7 +290,7 @@ public:
             searchGoal.target = FocusHeadGoal::DOG_TARGET;
 
             // Execute asynchronously
-            focusHeadClient.sendGoal(searchGoal, boost::bind(&RobotDriver::dogSearchCompletedCallback, this, _1, _2));
+            focusHeadClient.sendGoal(searchGoal);
             return;
         }
 
@@ -291,17 +320,14 @@ public:
         ROS_DEBUG("Completed dog position callback");
     }
 
-    void dogSearchCompletedCallback(const actionlib::SimpleClientGoalState& goalState,
-            const dogsim::FocusHeadResultConstPtr result){
-       if(goalState == actionlib::SimpleClientGoalState::ABORTED && result->actionCompleted){
-            ROS_INFO("Search for dog failed. Attempt to clear arm to recover");
-            if(avoidingDog){
-                ROS_INFO("Currently avoiding dog. Cannot move arm.");
-                return;
-            }
-            MoveArmToClearPositionGoal moveArmToClearPositionGoal;
-            moveArmToClearPositionClient.sendGoal(moveArmToClearPositionGoal);
+    void dogSearchFailedCallback(const DogSearchFailedConstPtr msg) {
+        ROS_INFO("Search for dog failed. Attempt to clear arm to recover");
+        if (avoidingDog) {
+            ROS_INFO("Currently avoiding dog. Cannot move arm.");
+            return;
         }
+        MoveArmToClearPositionGoal moveArmToClearPositionGoal;
+        moveArmToClearPositionClient.sendGoal(moveArmToClearPositionGoal);
     }
 
     geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started,
@@ -340,15 +366,6 @@ public:
             stopMeasuringPub.publish(stopMeasuringMsg);
             return;
         }
-
-        FocusHeadGoal lookGoal;
-        lookGoal.position.header = getPlannedPose.response.pose.header;
-        lookGoal.position.point = getPlannedPose.response.pose.pose.position;
-        lookGoal.target = FocusHeadGoal::PATH_TARGET;
-
-        // Execute asynchronously. Interrupting a previous look is ok.
-        ROS_DEBUG("Requesting look at path action");
-        focusHeadClient.sendGoal(lookGoal);
 
         // This will automatically cancel the last goal.
         MoveRobotGoal goal;

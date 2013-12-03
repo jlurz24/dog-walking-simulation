@@ -16,9 +16,12 @@ private:
     ros::NodeHandle nh;
     ros::NodeHandle pnh;
     tf::TransformListener tf;
-    double totalPositionDeviation;
+
     double meanPositionDeviation;
     double m2PositionDeviation;
+
+    double meanTimeDuration;
+    double m2TimeDuration;
     unsigned int n;
 
     ros::Time lastTime;
@@ -33,9 +36,14 @@ private:
 
 public:
     DogPositionMeasurer() :
-            pnh("~"), totalPositionDeviation(0), meanPositionDeviation(0), m2PositionDeviation(0), n(
-                    0), startMeasuringSub(nh, "start_measuring", 1), stopMeasuringSub(nh,
-                    "stop_measuring", 1) {
+            pnh("~"),
+            meanPositionDeviation(0),
+            m2PositionDeviation(0),
+            meanTimeDuration(0),
+            m2TimeDuration(0),
+            n(0),
+            startMeasuringSub(nh, "start_measuring", 1),
+            stopMeasuringSub(nh, "stop_measuring", 1) {
 
         pnh.param<string>("model_name", modelName, "dog");
 
@@ -61,8 +69,6 @@ private:
 
     void stopMeasuring(const position_tracker::StopMeasurementConstPtr msg) {
         dogSub->unsubscribe();
-        ROS_INFO("Measurement of dog position ended. Total Position Deviation: %f, Duration: %f",
-                totalPositionDeviation, msg->header.stamp.toSec() - startTime.toSec());
 
         double totalTime = msg->header.stamp.toSec() - startTime.toSec();
         ROS_INFO(
@@ -73,6 +79,10 @@ private:
         double positionDeviationVariance = m2PositionDeviation / (n - 1);
         ROS_INFO("Mean Position Deviation: %f, Position Variance: %f", meanPositionDeviation,
                 positionDeviationVariance);
+
+        double timeDurationVariance = m2TimeDuration / (n - 1);
+        ROS_INFO("Mean Time Duration: %f, Time Variance: %f", meanTimeDuration,
+                timeDurationVariance);
     }
 
     void callback(const dogsim::DogPositionConstPtr dogPositionMsg) {
@@ -110,9 +120,11 @@ private:
         meanPositionDeviation += deltaP / double(n);
         m2PositionDeviation += square(deltaP);
 
-        ROS_DEBUG("Current Position Deviation: %f", positionDeviation);
+        double deltaT = (ros::Time::now().toSec() - dogPositionMsg->header.stamp.toSec()) - meanTimeDuration;
+        meanTimeDuration += deltaT / double(n);
+        m2TimeDuration += square(deltaT);
 
-        totalPositionDeviation += positionDeviation;
+        ROS_DEBUG("Current Position Deviation: %f", positionDeviation);
     }
 };
 

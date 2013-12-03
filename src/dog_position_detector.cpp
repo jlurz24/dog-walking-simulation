@@ -91,10 +91,12 @@ public:
         ros::SubscriberStatusCallback disconnectCB = boost::bind(
                 &DogPositionDetector::stopListening, this);
 
+        // Global parameter
         nh.param("leash_length", leashLength, 2.0);
+
         // Use a fairly large error here as the arm may be currently moving
         // which will impact this distance
-        nh.param("leash_stretch_error", leashStretchError, LEASH_STRETCH_ERROR_DEFAULT);
+        pnh.param("leash_stretch_error", leashStretchError, LEASH_STRETCH_ERROR_DEFAULT);
 
         double staleThresholdD;
         pnh.param("stale_threshold", staleThresholdD, STALE_THRESHOLD_DEFAULT);
