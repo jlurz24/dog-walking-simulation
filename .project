@@ -264,6 +264,41 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>[Targets]/[exe] dog_position_measurer</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] dog_position_measurer/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] dog_position_measurer/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] dog_position_measurer/Source Files/dog_position_measurer.cpp</name>
+			<type>1</type>
+			<location>/home/jlurz/ros_workspace/litterbox_project/dogsim/src/dog_position_measurer.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] dog_position_measurer/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] dog_position_measurer/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] dog_position_measurer/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>[Targets]/[exe] dog_visualizer</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -544,6 +579,41 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action/Source Files/move_arm_to_clear_position_action.cpp</name>
+			<type>1</type>
+			<location>/home/jlurz/ros_workspace/litterbox_project/dogsim/src/move_arm_to_clear_position_action.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] move_arm_to_clear_position_action/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>[Targets]/[exe] move_dog_away_action</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -680,6 +750,41 @@
 		</link>
 		<link>
 			<name>[Targets]/[exe] path_scorer/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector/Source Files/path_visibility_detector.cpp</name>
+			<type>1</type>
+			<location>/home/jlurz/ros_workspace/litterbox_project/dogsim/src/path_visibility_detector.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_visibility_detector/Resources</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>

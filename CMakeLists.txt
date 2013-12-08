@@ -26,6 +26,10 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 find_package(Eigen REQUIRED)
 find_package(gazebo REQUIRED)
+find_library(CGAL_LIBRARY CGAL /usr/lib)
+find_library(GMP_LIBRARY gmp /usr/lib)
+# find_package(GCAL REQUIRED)
+
 include_directories(${Eigen_INCLUDE_DIRS})
 
 include_directories(${GAZEBO_INCLUDE_DIRS})
@@ -74,5 +78,8 @@ rosbuild_add_compile_flags(focus_head_action -std=c++0x)
 
 rosbuild_add_executable(path_visibility_measurer src/path_visibility_measurer.cpp)
 rosbuild_add_executable(path_visibility_detector src/path_visibility_detector.cpp)
+rosbuild_add_compile_flags(path_visibility_detector -frounding-math)
+target_link_libraries(path_visibility_detector ${CGAL_LIBRARY} ${GMP_LIBRARY})
+
 rosbuild_add_executable(dog_position_measurer src/dog_position_measurer.cpp)
 rosbuild_add_executable(move_arm_to_clear_position_action src/move_arm_to_clear_position_action.cpp)

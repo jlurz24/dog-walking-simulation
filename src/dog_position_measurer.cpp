@@ -112,6 +112,7 @@ private:
 
         const geometry_msgs::Point& knownPosition = modelState.response.pose.position;
         const geometry_msgs::Point& estimatedPosition = dogPositionMsg->pose.pose.position;
+        // Do not include z position because it is not tracked
         double positionDeviation = sqrt(
                 square(knownPosition.x - estimatedPosition.x)
                         + square(knownPosition.y - estimatedPosition.y)) * timePassed.toSec();
