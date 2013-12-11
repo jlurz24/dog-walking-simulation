@@ -1,2 +1,4 @@
 Header header
 geometry_msgs/PointStamped center
+float32 visibilityRatio
+time measuredTime

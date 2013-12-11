@@ -2,7 +2,7 @@
 #include <message_filters/subscriber.h>
 #include <position_tracker/StartMeasurement.h>
 #include <position_tracker/StopMeasurement.h>
-#include <dogsim/PathViewMetrics.h>
+#include <dogsim/PathViewInfo.h>
 
 namespace {
 using namespace message_filters;
@@ -19,7 +19,7 @@ private:
 
     double totalScore;
 
-    auto_ptr<Subscriber<PathViewMetrics> > pathViewMetricsSub;
+    auto_ptr<Subscriber<PathViewInfo> > pathViewMetricsSub;
 
     Subscriber<position_tracker::StartMeasurement> startMeasuringSub;
     Subscriber<position_tracker::StopMeasurement> stopMeasuringSub;
@@ -29,7 +29,7 @@ public:
             pnh("~"), totalScore(0), startMeasuringSub(nh, "start_measuring", 1), stopMeasuringSub(nh,
                     "stop_measuring", 1) {
 
-        pathViewMetricsSub.reset(new Subscriber<PathViewMetrics>(nh, "/path_visibility_detector/metrics", 1));
+        pathViewMetricsSub.reset(new Subscriber<PathViewInfo>(nh, "/path_visibility_detector/view", 1));
 
         startMeasuringSub.registerCallback(
                 boost::bind(&PathVisibilityMeasurer::startMeasuring, this, _1));
@@ -50,14 +50,14 @@ private:
         ROS_INFO("Total path visibility score was %f over %f seconds", totalScore, msg->header.stamp.toSec() - startTime.toSec());
     }
 
-    void callback(const PathViewMetricsConstPtr& pathViewMetrics) {
+    void callback(const PathViewInfoConstPtr& pathViewMetrics) {
         ROS_DEBUG("Received a message @ %f", ros::Time::now().toSec());
 
         ros::Time messageTime = pathViewMetrics->header.stamp;
         ros::Duration timePassed = messageTime - lastTime;
 
         // Update the score
-        double increment = timePassed.toSec() * pathViewMetrics->ratio;
+        double increment = timePassed.toSec() * pathViewMetrics->visibilityRatio;
         ROS_DEBUG("Incrementing total score by %f", increment);
         totalScore += increment;
         lastTime = messageTime;

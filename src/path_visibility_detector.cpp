@@ -4,14 +4,14 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <image_geometry/pinhole_camera_model.h>
 #include <tf2/LinearMath/btVector3.h>
-#include <dogsim/ViewChangeRequest.h>
-#include <dogsim/PathViewMetrics.h>
+#include <dogsim/PathViewInfo.h>
 #include <visualization_msgs/Marker.h>
 #include <dogsim/utils.h>
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/connect_holes.h>
+#include <CGAL/centroid.h>
 
 namespace {
 
@@ -20,16 +20,15 @@ using namespace sensor_msgs;
 using namespace message_filters;
 using namespace dogsim;
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 typedef CGAL::Point_2<K> Point_2;
 typedef CGAL::Polygon_2<K> Polygon_2;
 typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes_2;
 
-static const double VIEW_RATIO_THRESHOLD_DEFAULT = 0.99;
-static const double CHANGE_PENDING_DELAY_DEFAULT = 0.5;
 static const double VIEW_WIDTH_DEFAULT = 0.668;
 static const double VIEW_LENGTH_DEFAULT = 3.0;
 static const double VIEW_OFFSET_DEFAULT = VIEW_WIDTH_DEFAULT / 2.0;
+static const double PATH_VIS_THRESHOLD_DEFAULT = 0.99;
 
 static geometry_msgs::Point32 createPoint(double x, double y, double z) {
     geometry_msgs::Point32 p;
@@ -82,54 +81,49 @@ private:
     ros::NodeHandle nh;
     ros::NodeHandle pnh;
     tf::TransformListener tf;
-    bool viewChangeRequestPending;
-    ros::Timer changeRequestTimer;
-    double viewRatioThreshold;
+
     double viewWidth;
     double viewLength;
     double viewOffset;
-    ros::Duration changePendingDelay;
+
+    double pathVisibilityThreshold;
+
+    ros::Time lastFullyVisibleTime;
+
     auto_ptr<Subscriber<CameraInfo> > leftCameraSub;
 
-    ros::Publisher pathViewMetricsPub;
-    ros::Publisher viewChangeRequestPub;
+    ros::Publisher viewPub;
     ros::Publisher viewVizPub;
 
 public:
     PathVisibilityDetector() :
-            pnh("~"), viewChangeRequestPending(false) {
+            pnh("~") {
         ROS_DEBUG("Initializing path visibility detector");
-        double changePendingDelayD;
-        pnh.param<double>("change_pending_delay", changePendingDelayD,
-                CHANGE_PENDING_DELAY_DEFAULT);
-        changePendingDelay.fromSec(changePendingDelayD);
 
-        pnh.param<double>("view_ratio_threshold", viewRatioThreshold, VIEW_RATIO_THRESHOLD_DEFAULT);
         pnh.param<double>("view_length", viewLength, VIEW_LENGTH_DEFAULT);
         pnh.param<double>("view_width", viewWidth, VIEW_WIDTH_DEFAULT);
         pnh.param<double>("view_offset", viewOffset, VIEW_OFFSET_DEFAULT);
 
+        nh.param("path_visibility_threshold", pathVisibilityThreshold, PATH_VIS_THRESHOLD_DEFAULT);
+
         leftCameraSub.reset(new Subscriber<CameraInfo>(nh, "/wide_stereo/left/camera_info", 1));
         leftCameraSub->registerCallback(boost::bind(&PathVisibilityDetector::callback, this, _1));
-        viewChangeRequestPub = nh.advertise<ViewChangeRequest>("/dogsim/view_change_request", 1);
-        pathViewMetricsPub = nh.advertise<PathViewMetrics>("/path_visibility_detector/metrics", 1);
+
+        viewPub = nh.advertise<PathViewInfo>("/path_visibility_detector/view", 1);
         viewVizPub = nh.advertise<visualization_msgs::Marker>("/path_visibility_detector/view_viz",
                 1);
         ROS_DEBUG("Path visibility detector initialization complete");
     }
 
 private:
-    void timeoutCallback(const ros::TimerEvent& e) {
-        ROS_INFO("Timeout fired. Publishing view change request.");
-        ViewChangeRequestPtr viewChangeRequest(new ViewChangeRequest());
-        viewChangeRequest->header.stamp = e.current_real;
-        viewChangeRequest->header.frame_id = "/base_footprint";
-        viewChangeRequest->center.point.y = viewWidth / 2.0;
-        viewChangeRequest->center.point.x = viewOffset + viewLength / 2.0;
-        viewChangeRequest->center.point.z = 0;
-        viewChangeRequest->center.header = viewChangeRequest->header;
-        viewChangeRequestPub.publish(viewChangeRequest);
-        viewChangeRequestPending = false;
+    void publishView(const double visibilityRatio, const geometry_msgs::PointStamped& pointToLookAt) {
+        ROS_INFO("Publishing view change request with ratio: %f and last fully visible time: %f", visibilityRatio, lastFullyVisibleTime.toSec());
+        PathViewInfoPtr pathViewInfo(new PathViewInfo());
+        pathViewInfo->header = pointToLookAt.header;
+        pathViewInfo->center = pointToLookAt;
+        pathViewInfo->visibilityRatio = visibilityRatio;
+        pathViewInfo->measuredTime = lastFullyVisibleTime;
+        viewPub.publish(pathViewInfo);
     }
 
     void callback(const CameraInfoConstPtr& lCameraInfo) {
@@ -204,36 +198,27 @@ private:
             for (unsigned int i = 0; i < intersectionPoints.size(); ++i) {
                 Polygon_2 connected;
                 CGAL::connect_holes(intersectionPoints[i], back_inserter(connected));
-                intersectingArea += connected.area();
+                intersectingArea += CGAL::to_double(connected.area());
             }
-            pathArea = pathPointsIn2D.area();
+            pathArea = CGAL::to_double(pathPointsIn2D.area());
         }
-        double imageArea = imagePointsIn2D.area();
-        ROS_DEBUG("Intersecting area: %f path area: %f, image area: %f", intersectingArea, pathArea,
-                imageArea);
-
+        double imageArea = CGAL::to_double(imagePointsIn2D.area());
         double visibleRatio = intersectingArea / pathArea;
-        if (visibleRatio < viewRatioThreshold) {
-            if (!viewChangeRequestPending) {
-                ROS_INFO("Starting the view change request timer");
-                viewChangeRequestPending = true;
-                nh.createTimer(changePendingDelay, &PathVisibilityDetector::timeoutCallback, this,
-                        true /* One shot */);
-            }
-            else {
-                ROS_DEBUG("View change request timer already started");
-            }
-        }
-        else if (viewChangeRequestPending) {
-            viewChangeRequestPending = false;
-            changeRequestTimer.stop();
+        ROS_DEBUG("Intersecting area: %f path area: %f, image area: %f, ratio: %f", intersectingArea, pathArea,
+                imageArea, visibleRatio);
+
+        if(visibleRatio > pathVisibilityThreshold){
+            lastFullyVisibleTime = messageTime;
         }
 
-        // Now fire the event for metrics
-        PathViewMetricsPtr metrics(new PathViewMetrics());
-        metrics->header.stamp = messageTime;
-        metrics->ratio = visibleRatio;
-        pathViewMetricsPub.publish(metrics);
+        Point_2 center = CGAL::centroid(pathPointsIn2D.vertices_begin(), pathPointsIn2D.vertices_end(), K());
+        geometry_msgs::PointStamped pointToLookAt;
+        pointToLookAt.header.frame_id = cameraModel.tfFrame();
+        pointToLookAt.header.stamp = messageTime;
+        pointToLookAt.point.x = CGAL::to_double(center.x());
+        pointToLookAt.point.y = CGAL::to_double(center.y());
+        pointToLookAt.point.z = 1.0;
+        publishView(visibleRatio, pointToLookAt);
 
         // Publish visualization
         if (viewVizPub.getNumSubscribers() > 0) {
@@ -260,10 +245,12 @@ private:
         marker.color = color;
         marker.scale.x = 0.1;
         for (unsigned int i = 0; i < p.size(); ++i) {
-            marker.points[i].x = p[i].x();
-            marker.points[i].y = p[i].y();
+            marker.points[i].x = CGAL::to_double(p[i].x());
+            marker.points[i].y = CGAL::to_double(p[i].y());
             marker.points[i].z = 1.0;
         }
+        // Close the loop
+        marker.points.push_back(marker.points[0]);
         return marker;
     }
 };

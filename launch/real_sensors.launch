@@ -10,16 +10,52 @@
     <param name="filter_stale_threshold" value="60.0" />
     <param name="max_correlation_distance" value="5" />
   </node>
-<node pkg="position_tracker" type="multi_object_detector" name="multi_object_detector" output="screen" respawn="true">
+
+  <node pkg="wide_stereo_position_tracker" type="multi_object_detector" name="multi_object_detector" output="screen" respawn="true">
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="0.25" />
     <param name="voxel_leaf_size" value="0.0" />
     <param name="min_cluster_size" value="75" />
     <param name="max_cluster_size" value="25000" />
+    <remap from="blobs" to="/r_forearm_cam/blobs"/>
+    <remap from="points" to="/r_forearm_cam/points"/>
   </node>
-   <param name="cmvision/color_file" type="string" value="$(find dogsim)/colors.txt"/>
-  	<param name="cmvision/debug_on" type="bool" value="false"/>
-  	<include file="$(find cmvision)/cmvision.launch"/>
+  
+  <node pkg="r_forearm_cam_position_tracker" type="multi_object_detector" name="multi_object_detector" output="screen" respawn="true">
+    <param name="object_name" value="dog" />
+    <param name="cluster_distance_tolerance" value="0.25" />
+    <param name="voxel_leaf_size" value="0.0" />
+    <param name="min_cluster_size" value="75" />
+    <param name="max_cluster_size" value="25000" />
+    <remap from="blobs" to="/wide_stereo/blobs"/>
+    <remap from="points" to="/wide_stereo/left/points"/>
+  </node>
+
+  <!-- cmvision global parameters -->
+  <param name="cmvision/color_file" type="string" value="$(find dogsim)/colors.txt"/>
+  <param name="cmvision/debug_on" type="bool" value="false"/>
+    
+  <!-- Turn color calibration on or off -->
+  <param name="cmvision/color_cal_on" type="bool" value="false"/>
+
+  <!-- Enable Mean shift filtering -->
+  <param name="cmvision/mean_shift_on" type="bool" value="false"/>
+
+  <!-- Spatial bandwidth: Bigger = smoother image -->
+  <param name="cmvision/spatial_radius_pix" type="double" value="2.0"/>
+
+  <!-- Color bandwidth: Bigger = smoother image-->
+  <param name="cmvision/color_radius_pix" type="double" value="40.0"/>
+    
+  <node name="wide_stereo_cmvision" pkg="cmvision" type="cmvision" output="screen">
+    <remap from="image" to="wide_stereo/left/image_rect_color" />
+    <remap from="blobs" to="wide_stereo/blobs"/>
+  </node>
+  
+  <node name="r_forearm_cam_cmvision" pkg="cmvision" type="cmvision" output="screen">
+    <remap from="image" to="r_forearm_cam/image_rect_color" />
+    <remap from="blobs" to="r_forearm_cam/blobs"/>
+  </node>
   	
   	<node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
 </launch>

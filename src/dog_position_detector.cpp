@@ -190,6 +190,7 @@ private:
                 }
                 lastId = (*match).id;
                 dogPositionMsg.pose.header = (*match).position.header;
+                assert(dogPositionMsg.pose.header.frame_id.size() > 0 && "frame_id was not set");
                 dogPositionMsg.pose.pose.position = (*match).position.point;
                 dogPositionMsg.unknown = false;
                 dogPositionMsg.measuredTime = (*match).measuredTime;

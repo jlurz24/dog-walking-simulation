@@ -14,10 +14,8 @@
 #include <dogsim/MoveArmToClearPositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
-#include <dogsim/FocusHeadAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <tf2/LinearMath/btVector3.h>
-#include <dogsim/ViewChangeRequest.h>
 #include <dogsim/DogSearchFailed.h>
 
 namespace {
@@ -28,7 +26,6 @@ typedef actionlib::SimpleActionClient<AdjustDogPositionAction> AdjustDogClient;
 typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 typedef actionlib::SimpleActionClient<MoveArmToClearPositionAction> MoveArmToClearPositionClient;
-typedef actionlib::SimpleActionClient<FocusHeadAction> FocusHeadClient;
 
 //! Amount of time before starting walk. This provides time for the robot to finish
 //  tucking its arms.
@@ -36,9 +33,6 @@ static const double DELAY_TIME_DEFAULT = 2.5;
 
 //! Interval to update the move_robot_action
 static const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
-
-//! Default amount of time prior to searching for the dog.
-static const double MAX_DOG_UNKNOWN_TIME_DEFAULT = 0.5;
 
 class RobotDriver {
 private:
@@ -60,9 +54,6 @@ private:
     //! Avoiding dog listener.
     auto_ptr<message_filters::Subscriber<AvoidingDog> > avoidingDogSub;
 
-    //! View change request listener.
-    auto_ptr<message_filters::Subscriber<ViewChangeRequest> > viewChangeRequestSub;
-
     //! Dog search failed message
     auto_ptr<message_filters::Subscriber<DogSearchFailed> > dogSearchFailedSub;
 
@@ -71,9 +62,6 @@ private:
 
     //! Client for the movement of the robot base.
     MoveRobotClient moveRobotClient;
-
-    //! Client to adjust head
-    FocusHeadClient focusHeadClient;
 
     //! Client to adjust the arm of the robot to the start position
     MoveArmToBasePositionClient moveArmToBasePositionClient;
@@ -96,9 +84,6 @@ private:
     //! Amount of time prior to starting
     ros::Duration delayTime;
 
-    //! Amount of time prior to searching for the dog
-    ros::Duration maxDogUnknownTime;
-
     //! Whether the robot is operating on its own
     bool soloMode;
 
@@ -108,12 +93,6 @@ private:
     //! Whether are currently avoiding the dog
     bool avoidingDog;
 
-    //! Whether the robot has ever seen the dog
-    bool anyDogPositionsDetected;
-
-    //! Last known dog position
-    geometry_msgs::PointStamped lastKnownDogPosition;
-
     //! Publishers for starting and stopping measurement.
     ros::Publisher startMeasuringPub;
     ros::Publisher stopMeasuringPub;
@@ -122,11 +101,11 @@ public:
     //! ROS node initialization
     RobotDriver() :
             pnh("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient(
-                    "move_robot_action", true), focusHeadClient("focus_head_action", true), moveArmToBasePositionClient(
+                    "move_robot_action", true), moveArmToBasePositionClient(
                     "move_arm_to_base_position_action", true),
                     moveArmToClearPositionClient("move_arm_to_clear_position_action", true),
                     soloMode(false), noSteeringMode(
-                    false), avoidingDog(false), anyDogPositionsDetected(false) {
+                    false), avoidingDog(false) {
 
         ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
 
@@ -143,7 +122,7 @@ public:
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
         moveArmToClearPositionClient.waitForServer();
-        focusHeadClient.waitForServer();
+
         startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1,
                 true);
         stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1,
@@ -157,10 +136,6 @@ public:
         double delayTimeD;
         pnh.param<double>("start_delay", delayTimeD, DELAY_TIME_DEFAULT);
         delayTime.fromSec(delayTimeD);
-
-        double maxDogUnknownTimeD;
-        pnh.param<double>("max_dog_unknown_time", maxDogUnknownTimeD, MAX_DOG_UNKNOWN_TIME_DEFAULT);
-        maxDogUnknownTime.fromSec(maxDogUnknownTimeD);
 
         // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
         // move the arm.
@@ -205,14 +180,9 @@ public:
                 new message_filters::Subscriber<AvoidingDog>(nh, "/avoid_dog/avoiding", 1));
         avoidingDogSub->registerCallback(boost::bind(&RobotDriver::avoidingDogCallback, this, _1));
 
-        viewChangeRequestSub.reset(
-                new message_filters::Subscriber<ViewChangeRequest>(nh, "/dogsim/view_change_request", 1));
-        viewChangeRequestSub->registerCallback(boost::bind(&RobotDriver::viewChangeRequestCallback, this, _1));
-
         dogSearchFailedSub.reset(
                 new message_filters::Subscriber<DogSearchFailed>(nh, "/focus_head_action/dog_search_failed", 1));
         dogSearchFailedSub->registerCallback(boost::bind(&RobotDriver::dogSearchFailedCallback, this, _1));
-
 
         startPath(ros::Time::now());
 
@@ -244,7 +214,6 @@ public:
             moveRobotClient.cancelGoal();
             moveArmToBasePositionClient.cancelGoal();
             moveArmToClearPositionClient.cancelGoal();
-            focusHeadClient.cancelGoal();
         }
         else if (avoidingDog) {
             ROS_INFO("Resetting arm as the avoiding flag is not set");
@@ -254,18 +223,6 @@ public:
         }
         // Set the flag
         avoidingDog = avoidDogMsg->avoiding;
-    }
-
-    void viewChangeRequestCallback(const ViewChangeRequestConstPtr& viewChangeRequest){
-
-        FocusHeadGoal lookGoal;
-        lookGoal.position = viewChangeRequest->center;
-        lookGoal.target = FocusHeadGoal::PATH_TARGET;
-
-        // Execute asynchronously. Interrupting a previous look is ok.
-        ROS_INFO("Requesting look at path action to position %f, %f, %f in frame %s",
-                lookGoal.position.point.x, lookGoal.position.point.y, lookGoal.position.point.z, lookGoal.position.header.frame_id.c_str());
-        focusHeadClient.sendGoal(lookGoal);
     }
 
     void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
@@ -278,27 +235,8 @@ public:
 
         if (dogPosition->unknown || dogPosition->stale) {
             ROS_DEBUG("Dog position is unknown or stale. Starting search.");
-
-            // Start the search for the dog.
-            FocusHeadGoal searchGoal;
-            searchGoal.isPositionSet = this->anyDogPositionsDetected;
-            searchGoal.position = this->lastKnownDogPosition;
-
-            // Don't reuse the position for search.
-            this->anyDogPositionsDetected = false;
-
-            searchGoal.target = FocusHeadGoal::DOG_TARGET;
-
-            // Execute asynchronously
-            focusHeadClient.sendGoal(searchGoal);
             return;
         }
-
-        // Save the state for search. We only want to use recent dog positions
-        // as search locations.
-        this->anyDogPositionsDetected = true;
-        this->lastKnownDogPosition.header = dogPosition->header;
-        this->lastKnownDogPosition.point = dogPosition->pose.pose.position;
 
         bool ended = false;
         bool started = false;
