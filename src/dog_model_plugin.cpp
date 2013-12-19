@@ -85,6 +85,7 @@ private:
 	void waitForService(const string& serviceName){
         while(!ros::service::exists(serviceName, false)){
             // Spin-wait
+            ROS_INFO("Waiting for service %s", serviceName.c_str());
         }
 	}
 

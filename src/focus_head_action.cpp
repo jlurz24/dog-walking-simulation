@@ -26,7 +26,7 @@ struct XYOffset {
 /**
  * Array that instructs how to search
  */
-static const XYOffset searchOffsets[] = { { 0, 0 }, { 0, 0 }, { 1, 0 }, { 0, -1 }, { -1, 0 },
+static const XYOffset searchOffsets[] = { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 1, 0 }, { 0, -1 }, { -1, 0 },
         { 0, 1 } };
 
 static const ros::Duration FOCUS_TIMEOUT(1.0);
@@ -34,7 +34,7 @@ static const double PATH_VIS_THRESHOLD_DEFAULT = 0.99;
 static const double LOOK_AT_PATH_WEIGHT_DEFAULT = 15;
 static const double SEARCH_FOR_DOG_WEIGHT_DEFAULT = 1;
 static const string STATE_NAMES[] = { "Idle", "Looking_At_Path", "Looking_for_Dog" };
-static const string SEARCH_STATE_NAMES[] = { "None", "Center", "Top", "Left", "Bottom", "Right",
+static const string SEARCH_STATE_NAMES[] = { "None", "Last Known", "Center", "Top", "Left", "Bottom", "Right",
         "Done" };
 
 class FocusHead {
@@ -44,7 +44,7 @@ private:
     };
 
     enum class SearchState {
-        NONE, CENTER, TOP, LEFT, BOTTOM, RIGHT, DONE
+        NONE, LAST_KNOWN, CENTER, TOP, LEFT, BOTTOM, RIGHT, DONE
     };
 
 public:
@@ -54,7 +54,7 @@ public:
             state(ActionState::IDLE),
             searchState(SearchState::NONE),
             currentActionScore(0),
-            interupts(0){
+            interrupts(0){
 
         nh.param("leash_length", leashLength, 2.0);
         nh.param("path_visibility_threshold", pathVisibilityThreshold, PATH_VIS_THRESHOLD_DEFAULT);
@@ -128,10 +128,10 @@ private:
                 score, currentActionScore, STATE_NAMES[static_cast<int>(actionType)].c_str());
         currentActionScore = score;
         if (state != ActionState::IDLE) {
-            ROS_INFO("Preempting action for new goal. Total interupts: %u", interupts);
+            ROS_INFO("Preempting action for new goal. Total interrupts: %u", interrupts);
             // Do not reset search state as we want the search to continue when it is
             // resumed.
-            interupts++;
+            interrupts++;
             pointHeadClient.cancelGoal();
         }
 
@@ -236,22 +236,24 @@ private:
         assert(!isPositionSet || target.header.frame_id.size() > 0);
         pr2_controllers_msgs::PointHeadGoal phGoal;
         if (targetType == ActionState::LOOKING_FOR_DOG) {
-            state = ActionState::LOOKING_FOR_DOG;
-            // If the last position is known, check that location.
-            if (isPositionSet) {
+            // This may increment the search step if the last movement
+            // was interrupted, but accept that as most of the movement likely
+            // completed.
+            moveToNextSearchState();
+
+            // If the search state is last known and there is no last known,
+            // immediate increment the search.
+            if(searchState == SearchState::LAST_KNOWN && !isPositionSet){
+                ROS_INFO("Skipping last known search state because position is not set");
+                moveToNextSearchState();
+            }
+
+            ROS_INFO("Executing search step %s", SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
+            if (searchState == SearchState::LAST_KNOWN) {
                 ROS_INFO("Searching last known position");
                 phGoal.target = target;
-                // Last known position is not a search and therefore has no search state.
             }
-            // Execute a search
             else {
-                // This may increment the search step if the last movement
-                // was interrupted, but accept that as most of the movement likely
-                // completed.
-                int nextStep = static_cast<int>(searchState) + 1;
-                searchState = static_cast<SearchState>(nextStep);
-                ROS_INFO("Executing search step %s", SEARCH_STATE_NAMES[nextStep].c_str());
-                // TODO: Make sure all search states are being executed.
                 if (searchState == SearchState::DONE) {
                     ROS_INFO("No more search steps to execute");
                     return false;
@@ -264,17 +266,14 @@ private:
                 phGoal.target.header = handPosition.header;
                 phGoal.target.point.z = 0;
                 phGoal.target.point.x = handPosition.point.x
-                        + planarLeashLength * searchOffsets[nextStep].x;
+                        + planarLeashLength * searchOffsets[static_cast<int>(searchState)].x;
                 phGoal.target.point.y = handPosition.point.y
-                        + planarLeashLength * searchOffsets[nextStep].y;
+                        + planarLeashLength * searchOffsets[static_cast<int>(searchState)].y;
                 ROS_INFO("Search target - x: %f, y: %f, z: %f", phGoal.target.point.x,
                         phGoal.target.point.y, phGoal.target.point.z);
             }
-
-            ROS_DEBUG("Subscribed to the dog position");
         }
         else if (targetType == ActionState::LOOKING_AT_PATH) {
-            state = ActionState::LOOKING_AT_PATH;
             ROS_INFO("Focusing head on path target in frame %s, %f %f %f",
                     target.header.frame_id.c_str(), target.point.x, target.point.y, target.point.z);
             assert(isPositionSet && "is position not set for path action");
@@ -384,6 +383,11 @@ private:
         }
     }
 
+    void moveToNextSearchState() {
+        int nextStep = static_cast<int>(searchState) + 1;
+        searchState = static_cast<SearchState>(nextStep);
+    }
+
 protected:
     ros::NodeHandle nh;
     ros::NodeHandle pnh;
@@ -402,7 +406,7 @@ protected:
     double currentActionScore;
     
     //! Track number of interupts for metrics
-    unsigned int interupts;
+    unsigned int interrupts;
 
     //! Publisher to notify that the dog search failed
     ros::Publisher dogSearchFailedPub;

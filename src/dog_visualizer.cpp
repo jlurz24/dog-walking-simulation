@@ -17,9 +17,6 @@ private:
 	ros::Publisher dogVizPubEphem;
 
 	//! Publisher for the dog position
-	ros::Publisher dogPositionPub;
-
-	//! Publisher for the dog position
 	ros::Publisher dogDirectionVizPub;
 
 	//! The node handle we'll be using
@@ -87,9 +84,11 @@ private:
 		// Visualize the dog.
 		static const std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
 		if (dogVizPubPerm.getNumSubscribers() > 0) {
+            visualization_msgs::Marker marker = utils::createMarker(dogPose.pose.position,
+                    dogPose.header, BLUE, true);
+            marker.scale.x = 0.1;
 			dogVizPubPerm.publish(
-					utils::createMarker(dogPose.pose.position, dogPose.header,
-							BLUE, true));
+					marker);
 		}
 
 		if (dogVizPubEphem.getNumSubscribers() > 0) {
@@ -127,13 +126,6 @@ private:
 			dogDirectionVizPub.publish(marker);
 		}
 
-		DogPosition dogPositionMsg;
-		dogPositionMsg.pose = dogPose;
-
-		// Publish the event
-		ROS_DEBUG("Publishing a dog position event");
-
-		dogPositionPub.publish(dogPositionMsg);
 	}
 };
 }

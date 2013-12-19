@@ -14,8 +14,10 @@ Panels:
         - /Hand Start Viz1
         - /Planned Move Viz1
         - /DogGoal1
+        - /Ground Scan1
+        - /Ground Scan1/Status1
       Splitter Ratio: 0.5
-    Tree Height: 570
+    Tree Height: 595
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -713,7 +715,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_position_viz_perm
       Name: Dog Position
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -764,6 +766,34 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: RGB8
+      Decay Time: 0
+      Enabled: true
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: Ground Scan
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.01
+      Style: Flat Squares
+      Topic: /l_forearm_cam/points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -782,17 +812,17 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 23.3358
+      Distance: 10.8195
       Focal Point:
-        X: 8.85836
-        Y: -1.41193
-        Z: 0.280974
+        X: 3.89505
+        Y: -6.99918
+        Z: 0.716037
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 1.4648
+      Pitch: -0.00520275
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.000414371
+      Yaw: 4.9136
     Saved: ~
 Window Geometry:
   Displays:
@@ -800,9 +830,9 @@ Window Geometry:
   Height: 808
   Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002c9fc0200000001fb000000100044006900730070006c0061007900730000000041000002c9000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002ad000002c900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730000000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002ad000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
   Width: 685
-  X: 0
-  Y: 21
+  X: 58
+  Y: 24

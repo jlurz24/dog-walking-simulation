@@ -44,9 +44,16 @@ namespace {
             
             ROS_INFO("Moving arm to clear position");
             vector<double> positions(7);
+            /*
             positions[0] = -2.0;
             positions[3] = -1.2;
             positions[5] = 0.0;
+            */
+            positions[0] = -1.7;
+            positions[1] = -2.0;
+            positions[2] = -3.14;
+            positions[3] = -1.8;
+
             rightArm.setJointValueTarget(positions);
             rightArm.move();
             as.setSucceeded();

@@ -175,10 +175,9 @@ private:
             imageRectInCameraFrame[i] = cameraModel.projectPixelTo3dRay(imageRect[i]);
         }
 
-        // PR2 wide camera lens is has a 2.5mm focal length.
         cv::Point3d centerPoint = cameraModel.projectPixelTo3dRay(
                 cv::Point(cameraModel.cx(), cameraModel.cy()));
-        centerPoint.z = -0.0025;
+        centerPoint.z = 0;
 
         Polygon_2 pathPointsIn2D = to2DPoints(pathRectInImageFrame->points, centerPoint);
         Polygon_2 imagePointsIn2D = to2DPoints(imageRectInCameraFrame);
