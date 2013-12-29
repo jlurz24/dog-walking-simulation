@@ -27,11 +27,25 @@
 
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
 
-  <node pkg="dogsim" type="path_visibility_detector" name="path_visibility_detector"/>
+  <node pkg="topic_tools" type="throttle" name="wide_stereo_camera_info_throttle" args="messages /wide_stereo/left/camera_info 10.0 /wide_stereo/left/camera_info_throttled" output="screen">
+     <param name="lazy" value="true"/>
+  </node>
+
+  <node pkg="dogsim" type="path_visibility_detector" name="path_visibility_detector">
+    <remap to="/wide_stereo/left/camera_info_throttled" from="camera_info_in"/>
+  </node>
+
    <node pkg="dogsim" type="move_arm_to_base_position_action" name="move_arm_to_base_position_action" output="screen"/>
-   <node pkg="dogsim" type="focus_head_action" name="focus_head_action"/>
+   
+   <node name="search_cloud_mux" pkg="topic_tools" type="mux" args="sensor_search_cloud /wide_stereo/left/points_filtered /r_forearm_cam/points_filtered"/>
+
+   <node pkg="dogsim" type="focus_head_action" name="focus_head_action">
+    <remap to="sensor_search_cloud" from="search_cloud_in"/>
+  </node>
 
    <node pkg="dogsim" type="move_arm_to_clear_position_action" name="move_arm_to_clear_position_action" output="screen"/>
+
+   <node pkg="dogsim" type="point_arm_camera_action" name="point_arm_camera_action" output="screen" />
 
    <rosparam param="/move_group/start_state_max_bounds_error">1.0</rosparam>
 </launch>

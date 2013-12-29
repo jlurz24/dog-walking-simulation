@@ -106,7 +106,7 @@ public:
 
         nh.param("path_visibility_threshold", pathVisibilityThreshold, PATH_VIS_THRESHOLD_DEFAULT);
 
-        leftCameraSub.reset(new Subscriber<CameraInfo>(nh, "/wide_stereo/left/camera_info", 1));
+        leftCameraSub.reset(new Subscriber<CameraInfo>(nh, "camera_info_in", 1));
         leftCameraSub->registerCallback(boost::bind(&PathVisibilityDetector::callback, this, _1));
 
         viewPub = nh.advertise<PathViewInfo>("/path_visibility_detector/view", 1);
@@ -201,6 +201,11 @@ private:
             }
             pathArea = CGAL::to_double(pathPointsIn2D.area());
         }
+
+        ROS_INFO("Image area width %f and height%f",
+                sqrt(CGAL::to_double(CGAL::squared_distance(imagePointsIn2D[0], imagePointsIn2D[1]))),
+                sqrt(CGAL::to_double(CGAL::squared_distance(imagePointsIn2D[1], imagePointsIn2D[2]))));
+
         double imageArea = CGAL::to_double(imagePointsIn2D.area());
         double visibleRatio = intersectingArea / pathArea;
         ROS_DEBUG("Intersecting area: %f path area: %f, image area: %f, ratio: %f", intersectingArea, pathArea,

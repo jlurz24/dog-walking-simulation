@@ -859,6 +859,41 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>[Targets]/[exe] point_arm_camera_action</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] point_arm_camera_action/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] point_arm_camera_action/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] point_arm_camera_action/Source Files/point_arm_camera_action.cpp</name>
+			<type>1</type>
+			<location>/home/jlurz/ros_workspace/litterbox_project/dogsim/src/point_arm_camera_action.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] point_arm_camera_action/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] point_arm_camera_action/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] point_arm_camera_action/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>[Targets]/[exe] robot_driver</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -960,6 +995,41 @@
 		</link>
 		<link>
 			<name>[Targets]/[exe] total_force_measurer/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster/Source Files/zero_height_depth_broadcaster.cpp</name>
+			<type>1</type>
+			<location>/home/jlurz/ros_workspace/litterbox_project/dogsim/src/zero_height_depth_broadcaster.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] zero_height_depth_broadcaster/Resources</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>

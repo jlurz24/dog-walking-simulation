@@ -163,6 +163,7 @@ public:
 
         // Move the robot to the initial orientation.
         // TODO: Remove
+        /*
         ROS_INFO("Moving to initial pose");
         MoveRobotGoal moveRobotGoal;
         moveRobotGoal.pose.header.stamp = ros::Time::now();
@@ -170,7 +171,7 @@ public:
         moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(
                 boost::math::constants::pi<double>() / 2.0);
         utils::sendGoal(&moveRobotClient, moveRobotGoal, nh);
-
+        */
         dogPositionSub.reset(
                 new message_filters::Subscriber<DogPosition>(nh,
                         "/dog_position_detector/dog_position", 1));

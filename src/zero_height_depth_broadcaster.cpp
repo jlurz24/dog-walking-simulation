@@ -94,7 +94,6 @@ public:
         btVector3 groundNormalV(groundNormal.vector.x, groundNormal.vector.y, groundNormal.vector.z);
 
         cv::Point3d cameraOriginCV = cameraModel.projectPixelTo3dRay(cv::Point2d(cameraModel.cx(), cameraModel.cy()));
-        ROS_INFO("Camera origin: %f %f", cameraOriginCV.x, cameraOriginCV.y);
         btVector3 cameraOrigin(cameraOriginCV.x, cameraOriginCV.y, 0);
         PointCloudXYZPtr cloud(new PointCloudXYZ());
 
@@ -113,7 +112,7 @@ public:
         // Convert to a ROS message and publish
         sensor_msgs::PointCloud2Ptr output(new sensor_msgs::PointCloud2());
         toROSMsg(*cloud, *output);
-        ROS_INFO("Publishing a message with %lu points in %s frame", output->data.size(), cameraModel.tfFrame().c_str());
+        ROS_DEBUG("Publishing a message with %lu points in %s frame", output->data.size(), cameraModel.tfFrame().c_str());
         output->header.frame_id = cameraModel.tfFrame();
         output->header.stamp = cameraModel.stamp();
 

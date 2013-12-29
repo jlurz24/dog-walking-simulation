@@ -40,3 +40,10 @@ MoveRobotResult.msg
 /MoveArmToClearPositionFeedback.msg
 /MoveArmToClearPositionGoal.msg
 /MoveArmToClearPositionResult.msg
+/PointArmCameraAction.msg
+/PointArmCameraActionFeedback.msg
+/PointArmCameraActionGoal.msg
+/PointArmCameraActionResult.msg
+/PointArmCameraFeedback.msg
+/PointArmCameraGoal.msg
+/PointArmCameraResult.msg

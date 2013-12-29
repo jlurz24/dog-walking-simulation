@@ -23,6 +23,7 @@
   <depend package="image_transport"/>
   <depend package="position_tracker" />
   <depend package="image_geometry" />
+  <depend package="pr2_navigation_self_filter"/>
    <export>
     <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
   </export>
