@@ -16,8 +16,11 @@ Panels:
         - /DogGoal1
         - /Ground Scan1
         - /Arm Focus1
+        - /Arm Focus Target1
+        - /Right Arm Camera1
+        - /Base Arm Point1
       Splitter Ratio: 0.5
-    Tree Height: 595
+    Tree Height: 271
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -799,8 +802,37 @@ Visualization Manager:
       Marker Topic: /point_arm_camera_action/look_direction_viz
       Name: Arm Focus
       Namespaces:
-        {}
+        /point_arm_camera_action: true
       Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 204; 41; 204
+      Enabled: true
+      History Length: 1
+      Name: Arm Focus Target
+      Radius: 0.2
+      Topic: /point_arm_camera_action/target_vis
+      Value: true
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /r_forearm_cam/image_rect_color
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Right Arm Camera
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 85; 85; 255
+      Enabled: true
+      History Length: 1
+      Name: Base Arm Point
+      Radius: 0.2
+      Topic: /point_arm_camera_action/base_point_vis
       Value: true
   Enabled: true
   Global Options:
@@ -820,27 +852,29 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.141033
+      Distance: 0.0126
       Focal Point:
-        X: 3.89505
-        Y: -6.99918
-        Z: 0.716037
+        X: 4.77094
+        Y: -3.37802
+        Z: 3.62155
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.154797
+      Pitch: 0.484797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.3636
+      Yaw: 5.64362
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 808
+  Height: 845
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000001fb000000100044006900730070006c0061007900730100000028000002e2000000dd00ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff00000105000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a200000307fc0200000002fb000000100044006900730070006c00610079007301000000280000019e000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d00650072006101000001cc000001630000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000001050000030700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Right Arm Camera:
+    collapsed: false
   Tool Properties:
     collapsed: false
   Width: 685
-  X: 58
+  X: 362
   Y: 24
