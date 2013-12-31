@@ -22,7 +22,7 @@
     <remap from="points" to="/r_forearm_cam/points2"/>
   </node>
  
-  <node pkg="topic_tools" type="throttle" name="r_forearm_camera_info_throttle" args="messages /r_forearm_cam/camera_info 10.0 /r_forearm_cam/camera_info_throttled" output="screen">
+  <node pkg="topic_tools" type="throttle" name="r_forearm_camera_info_throttle" args="messages /r_forearm_cam/camera_info 20.0 /r_forearm_cam/camera_info_throttled" output="screen">
     <param name="lazy" value="true"/>
   </node>
  
@@ -47,7 +47,7 @@
     <remap from="cloud_in" to="/wide_stereo/left/points_throttled" />
     <remap from="cloud_out" to="/wide_stereo/left/points_filtered" />
     <param name="sensor_frame" value=" /wide_stereo_optical_frame" />
-    <param name="subsample_value" value="0.5"/>
+    <param name="subsample_value" value="0.05"/>
    <rosparam command="load" file="$(find pr2_navigation_perception)/config/base_self_filter.yaml" />
   </node>
 

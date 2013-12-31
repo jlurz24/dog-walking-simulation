@@ -5,8 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Origin Axes1
         - /Visualization Markers1
         - /RobotModel1
+        - /Transforms1
         - /Dog Position1
         - /Move Goal1
         - /Walk Goal1
@@ -48,12 +50,12 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/Axes
-      Enabled: false
+      Enabled: true
       Length: 1
       Name: Origin Axes
       Radius: 0.1
-      Reference Frame: <Fixed Frame>
-      Value: false
+      Reference Frame: /r_shoulder_pan_link
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: visualization_marker
@@ -832,7 +834,7 @@ Visualization Manager:
       History Length: 1
       Name: Base Arm Point
       Radius: 0.2
-      Topic: /point_arm_camera_action/base_point_vis
+      Topic: /point_arm_camera_action/target_vis
       Value: true
   Enabled: true
   Global Options:
@@ -852,17 +854,17 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.0126
+      Distance: 13.099
       Focal Point:
-        X: 4.77094
-        Y: -3.37802
-        Z: 3.62155
+        X: -0.103844
+        Y: -0.949116
+        Z: 0.5351
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.484797
+      Pitch: 0.224797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.64362
+      Yaw: 6.25858
     Saved: ~
 Window Geometry:
   Displays:
@@ -876,5 +878,5 @@ Window Geometry:
   Tool Properties:
     collapsed: false
   Width: 685
-  X: 362
+  X: 355
   Y: 24

@@ -83,6 +83,5 @@ rosbuild_add_compile_flags(path_visibility_detector -frounding-math)
 target_link_libraries(path_visibility_detector ${CGAL_LIBRARY} ${GMP_LIBRARY} ${MPFR_LIBRARY})
 
 rosbuild_add_executable(dog_position_measurer src/dog_position_measurer.cpp)
-rosbuild_add_executable(move_arm_to_clear_position_action src/move_arm_to_clear_position_action.cpp)
 rosbuild_add_executable(zero_height_depth_broadcaster src/zero_height_depth_broadcaster.cpp)
 rosbuild_add_executable(point_arm_camera_action src/point_arm_camera_action.cpp)

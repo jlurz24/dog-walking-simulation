@@ -12,8 +12,8 @@ namespace {
 using namespace std;
 using namespace ros;
 
-// Distance from the arm to the elbow offset for the camera position on the arm.
-static const double CAMERA_DISTANCE_FROM_SHOULDER = 0.5 - 0.044;
+// Distance from the arm to the elbow offset
+static const double CAMERA_DISTANCE_FROM_SHOULDER = 0.5;
 static const string MOVE_GROUP_NAME_DEFAULT = "right_arm";
 static const double pi = boost::math::constants::pi<double>();
 static const string SHOULDER_FRAME = "/r_shoulder_pan_link";
@@ -104,7 +104,7 @@ protected:
         // Compute RPY
         double yaw = atan2(direction.y(), direction.x());
         double pitch = atan2(-direction.z(), planeDirection.length());
-
+        
         ROS_DEBUG("Resulting RPY: %f %f %f", 0.0, pitch, yaw);
 
         if(lookDirectionPub.getNumSubscribers() > 0){
@@ -128,13 +128,13 @@ protected:
         vector<double> positions(7);
         positions[0] = -pi / 2.0;
         positions[1] = 0;
-        positions[2] = -pi / 2.0 - pitch; // Rotate to match base joint orientation
-        positions[3] = -yaw;
+        positions[2] = -pi + pitch;
+        positions[3] = -2 * pi + yaw;
         positions[4] = 0;
         positions[5] = 0;
         positions[6] = 0;
-        arm.setJointValueTarget(positions);
 
+        arm.setJointValueTarget(positions);
         if(arm.move()){
             as.setSucceeded();
             return true;

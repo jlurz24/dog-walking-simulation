@@ -18,8 +18,8 @@
 #include <Eigen/Core>
 
 // Generated messages
-#include <dogsim/DogSearchFailed.h>
 #include <dogsim/PathViewInfo.h>
+#include <dogsim/PointArmCameraAction.h>
 
 namespace {
 using namespace dogsim;
@@ -27,6 +27,7 @@ using namespace std;
 using namespace geometry_msgs;
 
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
+typedef actionlib::SimpleActionClient<dogsim::PointArmCameraAction> PointArmClient;
 
 static const ros::Duration FOCUS_TIMEOUT(1.0);
 static const double PATH_VIS_THRESHOLD_DEFAULT = 0.99;
@@ -34,31 +35,23 @@ static const double LOOK_AT_PATH_WEIGHT_DEFAULT = 10;
 static const double SEARCH_FOR_DOG_WEIGHT_DEFAULT = 1;
 static const string STATE_NAMES[] = { "Idle", "Looking_At_Path", "Looking_for_Dog" };
 static const string SEARCH_STATE_NAMES[] = { "None", "Last Known", "Head", "Arm", "Done" };
-static const double SEARCH_CELL_SIZE_DEFAULT = 0.05;
+static const double SEARCH_CELL_SIZE_DEFAULT = 0.25;
 static const double BASE_RADIUS = 0.668 / 2.0;
-static const double CLUSTER_TOLERANCE_DEFAULT = 0.5;
+static const double CLUSTER_TOLERANCE_DEFAULT = 0.2;
 static const int POINT_UPDATE_THRESHOLD_DEFAULT = 5;
 
 static Eigen::Vector3f operator-(const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs){
   return Eigen::Vector3f(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
 }
 
-static bool isInCell(const pcl::PointXYZ& cellCenter, const pcl::PointXYZ& p, const double searchCellSize) {
-     ROS_INFO("Checking if cell @ center %f %f contains point %f %f with cell size %f", cellCenter.x, cellCenter.y, p.x, p.y, searchCellSize);
-    bool result = (p.x <= cellCenter.x + searchCellSize / 2.0 && p.x >= cellCenter.x - searchCellSize / 2.0) &&
-            (p.y <= cellCenter.y + searchCellSize / 2.0 && p.y >= cellCenter.y - searchCellSize / 2.0);
-     ROS_INFO("Returning %u", result);
-     return result;
-}
-
 struct HasPointInCell {
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud;
     const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree;
-    const double searchCellSize;
+    const double radiusSquared;
 
 
-    HasPointInCell(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr aCloud, const pcl::KdTreeFLANN<pcl::PointXYZ>& aKdtree, const double aSearchCellSize) :
-            cloud(aCloud), kdtree(aKdtree), searchCellSize(aSearchCellSize) {
+    HasPointInCell(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr aCloud, const pcl::KdTreeFLANN<pcl::PointXYZ>& aKdtree, const double aRadiusSquared) :
+            cloud(aCloud), kdtree(aKdtree), radiusSquared(aRadiusSquared) {
     }
 
     bool operator()(const pcl::PointXYZ& p) {
@@ -69,8 +62,8 @@ struct HasPointInCell {
           ROS_INFO("No neighboring point in cloud");
           return false;
         }
-        
-        return isInCell(p, cloud->points[pointIdxNKNSearch[0]], searchCellSize);
+    
+        return pointNKNSquaredDistance[0] < radiusSquared;
     }
 };
 
@@ -88,6 +81,7 @@ public:
     FocusHead() :
         pnh("~"),
         pointHeadClient("/head_traj_controller/point_head_action", true),
+        pointArmClient("point_arm_camera_action", true),
         state(ActionState::IDLE),
         searchState(SearchState::NONE),
         currentActionScore(0),
@@ -112,18 +106,21 @@ public:
                         1));
         pathViewSub->registerCallback(boost::bind(&FocusHead::pathViewCallback, this, _1));
 
-        searchPointsSub.reset(
-                new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, /*"search_cloud_in"*/"sensor_search_cloud",
+        headSearchPointsSub.reset(
+                new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "head_search_cloud_in",
                         1));
-        searchPointsSub->registerCallback(boost::bind(&FocusHead::searchedPointsCB, this, _1));
+        headSearchPointsSub->registerCallback(boost::bind(&FocusHead::searchedPointsCB, this, _1));
+
+        armSearchPointsSub.reset(
+                new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "arm_search_cloud_in",
+                        1));
+        armSearchPointsSub->registerCallback(boost::bind(&FocusHead::searchedPointsCB, this, _1));
+
 
         pointHeadClient.waitForServer();
-
+        pointArmClient.waitForServer();
         lookDirectionPub = nh.advertise<visualization_msgs::Marker>(
                 "/focus_head_action/look_direction_viz", 1);
-
-        dogSearchFailedPub = nh.advertise<DogSearchFailed>("/focus_head_action/dog_search_failed",
-                1);
 
         searchCloudPub = nh.advertise<sensor_msgs::PointCloud2>("/focus_head_action/search_cloud", 1);
     }
@@ -147,6 +144,7 @@ private:
 
         assert(state == ActionState::LOOKING_AT_PATH);
         pointHeadClient.cancelGoal();
+        pointArmClient.cancelGoal();
         resetState();
     }
 
@@ -175,6 +173,7 @@ private:
             // resumed.
             interrupts++;
             pointHeadClient.cancelGoal();
+            pointArmClient.cancelGoal();
         }
 
         state = actionType;
@@ -185,6 +184,8 @@ private:
 
     void resetSearch(){
         searchState = SearchState::NONE;
+        searchCloud->points.clear();
+        publishSearchCloud();
     }
 
     void resetState(){
@@ -201,14 +202,24 @@ private:
         double planarLeashLength = sqrt(sqPlanarLeashLength);
         const pcl::PointXYZ planarHand(handPosition.x, handPosition.y, 0);
 
-        ROS_INFO("Creating a new search cloud for planar leash length %f", planarLeashLength);
-        unsigned int size = static_cast<unsigned int>(ceil(planarLeashLength * 2 / searchCellSize));
+        // Assume the cells are circular and slightly overlap.
+        double cellWidth = searchCellSize / sqrt(2.0);
+
+        ROS_INFO("Creating a new search cloud for planar leash length %f and cell width %f", planarLeashLength, cellWidth);
+        unsigned int size = static_cast<unsigned int>(ceil(planarLeashLength * 2 / cellWidth));
+
+        // Always use an even size to simplify the math below.
+        if(size % 2 == 1){
+            size++;
+        }
+
         // The initial point is the bottom left corner.
-        double x = handPosition.x - size / 2.0 * searchCellSize;
+        double x = handPosition.x - size / 2 * cellWidth + cellWidth / 2.0;
         for(unsigned int i = 0; i < size; ++i){
-            double y = handPosition.y - size / 2.0 * searchCellSize;
+            double y = handPosition.y - size / 2.0 * cellWidth + cellWidth / 2.0;
             for(unsigned int j = 0; j < size; ++j){
                 pcl::PointXYZ p(x, y, 0);
+                // TODO: These checks do not account for partially covered cells.
                 // Check if the point is inside the base
                 if(fabs(x) < BASE_RADIUS && fabs(y) < BASE_RADIUS){
                     ROS_DEBUG("Skipping point inside base @ %f %f", x, y);
@@ -220,11 +231,12 @@ private:
                 else {
                   searchCloud->points.push_back(p);
                 }
-                y += searchCellSize;
+                y += cellWidth;
             }
-            x += searchCellSize;
+            x += cellWidth;
         }
         ROS_INFO("New search map has %lu points", searchCloud->points.size());
+        publishSearchCloud();
     }
 
     PointStamped handInBaseFrame() const {
@@ -270,10 +282,20 @@ private:
         return cameraInRequestedFrame;
     }
 
+    void pointArmCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
+            const dogsim::PointArmCameraResultConstPtr result) {
+        ROS_INFO("Received point arm complete callback");
+        searchCompleteCallback();
+    }
+
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result) {
-
         ROS_INFO("Received point head complete callback");
+        searchCompleteCallback();
+    }
+
+    void searchCompleteCallback(){
+
         if (state == ActionState::IDLE) {
             // Spurious late callback.
             return;
@@ -295,18 +317,18 @@ private:
                 STATE_NAMES[static_cast<int>(targetType)].c_str(), isPositionSet, target.header.frame_id.c_str());
 
         assert(!isPositionSet || target.header.frame_id.size() > 0);
-        pr2_controllers_msgs::PointHeadGoal phGoal;
+
+        geometry_msgs::PointStamped finalTarget;
         if (targetType == ActionState::LOOKING_FOR_DOG) {
             // Determine if the search failed and should be reset
             if(searchCloud->points.size() == 0){
                 ROS_WARN("Search completed but failed to find the dog");
-                searchState = SearchState::NONE;
+                resetSearch();
             }
 
-            // This may increment the search step if the last movement
-            // was interrupted, but accept that as most of the movement likely
-            // completed.
-            moveToNextSearchState();
+            if(searchState == SearchState::NONE){ 
+            	moveToNextSearchState();
+            }
 
             // If the search state is last known and there is no last known,
             // immediate increment the search.
@@ -318,32 +340,43 @@ private:
             ROS_INFO("Executing search step %s", SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
             if (searchState == SearchState::LAST_KNOWN) {
                 ROS_INFO("Searching last known position");
-                phGoal.target = target;
+                finalTarget = target;
             }
             else {
-                phGoal.target = nextBestSearch();
-                ROS_INFO("Search target - x: %f, y: %f, z: %f", phGoal.target.point.x,
-                        phGoal.target.point.y, phGoal.target.point.z);
+                finalTarget = nextBestSearch();
+                ROS_INFO("Search target - x: %f, y: %f, z: %f", finalTarget.point.x,
+                        finalTarget.point.y, finalTarget.point.z);
             }
         }
         else if (targetType == ActionState::LOOKING_AT_PATH) {
             ROS_INFO("Focusing head on path target in frame %s, %f %f %f",
                     target.header.frame_id.c_str(), target.point.x, target.point.y, target.point.z);
             assert(isPositionSet && "is position not set for path action");
-            phGoal.target = target;
+            finalTarget = target;
         }
         else {
             assert(false && "Unknown target type");
         }
 
-        phGoal.pointing_frame = "wide_stereo_link";
-        // Pointing axis defaults to the x-axis.
+
 
         ROS_INFO("Sending goal of type %s to point head client", STATE_NAMES[static_cast<int>(targetType)].c_str());
 
-        visualizeGoal(phGoal.target, targetType);
-        pointHeadClient.sendGoal(phGoal,
+        visualizeGoal(finalTarget, targetType);
+        if(searchState == SearchState::ARM && targetType == ActionState::LOOKING_FOR_DOG){
+            dogsim::PointArmCameraGoal pacGoal;
+            pacGoal.target = finalTarget;
+            pointArmClient.sendGoal(pacGoal,
+                    boost::bind(&FocusHead::pointArmCompleteCallback, this, _1, _2));
+        }
+        else {
+            pr2_controllers_msgs::PointHeadGoal phGoal;
+            phGoal.target = finalTarget;
+            phGoal.pointing_frame = "wide_stereo_link";
+            // Pointing axis defaults to the x-axis.
+            pointHeadClient.sendGoal(phGoal,
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
+        }
         timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
                 true /* One shot */);
         ROS_INFO("Focus target step completed");
@@ -401,6 +434,7 @@ private:
                     STATE_NAMES[static_cast<int>(state)].c_str());
 
             pointHeadClient.cancelGoal();
+            pointArmClient.cancelGoal();
             resetState();
             resetSearch();
             ROS_INFO("Exiting dog position callback after dog found");
@@ -428,18 +462,24 @@ private:
                     STATE_NAMES[static_cast<int>(state)].c_str());
 
             pointHeadClient.cancelGoal();
+            pointArmClient.cancelGoal();
             resetState();
             ROS_INFO("Exiting path view callback after path visible");
         }
     }
 
     void searchedPointsCB(const sensor_msgs::PointCloud2ConstPtr points){
-        // Check for spurious callback.
-        if(state != ActionState::LOOKING_FOR_DOG){
-            return;
+
+        if(searchCloud->points.size() == 0){
+          ROS_INFO("Ignoring point cloud. Not currently executing a search");
+          return;
         }
 
-        ROS_INFO("Received searched points in frame %s", points->header.frame_id.c_str());
+        ROS_INFO("Received %lu searched points in frame %s", points->data.size(), points->header.frame_id.c_str());
+        if(points->data.size() == 0){
+          return;
+        }
+
         if(!tf.waitForTransform(points->header.frame_id, "/base_footprint", points->header.stamp, ros::Duration(0.1))){
             ROS_WARN("Failed to get transform from %s to /base_footprint", points->header.frame_id.c_str());
             return;
@@ -448,15 +488,21 @@ private:
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
         pcl::fromROSMsg(*points, *cloud);
         pcl_ros::transformPointCloud("/base_footprint", *cloud, *cloud, tf);
+
+        // Clear the z-indexes. These should all be near zero.
+        for(unsigned int i = 0; i < cloud->points.size(); ++i){
+          cloud->points[i].z = 0.0;
+        }
+
         pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
         kdtree.setInputCloud(cloud);
 
         vector<int> pointIdxNKNSearch(1);
         vector<float> pointNKNSquaredDistance(1);
         size_t initialPoints = searchCloud->points.size();
-        ROS_INFO("Prior to filtering the cloud has %lu points", initialPoints);
+        ROS_INFO("Prior to filtering the cloud has %lu points. Filtering with radius %f", initialPoints, utils::square(searchCellSize / 2.0));
 
-        searchCloud->points.erase(std::remove_if(searchCloud->points.begin(), searchCloud->points.end(), HasPointInCell(cloud, kdtree, searchCellSize)), searchCloud->points.end());
+        searchCloud->points.erase(std::remove_if(searchCloud->points.begin(), searchCloud->points.end(), HasPointInCell(cloud, kdtree, utils::square(searchCellSize / 2.0))), searchCloud->points.end());
 
         size_t remainingPoints = searchCloud->points.size();
         assert(remainingPoints <= initialPoints);
@@ -476,7 +522,11 @@ private:
         }
         
         // Publish the results
-        if(searchCloudPub.getNumSubscribers() > 0){
+        publishSearchCloud();
+    }
+
+    void publishSearchCloud(){
+       if(searchCloudPub.getNumSubscribers() > 0){
             sensor_msgs::PointCloud2Ptr output(new sensor_msgs::PointCloud2());
             pcl::toROSMsg(*searchCloud, *output);
             output->header.stamp = ros::Time::now();
@@ -494,12 +544,11 @@ private:
         else if(searchState == SearchState::LAST_KNOWN){
             searchState = SearchState::HEAD;
         }
-        else if(searchState == SearchState::ARM){
+        else if(searchState == SearchState::HEAD){
             searchState = SearchState::ARM;
-            DogSearchFailedConstPtr msg(new DogSearchFailed());
-            dogSearchFailedPub.publish(msg);
         }
         else {
+            // TODO: Handle failure here and reset
             // Nothing to do
         }
     }
@@ -537,6 +586,8 @@ private:
             }
         }
 
+        ROS_INFO("Selected a next best search cluster with size %u", largestClusterSize);
+
         // Now find the centroid
         Eigen::Vector4f centroid;
         pcl::compute3DCentroid(*searchCloud, largestCluster->indices, centroid);
@@ -559,6 +610,8 @@ protected:
     ros::NodeHandle pnh;
 
     PointHeadClient pointHeadClient;
+    PointArmClient pointArmClient;
+
     tf::TransformListener tf;
 
     ActionState state;
@@ -577,9 +630,6 @@ protected:
     //! Track number of interrupts for metrics
     unsigned int interrupts;
 
-    //! Publisher to notify that the dog search failed
-    ros::Publisher dogSearchFailedPub;
-
     //! Publisher for the look direction
     ros::Publisher lookDirectionPub;
 
@@ -590,7 +640,10 @@ protected:
     unique_ptr<message_filters::Subscriber<PathViewInfo> > pathViewSub;
 
     //! Search points filter subscription for the wide stereo
-    unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2> > searchPointsSub;
+    unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2> > headSearchPointsSub;
+
+    //! Search points filter subscription for the arm
+    unique_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2> > armSearchPointsSub;
 
     //! Search cloud publisher
     ros::Publisher searchCloudPub;

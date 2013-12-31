@@ -11,12 +11,10 @@
 #include <message_filters/subscriber.h>
 #include <dogsim/AdjustDogPositionAction.h>
 #include <dogsim/MoveArmToBasePositionAction.h>
-#include <dogsim/MoveArmToClearPositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <tf2/LinearMath/btVector3.h>
-#include <dogsim/DogSearchFailed.h>
 
 namespace {
 using namespace std;
@@ -25,7 +23,6 @@ using namespace dogsim;
 typedef actionlib::SimpleActionClient<AdjustDogPositionAction> AdjustDogClient;
 typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
-typedef actionlib::SimpleActionClient<MoveArmToClearPositionAction> MoveArmToClearPositionClient;
 
 //! Amount of time before starting walk. This provides time for the robot to finish
 //  tucking its arms.
@@ -54,9 +51,6 @@ private:
     //! Avoiding dog listener.
     auto_ptr<message_filters::Subscriber<AvoidingDog> > avoidingDogSub;
 
-    //! Dog search failed message
-    auto_ptr<message_filters::Subscriber<DogSearchFailed> > dogSearchFailedSub;
-
     //! Client for the arm to attempt to position the dog
     AdjustDogClient adjustDogClient;
 
@@ -65,9 +59,6 @@ private:
 
     //! Client to adjust the arm of the robot to the start position
     MoveArmToBasePositionClient moveArmToBasePositionClient;
-
-    //! Client to adjust the arm of the robot to the clear position
-    MoveArmToClearPositionClient moveArmToClearPositionClient;
 
     //! Cached service client.
     ros::ServiceClient getPathClient;
@@ -103,7 +94,6 @@ public:
             pnh("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient(
                     "move_robot_action", true), moveArmToBasePositionClient(
                     "move_arm_to_base_position_action", true),
-                    moveArmToClearPositionClient("move_arm_to_clear_position_action", true),
                     soloMode(false), noSteeringMode(
                     false), avoidingDog(false) {
 
@@ -121,7 +111,6 @@ public:
 
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
-        moveArmToClearPositionClient.waitForServer();
 
         startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1,
                 true);
@@ -181,10 +170,6 @@ public:
                 new message_filters::Subscriber<AvoidingDog>(nh, "/avoid_dog/avoiding", 1));
         avoidingDogSub->registerCallback(boost::bind(&RobotDriver::avoidingDogCallback, this, _1));
 
-        dogSearchFailedSub.reset(
-                new message_filters::Subscriber<DogSearchFailed>(nh, "/focus_head_action/dog_search_failed", 1));
-        dogSearchFailedSub->registerCallback(boost::bind(&RobotDriver::dogSearchFailedCallback, this, _1));
-
         startPath(ros::Time::now());
 
         if (!noSteeringMode) {
@@ -214,7 +199,6 @@ public:
             adjustDogClient.cancelGoal();
             moveRobotClient.cancelGoal();
             moveArmToBasePositionClient.cancelGoal();
-            moveArmToClearPositionClient.cancelGoal();
         }
         else if (avoidingDog) {
             ROS_INFO("Resetting arm as the avoiding flag is not set");
@@ -236,6 +220,7 @@ public:
 
         if (dogPosition->unknown || dogPosition->stale) {
             ROS_DEBUG("Dog position is unknown or stale. Starting search.");
+            adjustDogClient.cancelGoal();
             return;
         }
 
@@ -257,16 +242,6 @@ public:
             adjustDogClient.sendGoal(adjustGoal);
         }
         ROS_DEBUG("Completed dog position callback");
-    }
-
-    void dogSearchFailedCallback(const DogSearchFailedConstPtr msg) {
-        ROS_INFO("Search for dog failed. Attempt to clear arm to recover");
-        if (avoidingDog) {
-            ROS_INFO("Currently avoiding dog. Cannot move arm.");
-            return;
-        }
-        MoveArmToClearPositionGoal moveArmToClearPositionGoal;
-        moveArmToClearPositionClient.sendGoal(moveArmToClearPositionGoal);
     }
 
     geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started,
