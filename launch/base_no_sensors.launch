@@ -42,7 +42,7 @@
     <remap to="/r_forearm_cam/points_filtered" from="arm_search_cloud_in" />
   </node>
 
-   <node pkg="dogsim" type="point_arm_camera_action" name="point_arm_camera_action"/>
+   <node pkg="dogsim" type="point_arm_camera_action" name="point_arm_camera_action" output="screen"/>
 
    <rosparam param="/move_group/start_state_max_bounds_error">1.0</rosparam>
 </launch>

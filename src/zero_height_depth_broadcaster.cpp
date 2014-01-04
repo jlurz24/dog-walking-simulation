@@ -100,8 +100,8 @@ public:
         cloud->is_dense = false;
         cloud->width = cameraModel.fullResolution().width;
         cloud->height = cameraModel.fullResolution().height;
-        for(int u = 0; u < cameraModel.fullResolution().width; ++u){
-            for(int v = 0; v < cameraModel.fullResolution().height; ++v){
+        for(int u = 0; u < cameraModel.fullResolution().height; ++u){
+            for(int v = 0; v < cameraModel.fullResolution().width; v++){
                 cv::Point3d p = cameraModel.projectPixelTo3dRay(cv::Point2d(u, v));
                 btVector3 pVector(p.x, p.y, p.z);
                 btVector3 zeroHVector = intersection(groundNormalV, groundOriginV, pVector.normalized(), cameraOrigin);

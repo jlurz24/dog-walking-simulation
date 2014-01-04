@@ -18,7 +18,26 @@
 using namespace std;
 
 namespace gazebo {
+
 static const double pi = boost::math::constants::pi<double>();
+
+
+static const double KD_DEFAULT = 0.15;
+
+// Probability of starting a new gaussian in each second
+static const double P_NEW_GAUSS_DEFAULT = 0.16;
+
+// Multiple of sigma that captures nearly half of a gaussians width.
+static const double GAUSS_HALF_WIDTH = 3;
+
+static const unsigned int PUBLISH_FREQUENCY = 10;
+
+static const double KP_DEFAULT = 0.0075;
+
+static const double MAXIMUM_FORCE = 10;
+
+// Number of simulator iterations per second.
+static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
 
 class DogModelPlugin: public ModelPlugin {
 public:
@@ -382,31 +401,11 @@ private:
 
 	ros::Publisher dogGoalVizPub;
 
-	// Number of simulator iterations per second.
-	static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
-
 	// KP term
 	double KP;
 
-
-	static const double KP_DEFAULT = 0.0075;
-
-
-	static const double MAXIMUM_FORCE = 10;
-
 	// KD term
 	double KD;
-
-
-	static const double KD_DEFAULT = 0.15;
-
-	// Probability of starting a new gaussian in each second
-	static const double P_NEW_GAUSS_DEFAULT = 0.16;
-
-	// Multiple of sigma that captures nearly half of a gaussians width.
-	static const double GAUSS_HALF_WIDTH = 3;
-
-	static const unsigned int PUBLISH_FREQUENCY = 10;
 };
 
 // Register this plugin with the simulator

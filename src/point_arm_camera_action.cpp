@@ -13,10 +13,12 @@ using namespace std;
 using namespace ros;
 
 // Distance from the arm to the elbow offset
-static const double CAMERA_DISTANCE_FROM_SHOULDER = 0.5;
+static const double ELBOW_DISTANCE_FROM_BASE_X = -0.05;
+static const double ELBOW_DISTANCE_FROM_BASE_Y = -0.688;
+static const double ELBOW_DISTANCE_FROM_BASE_Z = 0.802;
 static const string MOVE_GROUP_NAME_DEFAULT = "right_arm";
 static const double pi = boost::math::constants::pi<double>();
-static const string SHOULDER_FRAME = "/r_shoulder_pan_link";
+static const string BASE_FRAME = "/base_footprint";
 
 class PointArmCamera {
 private:
@@ -69,35 +71,35 @@ protected:
         ROS_INFO("Moving arm to point at target %f, %f, %f in frame %s",
                 goal->target.point.x, goal->target.point.y, goal->target.point.z, goal->target.header.frame_id.c_str());
 
-        // Transform the goal position to shoulder link, which is fixed during this movement
-        // of the arm
-        geometry_msgs::PointStamped goalInShoulderFrame;
+        // Transform the goal position to base link
+        geometry_msgs::PointStamped goalInBaseFrame;
+
         try {
-            tf.waitForTransform(SHOULDER_FRAME, goal->target.header.frame_id,
+            tf.waitForTransform(BASE_FRAME, goal->target.header.frame_id,
                     goal->target.header.stamp, ros::Duration(1.0));
-            tf.transformPoint(SHOULDER_FRAME, goal->target.header.stamp, goal->target,
-                    goal->target.header.frame_id, goalInShoulderFrame);
+            tf.transformPoint(BASE_FRAME, goal->target.header.stamp, goal->target,
+                    goal->target.header.frame_id, goalInBaseFrame);
         }
         catch (tf::TransformException& ex) {
-            ROS_INFO("Failed to transform goal point to %s frame", SHOULDER_FRAME.c_str());
+            ROS_INFO("Failed to transform goal point to %s frame", BASE_FRAME.c_str());
             as.setAborted();
             return false;
         }
 
         if(targetPub.getNumSubscribers() > 0){
-            targetPub.publish(goalInShoulderFrame);
+            targetPub.publish(goalInBaseFrame);
         }
 
         ROS_DEBUG("Moving arm to point at point %f %f %f in frame %s",
-                goalInShoulderFrame.point.x, goalInShoulderFrame.point.y, goalInShoulderFrame.point.z, goalInShoulderFrame.header.frame_id.c_str());
+                goalInBaseFrame.point.x, goalInBaseFrame.point.y, goalInBaseFrame.point.z, goalInBaseFrame.header.frame_id.c_str());
 
-        btVector3 elbowBase = btVector3(CAMERA_DISTANCE_FROM_SHOULDER, 0, 0);
+        btVector3 elbowBase = btVector3(ELBOW_DISTANCE_FROM_BASE_X, ELBOW_DISTANCE_FROM_BASE_Y, ELBOW_DISTANCE_FROM_BASE_Z);
 
         // Create the unit vector between the two points
-        btVector3 direction = btVector3(goalInShoulderFrame.point.x, goalInShoulderFrame.point.y, goalInShoulderFrame.point.z) - elbowBase;
+        btVector3 direction = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, goalInBaseFrame.point.z) - elbowBase;
         direction.normalize();
 
-        ROS_DEBUG("Unit vector in shoulder frame %f, %f, %f", direction.x(), direction.y(), direction.z());
+        ROS_INFO("Unit vector in shoulder frame %f, %f, %f", direction.x(), direction.y(), direction.z());
 
         btVector3 planeDirection(direction.x(), direction.y(), 0);
 
@@ -105,14 +107,16 @@ protected:
         double yaw = atan2(direction.y(), direction.x());
         double pitch = atan2(-direction.z(), planeDirection.length());
         
-        ROS_DEBUG("Resulting RPY: %f %f %f", 0.0, pitch, yaw);
+        ROS_INFO("Rotating arm to RPY: %f %f %f", 0.0, pitch, yaw);
 
         if(lookDirectionPub.getNumSubscribers() > 0){
             visualization_msgs::Marker marker;
             marker.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, pitch, yaw);
-            marker.pose.position.x = CAMERA_DISTANCE_FROM_SHOULDER;
-            marker.header.frame_id = goalInShoulderFrame.header.frame_id;
-            marker.header.stamp = goalInShoulderFrame.header.stamp;
+            marker.pose.position.x = ELBOW_DISTANCE_FROM_BASE_X;
+            marker.pose.position.y = ELBOW_DISTANCE_FROM_BASE_Y;
+            marker.pose.position.z = ELBOW_DISTANCE_FROM_BASE_Z;
+            marker.header.frame_id = goalInBaseFrame.header.frame_id;
+            marker.header.stamp = goalInBaseFrame.header.stamp;
             marker.ns = ros::this_node::getName();
             marker.id = 0;
             marker.type = visualization_msgs::Marker::ARROW;
@@ -128,12 +132,30 @@ protected:
         vector<double> positions(7);
         positions[0] = -pi / 2.0;
         positions[1] = 0;
-        positions[2] = -pi + pitch;
-        positions[3] = -2 * pi + yaw;
+        if(direction.x() <= 0){
+          positions[2] = -3 * pi / 2.0 + pitch;
+        }
+        else {
+          positions[2] = -pi / 2.0 - pitch;
+        }
+
+        if(direction.x() <= 0){
+          if(direction.y() < 0){
+            positions[3] = pi / 2.0 + yaw;
+          }
+          else {
+            positions[3] = -pi / 2.0 - yaw;
+          }
+        }
+        else {
+          positions[3] = -pi / 2.0 - yaw;
+        }
         positions[4] = 0;
-        positions[5] = 0;
+        positions[5] = -0.1;
         positions[6] = 0;
 
+        ROS_INFO("Setting shoulder roll joint position to: %f and elbow joint position to: %f", positions[2], positions[3]);
+ 
         arm.setJointValueTarget(positions);
         if(arm.move()){
             as.setSucceeded();

@@ -13,11 +13,10 @@
 
   <node pkg="position_tracker" type="multi_object_detector" name="r_forearm_multi_object_detector">
     <param name="object_name" value="dog" />
-    <param name="cluster_distance_tolerance" value="0.25" />
+    <param name="cluster_distance_tolerance" value="0.5" />
     <param name="voxel_leaf_size" value="0.0" />
     <param name="min_cluster_size" value="75" />
     <param name="max_cluster_size" value="25000" />
-    <param name="floor_height" value="0.1" />
     <remap from="blobs" to="/r_forearm_cam/blobs"/>
     <remap from="points" to="/r_forearm_cam/points2"/>
   </node>

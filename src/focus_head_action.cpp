@@ -471,7 +471,7 @@ private:
     void searchedPointsCB(const sensor_msgs::PointCloud2ConstPtr points){
 
         if(searchCloud->points.size() == 0){
-          ROS_INFO("Ignoring point cloud. Not currently executing a search");
+          ROS_DEBUG("Ignoring point cloud. Not currently executing a search");
           return;
         }
 

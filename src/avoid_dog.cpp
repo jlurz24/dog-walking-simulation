@@ -12,14 +12,16 @@ namespace {
 using namespace std;
 using namespace dogsim;
 
+//! Radius of the robot to edge of the square base.
+static const double BASE_RADIUS = 0.668 / 2.0;
+
+//! Space to keep in front of the robot in meters
+static const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
+
 typedef actionlib::SimpleActionClient<MoveDogAwayAction> MoveDogAwayClient;
+
 class AvoidDog {
 private:
-	//! Radius of the robot to edge of the square base.
-	static const double BASE_RADIUS = 0.668 / 2.0;
-
-	//! Space to keep in front of the robot in meters
-	static const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
 
 	//! Node handle
 	ros::NodeHandle nh;
