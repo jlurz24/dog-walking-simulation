@@ -10,7 +10,6 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl/common/geometry.h>
 #include <pcl/point_types.h>
-#include <sensor_msgs/CameraInfo.h>
 
 namespace {
 using namespace geometry_msgs;
@@ -48,14 +47,14 @@ public:
 
         btScalar denom = n.dot(l);
         if(fabs(denom) < 1e-6){
-          return btVector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
+            return btVector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
         }
 
         btScalar t = n.dot(p0 - l0)/ denom;
         if(t < 0){
-	  // Intersection behind the camera
-          return btVector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
-	}
+            // Intersection behind the camera
+            return btVector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
+        }
         // Now project the vector l to the plane.
         return l0 + (l * t);
     }
