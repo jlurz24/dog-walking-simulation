@@ -14,6 +14,7 @@
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
 #include <tf/tf.h>
+#include <google/profiler.h>
 
 using namespace std;
 

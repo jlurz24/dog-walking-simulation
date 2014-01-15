@@ -1,0 +1,150 @@
+diff --git a/dogsim/src/point_arm_camera_action.cpp b/dogsim/src/point_arm_camera_action.cpp
+index 2a9bd5e..f733c7d 100644
+--- a/dogsim/src/point_arm_camera_action.cpp
++++ b/dogsim/src/point_arm_camera_action.cpp
+@@ -4,6 +4,11 @@
+ #include <tf/transform_listener.h>
+ #include <tf2/LinearMath/btVector3.h>
+ #include <dogsim/utils.h>
++#include <moveit/kinematic_constraints/utils.h>
++#include <moveit/move_group_interface/move_group.h>
++#include <moveit/robot_model_loader/robot_model_loader.h>
++#include <moveit/robot_model/robot_model.h>
++#include <moveit/robot_state/robot_state.h>
+ 
+ // Generated messages
+ #include <dogsim/PointArmCameraAction.h>
+@@ -25,7 +30,9 @@
+     actionlib::SimpleActionServer<dogsim::PointArmCameraAction> as;
+     string actionName;
+     move_group_interface::MoveGroup arm;
++
+     tf::TransformListener tf;
++    robot_state::RobotStatePtr kinematicState;
+ 
+     //! Publisher for the look direction
+     ros::Publisher lookDirectionPub;
+@@ -36,9 +43,17 @@
+     PointArmCamera(const string& name) :
+         pnh("~"),
+         as(nh, name, boost::bind(&PointArmCamera::moveArmToTarget, this, _1), false),
+-        actionName(
+-                name),
+-                arm("right_arm") {
++        actionName(name),
++        arm("right_arm"){
++
++        // Setup moveit.
++        robot_model_loader::RobotModelLoader robotModelLoader("robot_description");
++        robot_model::RobotModelPtr kinematicModel = robotModelLoader.getModel();
++
++        kinematicState.reset(new robot_state::RobotState(kinematicModel));
++
++        ros::service::waitForService("compute_ik");
++        ikClient = nh.serviceClient<moveit_msgs::GetPositionIK> ("compute_ik", true);
+         lookDirectionPub = nh.advertise<visualization_msgs::Marker>(
+                 "/point_arm_camera_action/look_direction_viz", 1);
+         targetPub = nh.advertise<geometry_msgs::PointStamped>("/point_arm_camera_action/target_vis", 1);
+@@ -125,17 +140,94 @@
+             lookDirectionPub.publish(marker);
+         }
+ 
+-        vector<double> positions(7);
+-        positions[0] = -pi / 2.0;
+-        positions[1] = 0;
+-        positions[2] = -pi + pitch;
+-        positions[3] = -2 * pi + yaw;
+-        positions[4] = 0;
+-        positions[5] = 0;
+-        positions[6] = 0;
++        moveit_msgs::GetPositionIK::Request ikRequest;
++        moveit_msgs::GetPositionIK::Response ikResponse;
++        ikRequest.ik_request.group_name = "right_arm";
+ 
++        ikRequest.ik_request.constraints.joint_constraints.resize(7);
++        ikRequest.ik_request.constraints.joint_constraints[0].joint_name = "r_shoulder_pan_joint";
++        ikRequest.ik_request.constraints.joint_constraints[0].position = -pi / 2.0;
++        ikRequest.ik_request.constraints.joint_constraints[0].tolerance_above = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[0].tolerance_below = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[0].weight = 1.0;
++
++        ikRequest.ik_request.constraints.joint_constraints[1].joint_name = "r_shoulder_lift_joint";
++        ikRequest.ik_request.constraints.joint_constraints[1].position = 0;
++        ikRequest.ik_request.constraints.joint_constraints[1].tolerance_above = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[1].tolerance_below = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[1].weight = 1.0;
++
++        ikRequest.ik_request.constraints.joint_constraints[2].joint_name = "r_upper_arm_roll_joint";
++        ikRequest.ik_request.constraints.joint_constraints[2].position = 0;
++        ikRequest.ik_request.constraints.joint_constraints[2].tolerance_above = 2 * pi;
++        ikRequest.ik_request.constraints.joint_constraints[2].tolerance_below = 2 * pi;
++        ikRequest.ik_request.constraints.joint_constraints[2].weight = 1.0;
++
++        ikRequest.ik_request.constraints.joint_constraints[3].joint_name = "r_elbow_flex_joint";
++        ikRequest.ik_request.constraints.joint_constraints[3].position = 0;
++        ikRequest.ik_request.constraints.joint_constraints[3].tolerance_above = 2 * pi;
++        ikRequest.ik_request.constraints.joint_constraints[3].tolerance_below = 2 * pi;
++        ikRequest.ik_request.constraints.joint_constraints[3].weight = 1.0;
++
++        ikRequest.ik_request.constraints.joint_constraints[4].joint_name = "r_forearm_roll_joint";
++        ikRequest.ik_request.constraints.joint_constraints[4].position = 0;
++        ikRequest.ik_request.constraints.joint_constraints[4].tolerance_above = 2 * pi;
++        ikRequest.ik_request.constraints.joint_constraints[4].tolerance_below = 2 * pi;
++        ikRequest.ik_request.constraints.joint_constraints[4].weight = 1.0;
++
++        ikRequest.ik_request.constraints.joint_constraints[5].joint_name = "r_wrist_flex_joint";
++        ikRequest.ik_request.constraints.joint_constraints[5].position = -0.1;
++        ikRequest.ik_request.constraints.joint_constraints[5].tolerance_above = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[5].tolerance_below = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[5].weight = 1.0;
++
++        ikRequest.ik_request.constraints.joint_constraints[6].joint_name = "r_wrist_roll_joint";
++        ikRequest.ik_request.constraints.joint_constraints[6].position = 0;
++        ikRequest.ik_request.constraints.joint_constraints[6].tolerance_above = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[6].tolerance_below = 0.01;
++        ikRequest.ik_request.constraints.joint_constraints[6].weight = 1.0;
++
++        ikRequest.ik_request.constraints.orientation_constraints.resize(1);
++        ikRequest.ik_request.constraints.orientation_constraints[0].header.frame_id = goalInShoulderFrame.header.frame_id;
++        ikRequest.ik_request.constraints.orientation_constraints[0].header.stamp = ros::Time::now();
++        ikRequest.ik_request.constraints.orientation_constraints[0].orientation = tf::createQuaternionMsgFromRollPitchYaw(0, pitch, yaw);
++        ikRequest.ik_request.constraints.orientation_constraints[0].weight = 1;
++        ikRequest.ik_request.constraints.orientation_constraints[0].link_name = arm.getEndEffectorLink();
++        ikRequest.ik_request.constraints.orientation_constraints[0].absolute_x_axis_tolerance = 0.1;
++        ikRequest.ik_request.constraints.orientation_constraints[0].absolute_y_axis_tolerance = 0.1;
++        ikRequest.ik_request.constraints.orientation_constraints[0].absolute_z_axis_tolerance = 0.1;
++
++        const robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
++        const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
++
++        // Seed state defaults to current positions
++
++        ikClient.call(ikRequest, ikResponse);
++        vector<double> positions(jointNames.size());
++        if(ikResponse.error_code.val == ikResponse.error_code.SUCCESS){
++
++            // For some reason this returns all joints. Copy over ones we need.
++            positions.resize(jointNames.size());
++            for(unsigned int i = 0; i < jointNames.size(); ++i){
++                for(unsigned int j = 0; j < ikResponse.solution.joint_state.name.size(); ++j){
++                    if(jointNames[i] == ikResponse.solution.joint_state.name[j]){
++                        ROS_INFO("got joint angle %f for joint %s", ikResponse.solution.joint_state.position[j],ikResponse.solution.joint_state.name[j].c_str() );
++                        positions[i] = ikResponse.solution.joint_state.position[j];
++                        break;
++                    }
++                }
++            }
++        }
++        else {
++            ROS_WARN_STREAM("Failed to find IK solution for arm pointing. Error code " << ikResponse.error_code);
++            as.setAborted();
++            return false;
++        }
++
++        ROS_INFO("Got solution!");
+         arm.setJointValueTarget(positions);
+         if(arm.move()){
++            ROS_INFO("Arm moved successfully");
+             as.setSucceeded();
+             return true;
+         }

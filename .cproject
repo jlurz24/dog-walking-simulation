@@ -1694,8 +1694,8 @@
 			</scannerInfoProvider>
 		</profile>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="org.eclipse.cdt.core.pathentry">
-		<pathentry excluding="**/CMakeFiles/" kind="out" path=""/>
 		<pathentry kind="mac" name="BOOST_CB_DISABLE_DEBUG" path="" value=""/>
 		<pathentry kind="mac" name="__STDC__" path="" value="1"/>
 		<pathentry kind="mac" name="__STDC_HOSTED__" path="" value="1"/>
@@ -1948,7 +1948,7 @@
 		<pathentry include="/home/jlurz/ros_workspace/litterbox_project/dogsim/msg_gen/cpp/include" kind="inc" path="" system="true"/>
 		<pathentry include="/home/jlurz/ros_workspace/litterbox_project/dogsim/srv_gen/cpp/include" kind="inc" path="" system="true"/>
 		<pathentry include="/usr/include" kind="inc" path="" system="true"/>
-		<pathentry include="/usr/include/gazebo-2.1" kind="inc" path="" system="true"/>
+		<pathentry include="/usr/include/gazebo-2.2" kind="inc" path="" system="true"/>
 		<pathentry include="/usr/include/sdformat-1.4" kind="inc" path="" system="true"/>
 		<pathentry include="/usr/src/gtest/include" kind="inc" path="" system="true"/>
 		<pathentry include="/usr/src/gtest" kind="inc" path="" system="true"/>
@@ -1959,6 +1959,7 @@
 		<pathentry include="/usr/include/c++/4.6" kind="inc" path="" system="true"/>
 		<pathentry include="/usr/include/c++/4.6/x86_64-linux-gnu" kind="inc" path="" system="true"/>
 		<pathentry include="/usr/include/c++/4.6/backward" kind="inc" path="" system="true"/>
+		<pathentry excluding="**/CMakeFiles/" kind="out" path=""/>
+		<pathentry kind="src" path=""/>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 </cproject>

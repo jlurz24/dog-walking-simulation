@@ -26,10 +26,11 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 find_package(Eigen REQUIRED)
 find_package(gazebo REQUIRED)
-find_library(CGAL_LIBRARY CGAL /usr/local/lib)
-find_library(GMP_LIBRARY gmp /usr/lib)
-find_library(MPFR_LIBRARY mpfr /usr/lib/x86_64-linux-gnu)
-# find_package(GCAL REQUIRED)
+find_library(CGAL_LIBRARY CGAL /usr/local/lib REQUIRED)
+find_library(GMP_LIBRARY gmp /usr/lib REQUIRED) 
+find_library(MPFR_LIBRARY mpfr /usr/lib/x86_64-linux-gnu REQUIRED)
+set(Gperftools_DIR .)
+find_package(Gperftools REQUIRED)
 
 include_directories(${Eigen_INCLUDE_DIRS})
 
@@ -45,6 +46,7 @@ add_library(dog_model_plugin SHARED src/dog_model_plugin.cpp)
 set_target_properties(dog_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
 set_target_properties(dog_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
 target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
+
 install (TARGETS dog_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
 
 # Leash plugin

@@ -7,6 +7,9 @@ Panels:
         - /Global Options1
         - /Visualization Markers1
         - /RobotModel1
+        - /RobotModel1/Links1/l_forearm_cam_frame1
+        - /RobotModel1/Links1/l_forearm_cam_optical_frame1
+        - /RobotModel1/Links1/l_forearm_cam_optical_frame1/Position1
         - /Dog Position1
         - /Move Goal1
         - /Walk Goal1
@@ -19,7 +22,6 @@ Panels:
         - /Possible Dog Ids1
         - /Focus Targets1
         - /Path View1
-        - /Search Map1/Status1
         - /Input Cloud1
         - /Image1
         - /Forearm Observations1
@@ -888,8 +890,8 @@ Visualization Manager:
       Marker Topic: /object_locations/markers
       Name: Forearm Observations
       Namespaces:
-        multi_object_detector//r_forearm_cam/blobs: true
-        multi_object_detector//wide_stereo/blobs: false
+        multi_object_detector/r_forearm_cam/blobs: true
+        multi_object_detector/wide_stereo/blobs: false
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -897,8 +899,8 @@ Visualization Manager:
       Marker Topic: /object_locations/markers
       Name: Wide Stereo Observations
       Namespaces:
-        multi_object_detector//r_forearm_cam/blobs: false
-        multi_object_detector//wide_stereo/blobs: true
+        multi_object_detector/r_forearm_cam/blobs: true
+        multi_object_detector/wide_stereo/blobs: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -919,17 +921,17 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.104755
+      Distance: 4.41278
       Focal Point:
-        X: 1.64333
-        Y: -3.42289
-        Z: 5.30546
+        X: 1.5857
+        Y: -0.121333
+        Z: 5.30825
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.989796
+      Pitch: 1.5698
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.85861
+      Yaw: 5.29362
     Saved: ~
 Window Geometry:
   Displays:
@@ -939,9 +941,9 @@ Window Geometry:
   Hide Right Dock: false
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a200000306fc0200000003fb000000100044006900730070006c006100790073010000002800000104000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000028000002e20000000000000000fb0000000a0049006d0061006700650100000132000001fc0000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002860000030600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000002000000000000029f00000306fc0200000003fb000000100044006900730070006c006100790073010000002800000104000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000028000002e20000000000000000fb0000000a0049006d0061006700650100000132000001fc0000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000001890000030600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
   Width: 1070
-  X: 183
-  Y: 24
+  X: 200
+  Y: 27

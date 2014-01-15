@@ -14,7 +14,7 @@ using namespace geometry_msgs;
 
 static const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
 static const double STALE_THRESHOLD_DEFAULT = 1.0;
-static const double LEASH_STRETCH_ERROR_DEFAULT = 0.5;
+static const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
 
@@ -39,6 +39,14 @@ struct OutOfLeashDistance {
                         utils::square(positionInBaseFrame.point.z - handPosition.point.z));
         ROS_DEBUG("Distance to possible dog position from hand: %f", d);
         return d > leashThreshold;
+    }
+};
+
+struct DistanceFromHand {
+    const PointStamped& handPosition;
+
+    DistanceFromHand() : handPosition(handPosition){
+
     }
 };
 
@@ -179,12 +187,14 @@ private:
                     match = possiblePositions.begin();
                 }
                 else {
-                    ROS_DEBUG("Filters did not reduce number of possible positions to 1");
+                    ROS_INFO("Possible position filter did not reduce number of possible positions to 1");
                     match = std::find_if(possiblePositions.begin(), possiblePositions.end(), MatchesID(lastId));
 
                     if(match == possiblePositions.end()){
-                        ROS_INFO("No possible position matching the last id found.");
+                        ROS_INFO("No possible position matching the last id found. Applying closest position filter");
                         // TODO: Select the most recent observation?
+                        // Select the closest observation.
+                        // TODO: Evaluate most recent
                         match = possiblePositions.begin();
                     }
                 }
