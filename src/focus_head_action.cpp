@@ -47,9 +47,11 @@ static Eigen::Vector3f operator-(const pcl::PointXYZ& lhs, const pcl::PointXYZ& 
 }
 
 struct DistanceFromPoint {
-    const geometry_msgs::PointStamped& point;
-    DistanceFromPoint(const geometry_msgs::PointStamped &p): point(p){
-        return utils::pointToPointXYDistance(p.point, point.point);
+    const geometry_msgs::PointStamped& curr;
+    DistanceFromPoint(const geometry_msgs::PointStamped &p): curr(p){
+    }
+    double operator()(const geometry_msgs::PointStamped& a, const geometry_msgs::PointStamped& b){
+        return utils::pointToPointXYDistance(curr.point, a.point) < utils::pointToPointXYDistance(curr.point, b.point);
     }
 };
 
@@ -637,7 +639,7 @@ private:
         Eigen::Vector4f centroid;
         vector<pcl::PointIndices>::const_iterator it;
         for(it = clusterIndices.begin(); it != clusterIndices.end(); ++it) {
-            ROS_INFO("Selected a next best search cluster with size %u", it->indices.size());
+            ROS_INFO("Selected a next best search cluster with size %lu", it->indices.size());
 
             // Now find the centroid
             pcl::compute3DCentroid(*searchCloud, it->indices, centroid);
