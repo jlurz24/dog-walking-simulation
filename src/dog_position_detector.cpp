@@ -18,6 +18,12 @@ static const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
 
+static double distance2(const PointStamped& a, const PointStamped &b) {
+    return utils::square(a.point.x - b.point.x)
+            + utils::square(a.point.y - b.point.y)
+            + utils::square(a.point.z - b.point.z);
+}
+
 struct OutOfLeashDistance {
 
     const double leashThreshold;
@@ -34,19 +40,21 @@ struct OutOfLeashDistance {
         // Convert to base frame.
         PointStamped positionInBaseFrame;
         tf.transformPoint("base_footprint", obj.position, positionInBaseFrame);
-        double d = sqrt(utils::square(positionInBaseFrame.point.x - handPosition.point.x) +
-                        utils::square(positionInBaseFrame.point.y - handPosition.point.y) +
-                        utils::square(positionInBaseFrame.point.z - handPosition.point.z));
+        double d = sqrt(distance2(positionInBaseFrame, handPosition));
         ROS_DEBUG("Distance to possible dog position from hand: %f", d);
         return d > leashThreshold;
     }
+
 };
 
 struct DistanceFromHand {
     const PointStamped& handPosition;
 
-    DistanceFromHand() : handPosition(handPosition){
+    DistanceFromHand(const PointStamped& aHandPosition) : handPosition(aHandPosition){
+    }
 
+    bool operator()(const position_tracker::DetectedDynamicObject& a, const position_tracker::DetectedDynamicObject& b){
+        return distance2(a.position, handPosition) < distance2(b.position, handPosition);
     }
 };
 
@@ -191,11 +199,10 @@ private:
                     match = std::find_if(possiblePositions.begin(), possiblePositions.end(), MatchesID(lastId));
 
                     if(match == possiblePositions.end()){
-                        ROS_INFO("No possible position matching the last id found. Applying closest position filter");
-                        // TODO: Select the most recent observation?
+                        ROS_WARN("No possible position matching the last id found. Applying closest position filter");
                         // Select the closest observation.
                         // TODO: Evaluate most recent
-                        match = possiblePositions.begin();
+                        match = std::min_element(possiblePositions.begin(), possiblePositions.end(), DistanceFromHand(handInBaseFrame));
                     }
                 }
                 lastId = (*match).id;

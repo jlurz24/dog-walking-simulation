@@ -1,6 +1,6 @@
 <launch>
-  <param name="p_new_gauss" value="0.16"/>
-  <param name="gauss_height" value="1.0" />
-  <param name="gauss_min_width" value="0.5" />
-  <param name="gauss_max_width" value="8.0" />
+    <param name="p_new_gauss" value="0.12"/>
+    <param name="gauss_height" value="1.0" />
+    <param name="gauss_min_width" value="0.5" />
+    <param name="gauss_max_width" value="4.0" />
 </launch>

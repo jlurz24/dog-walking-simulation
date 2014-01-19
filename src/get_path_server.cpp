@@ -155,10 +155,12 @@ private:
 	void computeStartAndEnd(const ros::Time& time, uint8_t& rStarted,
 			uint8_t& rEnded) const {
 		if (!this->started) {
+		    ROS_DEBUG("Path not started yet");
 			// Not started yet.
 			rEnded = false;
 			rStarted = false;
 		} else if ((time - startTime) > pathProvider->getMaximumTime()) {
+		    ROS_DEBUG("Path ended");
 			rEnded = true;
 			rStarted = true;
 		} else {

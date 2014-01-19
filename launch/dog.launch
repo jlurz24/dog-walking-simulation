@@ -1,11 +1,8 @@
 <launch>
-  <param name="leash_length" value="1.25"/>
+  <include file="$(find dogsim)/launch/leash.launch" /> 
 
   <param name="dog" textfile="$(find dogsim)/models/dog.model" />
   <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog" respawn="false" output="screen" />
 
-  <param name="leash" textfile="$(find dogsim)/models/leash.model" />
-  <node name="spawn_leash" pkg="gazebo" type="spawn_model" args="-param leash -gazebo -model leash" respawn="false" output="screen" />
   <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer" />
-  <node pkg="dogsim" type="leash_visualizer" name="leash_visualizer" />
 </launch>

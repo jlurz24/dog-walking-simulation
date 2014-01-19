@@ -1,7 +1,9 @@
 <launch>
+  <include file="$(find dogsim)/launch/good_dog.launch" />
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
+  <include file="$(find dogsim)/launch/simulated_sensors.launch" />
   <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen">
-    <param name="path_type" value="blockwalk"/>
+    <param name="path_type" value="rectangle"/>
   </node>
  <param name="add_gaussians_to_path" value="true"/>
  <param name="solo_dog" value="true" />
@@ -12,8 +14,6 @@
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
 
  <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
-
-  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector" output="screen"/>
 
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
   <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer" />

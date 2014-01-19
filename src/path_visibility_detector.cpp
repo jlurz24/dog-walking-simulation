@@ -117,7 +117,7 @@ public:
 
 private:
     void publishView(const double visibilityRatio, const geometry_msgs::PointStamped& pointToLookAt) {
-        ROS_INFO("Publishing view change request with ratio: %f and last fully visible time: %f", visibilityRatio, lastFullyVisibleTime.toSec());
+        ROS_DEBUG("Publishing view change request with ratio: %f and last fully visible time: %f", visibilityRatio, lastFullyVisibleTime.toSec());
         PathViewInfoPtr pathViewInfo(new PathViewInfo());
         pathViewInfo->header = pointToLookAt.header;
         pathViewInfo->center = pointToLookAt;

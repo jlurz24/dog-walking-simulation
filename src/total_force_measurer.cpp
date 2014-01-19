@@ -5,6 +5,8 @@
 #include <sensor_msgs/JointState.h>
 #include <dogsim/utils.h>
 #include <dogsim/GetPath.h>
+#include <position_tracker/StartMeasurement.h>
+#include <position_tracker/StopMeasurement.h>
 
 using namespace std;
 
@@ -15,42 +17,39 @@ class TotalForceMeasurer {
     tf::TransformListener tf;
     double totalForce;
     sensor_msgs::JointStateConstPtr lastJointState;
-    ros::Timer timer;
     
+    message_filters::Subscriber<position_tracker::StartMeasurement> startMeasuringSub;
+    message_filters::Subscriber<position_tracker::StopMeasurement> stopMeasuringSub;
+    message_filters::Subscriber<sensor_msgs::JointState> jointStateSub;
+
  public:
     TotalForceMeasurer() : 
        privateHandle("~"), 
-       totalForce(0.0){
-      ROS_INFO("Total Force measurement initiated");
-	  ros::service::waitForService("/dogsim/get_path");
-      timer = nh.createTimer(ros::Duration(0.1), &TotalForceMeasurer::callback, this);
+       totalForce(0.0),
+       startMeasuringSub(nh, "start_measuring", 1),
+       stopMeasuringSub(nh, "stop_measuring", 1),
+       jointStateSub(nh, "joint_states", 1){
+        startMeasuringSub.registerCallback(
+                boost::bind(&TotalForceMeasurer::startMeasuring, this, _1));
+        stopMeasuringSub.registerCallback(
+                boost::bind(&TotalForceMeasurer::stopMeasuring, this, _1));
     }
   
-    ~TotalForceMeasurer(){
-      ROS_INFO("Total force measurement ended. Total force: %f", totalForce);
-    }
-    
  private:
-    void callback(const ros::TimerEvent& timerEvent){
-      ROS_DEBUG("Received a message @ %f", timerEvent.current_real.toSec());
 
-      // Get the current joint state
-      sensor_msgs::JointStateConstPtr jointState = ros::topic::waitForMessage<sensor_msgs::JointState>("joint_states", nh, ros::Duration(0.5));
+    void startMeasuring(const position_tracker::StartMeasurementConstPtr msg) {
+        ROS_INFO("Total Force measurement initiated");
+        jointStateSub.registerCallback(
+                boost::bind(&TotalForceMeasurer::callback, this, _1));
+    }
 
-      ros::ServiceClient getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path");
-      dogsim::GetPath getPath;
-      getPath.request.time = timerEvent.current_real;
-      getPathClient.call(getPath);
-
-      if(!getPath.response.started){
-        return;
-      }
-      if(getPath.response.ended){
+    void stopMeasuring(const position_tracker::StopMeasurementConstPtr msg) {
         // Print out the final measurements
         ROS_INFO("Total force(N): %f", totalForce);
-        timer.stop();
-        return;
-      }
+    }
+
+    void callback(sensor_msgs::JointStateConstPtr jointState){
+      ROS_DEBUG("Received a message @ %f", jointState->header.stamp.toSec());
 
       // Ignore the first measurement so we can get a clean baseline.
       if(!lastJointState.get()){
@@ -82,7 +81,7 @@ class TotalForceMeasurer {
       // Save off the message.
       lastJointState = jointState;
 
-      ROS_DEBUG("Delta seconds(s): %f Delta force(N): %f Total force(N): %f Force/Second(N/s):%f", deltaSecs, deltaForce, totalForce, totalForce / getPath.response.elapsedTime.sec);
+      ROS_DEBUG("Delta seconds(s): %f Delta force(N): %f Total force(N): %f", deltaSecs, deltaForce, totalForce);
    }
 };
 
