@@ -15,6 +15,10 @@ namespace gazebo {
 // Amount of force the leash can apply at its maximum
 // This is 3x the maximum force the dog can apply.
 static const double SPRING_FORCE = 30.0;
+
+// Rate to run the updates to the force
+static const double UPDATE_RATE = 0.05;
+
 class LeashModelPlugin : public ModelPlugin {
 public:
     LeashModelPlugin() {
@@ -36,7 +40,7 @@ public:
 
         // Listen to the update event. This event is broadcast every
         // simulation iteration.
-        this->updateConnection = event::Events::ConnectWorldUpdateStart(
+        this->updateConnection = event::Events::ConnectWorldUpdateBegin(
                 boost::bind(&LeashModelPlugin::OnUpdate, this));
         this->previousTime = this->world->GetSimTime();
     }
@@ -75,7 +79,7 @@ private:
         }
 
         common::Time currTime = this->world->GetSimTime();
-        if (currTime - this->previousTime > common::Time::SecToNano(0.01)) {
+        if (currTime - this->previousTime > common::Time::SecToNano(UPDATE_RATE)) {
 
             // Calculate the distance between the two.
             const math::Vector3 handPosition = robotHand->GetWorldPose().pos;
@@ -114,6 +118,7 @@ private:
                 info.ratio = ratio;
                 leashInfoPub.publish(info);
             }
+            this->previousTime = currTime;
         }
         // Apply the force to the dog.
         dogBody->AddForce(appliedForce);
@@ -121,7 +126,7 @@ private:
         // Don't allow the extra spring force to be applied to the arm.
         // Apply the opposite force to the hand.
         robotHand->AddForce(math::Vector3(-appliedForce.x, -appliedForce.y, -appliedForce.z));
-        this->previousTime = currTime;
+
     }
 
     // Previous update time
@@ -149,5 +154,5 @@ private:
 };
 
 // Register this plugin with the simulator
-GZ_REGISTER_MODEL_PLUGIN(LeashModelPlugin)
+GZ_REGISTER_MODEL_PLUGIN(LeashModelPlugin);
 }

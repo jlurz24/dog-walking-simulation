@@ -30,14 +30,15 @@ static const double P_NEW_GAUSS_DEFAULT = 0.16;
 // Multiple of sigma that captures nearly half of a gaussians width.
 static const double GAUSS_HALF_WIDTH = 3;
 
-static const unsigned int PUBLISH_FREQUENCY = 10;
-
 static const double KP_DEFAULT = 0.0075;
 
 static const double MAXIMUM_FORCE = 10;
 
 // Number of simulator iterations per second.
 static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
+
+// Rate to run the updates at
+static const double UPDATE_RATE = 0.05;
 
 class DogModelPlugin: public ModelPlugin {
 public:
@@ -92,7 +93,7 @@ public:
 
         // Listen to the update event. This event is broadcast every
         // simulation iteration.
-        this->updateConnection = event::Events::ConnectWorldUpdateStart(
+        this->updateConnection = event::Events::ConnectWorldUpdateBegin(
                 boost::bind(&DogModelPlugin::OnUpdate, this));
     }
 
@@ -169,8 +170,7 @@ private:
 
         // Calculate the desired position.
         common::Time currTime = this->model->GetWorld()->GetSimTime();
-        if (currTime - this->previousTime > common::Time::SecToNano(0.01)) {
-            ROS_INFO("Performing update");
+        if (currTime - this->previousTime > common::Time::SecToNano(UPDATE_RATE)) {
             bool running;
             math::Vector3 goalPosition = calcGoalPosition(currTime, running);
             if (!running) {
@@ -184,8 +184,7 @@ private:
             ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
 
             // Publish the position.
-            if (int(currTime.Double() * 1000) % (1000 / PUBLISH_FREQUENCY) == 0
-                    && dogGoalVizPub.getNumSubscribers() > 0) {
+            if(dogGoalVizPub.getNumSubscribers() > 0) {
                 std_msgs::ColorRGBA RED = utils::createColor(1, 0, 0);
                 geometry_msgs::PointStamped goalPoint;
                 goalPoint.point.x = goalPosition.x;
@@ -230,6 +229,9 @@ private:
 
             // Save the current error for the next iteration.
             this->previousErrorY = errorY;
+
+            // Save the previous time.
+            this->previousTime = currTime;
         }
 
         body->AddForce(
@@ -240,9 +242,6 @@ private:
         this->forceZ = atan2(relativeForce.y, relativeForce.x) / (3 * pi);
 
         body->AddRelativeTorque(math::Vector3(0.0, 0.0, this->forceZ));
-
-        // Save the previous time.
-        this->previousTime = currTime;
     }
 
 private:
@@ -395,8 +394,9 @@ private:
 
     // KD term
     double KD;
+
 };
 
 // Register this plugin with the simulator
-GZ_REGISTER_MODEL_PLUGIN (DogModelPlugin)
+GZ_REGISTER_MODEL_PLUGIN (DogModelPlugin);
 }
