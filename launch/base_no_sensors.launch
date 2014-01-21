@@ -2,7 +2,7 @@
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   <rosparam command="load" file="$(find pr2_moveit_config)/config/kinematics.yaml"/>
 
-  <node pkg="rostopic" type="rostopic" name="move_left_arm_away" args="pub l_arm_controller/joint_trajectory_action/goal pr2_controllers_msgs/JointTrajectoryActionGoal '{goal:{trajectory:{joint_names: [l_shoulder_pan_joint, l_shoulder_lift_joint, l_upper_arm_roll_joint, l_elbow_flex_joint, l_forearm_roll_joint, l_wrist_flex_joint, l_wrist_roll_joint], points: [{positions: [1.5, 2.0, 0.0, -2.55, 0.0, -0.1, 0.0], velocities: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], accelerations: [] }]}}}' -1" output="screen" />
+  <node pkg="rostopic" type="rostopic" name="move_left_arm_away" args="pub l_arm_controller/joint_trajectory_action/goal pr2_controllers_msgs/JointTrajectoryActionGoal '{goal:{trajectory:{joint_names: [l_shoulder_pan_joint, l_shoulder_lift_joint, l_upper_arm_roll_joint, l_elbow_flex_joint, l_forearm_roll_joint, l_wrist_flex_joint, l_wrist_roll_joint], points: [{positions: [1.5, 2.0, 0.0, -2.55, 0.0, -0.1, 0.0], velocities: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], accelerations: [] }]}}}' -1" />
   
   <!-- Move it -->
   <rosparam command="load" file="$(find pr2_moveit_config)/config/kinematics.yaml"/>
@@ -17,17 +17,17 @@
 
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
  
-  <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
+  <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" />
 
-  <node pkg="dogsim" type="avoid_dog" name="avoid_dog" output="screen"/>
+  <node pkg="dogsim" type="avoid_dog" name="avoid_dog"/>
 
   <node pkg="dogsim" type="move_robot_action" name="move_robot_action"/>
 
-  <node pkg="dogsim" type="move_dog_away_action" name="move_dog_away_action" output="screen"/>
+  <node pkg="dogsim" type="move_dog_away_action" name="move_dog_away_action" />
 
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
 
-  <node pkg="topic_tools" type="throttle" name="wide_stereo_camera_info_throttle" args="messages /wide_stereo/left/camera_info 10.0 /wide_stereo/left/camera_info_throttled" output="screen">
+  <node pkg="topic_tools" type="throttle" name="wide_stereo_camera_info_throttle" args="messages /wide_stereo/left/camera_info 10.0 /wide_stereo/left/camera_info_throttled">
      <param name="lazy" value="true"/>
   </node>
 
@@ -35,14 +35,14 @@
     <remap to="/wide_stereo/left/camera_info_throttled" from="camera_info_in"/>
   </node>
 
-   <node pkg="dogsim" type="move_arm_to_base_position_action" name="move_arm_to_base_position_action" output="screen"/>
+   <node pkg="dogsim" type="move_arm_to_base_position_action" name="move_arm_to_base_position_action"/>
    
   <node pkg="dogsim" type="focus_head_action" name="focus_head_action">
     <remap to="/wide_stereo/left/points_filtered" from="head_search_cloud_in"/>
     <remap to="/r_forearm_cam/points_filtered" from="arm_search_cloud_in" />
   </node>
 
-   <node pkg="dogsim" type="point_arm_camera_action" name="point_arm_camera_action" output="screen"/>
+   <node pkg="dogsim" type="point_arm_camera_action" name="point_arm_camera_action" />
 
    <rosparam param="/move_group/start_state_max_bounds_error">1.0</rosparam>
 </launch>

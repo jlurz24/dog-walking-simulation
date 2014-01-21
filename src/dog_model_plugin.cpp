@@ -16,29 +16,32 @@
 #include <tf/tf.h>
 #include <google/profiler.h>
 
+
+
+namespace {
+
 using namespace std;
+using namespace gazebo;
 
-namespace gazebo {
+const double pi = boost::math::constants::pi<double>();
 
-static const double pi = boost::math::constants::pi<double>();
-
-static const double KD_DEFAULT = 0.15;
+const double KD_DEFAULT = 0.15;
 
 // Probability of starting a new gaussian in each second
-static const double P_NEW_GAUSS_DEFAULT = 0.16;
+const double P_NEW_GAUSS_DEFAULT = 0.16;
 
 // Multiple of sigma that captures nearly half of a gaussians width.
-static const double GAUSS_HALF_WIDTH = 3;
+const double GAUSS_HALF_WIDTH = 3;
 
-static const double KP_DEFAULT = 0.0075;
+const double KP_DEFAULT = 0.0075;
 
-static const double MAXIMUM_FORCE = 10;
+const double MAXIMUM_FORCE = 10;
 
 // Number of simulator iterations per second.
-static const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
+const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
 
 // Rate to run the updates at
-static const double UPDATE_RATE = 0.05;
+const double UPDATE_RATE = 0.05;
 
 class DogModelPlugin: public ModelPlugin {
 public:

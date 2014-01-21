@@ -25,11 +25,11 @@ typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 
 //! Amount of time before starting walk. This provides time for the robot to finish
-//  tucking its arms.
-static const double DELAY_TIME_DEFAULT = 2.5;
+//  tucking its arms and move to the starting position.
+const double DELAY_TIME_DEFAULT = 10.0;
 
 //! Interval to update the move_robot_action
-static const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
+const double MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT = 2.0;
 
 class RobotDriver {
 private:
@@ -66,9 +66,6 @@ private:
     //! Planner client
     ros::ServiceClient getPlannedRobotPoseClient;
 
-    //! Length of the leash
-    double leashLength;
-
     //! Frequency to update the path of the robot
     ros::Duration moveRobotUpdateInterval;
 
@@ -98,8 +95,6 @@ public:
                     false), avoidingDog(false) {
 
         ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
-
-        nh.param("leash_length", leashLength, 2.0);
 
         ros::service::waitForService("/dogsim/get_path");
         ros::service::waitForService("/dogsim/start");
@@ -141,6 +136,12 @@ public:
 
         initTimer = nh.createTimer(delayTime, &RobotDriver::init, this,
                 true /* One shot */);
+
+        if (!noSteeringMode) {
+            driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::steeringCallback,
+                    this);
+        }
+
         ROS_INFO("Robot driver initialization complete @ %f. Waiting for %f(s) to start.", ros::Time::now().toSec(), delayTime.toSec());
     }
 
@@ -150,17 +151,6 @@ public:
         MoveArmToBasePositionGoal moveArmToBasePositionGoal;
         utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 10.0);
 
-        // Move the robot to the initial orientation.
-        // TODO: Remove
-        /*
-        ROS_INFO("Moving to initial pose");
-        MoveRobotGoal moveRobotGoal;
-        moveRobotGoal.pose.header.stamp = ros::Time::now();
-        moveRobotGoal.pose.header.frame_id = "/base_footprint";
-        moveRobotGoal.pose.pose.orientation = tf::createQuaternionMsgFromYaw(
-                boost::math::constants::pi<double>() / 2.0);
-        utils::sendGoal(&moveRobotClient, moveRobotGoal, nh);
-        */
         dogPositionSub.reset(
                 new message_filters::Subscriber<DogPosition>(nh,
                         "/dog_position_detector/dog_position", 1));
@@ -172,10 +162,6 @@ public:
 
         startPath(ros::Time::now());
 
-        if (!noSteeringMode) {
-            driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::steeringCallback,
-                    this);
-        }
         ROS_INFO("Delayed init complete");
     }
 
@@ -262,7 +248,6 @@ public:
         dogsim::GetPlannedRobotPose getPlannedPose;
         getPlannedPose.request.time = event.current_real + moveRobotUpdateInterval;
         getPlannedRobotPoseClient.call(getPlannedPose);
-        assert(getPlannedPose.response.started);
 
         // TODO: This is slightly wrong as its planned, not current.
         if (getPlannedPose.response.ended) {

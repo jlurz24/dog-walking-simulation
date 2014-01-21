@@ -2,6 +2,8 @@
 #include <actionlib/server/simple_action_server.h>
 #include <actionlib/client/simple_action_client.h>
 #include <moveit/move_group_interface/move_group.h>
+#include <tf/transform_listener.h>
+#include <moveit_msgs/RobotState.h>
 
 // Generated messages
 #include <dogsim/AdjustDogPositionAction.h>
@@ -24,6 +26,8 @@ namespace {
         
         as.registerPreemptCallback(boost::bind(&HighArmPositionAction::preemptCB, this));
         pnh.param<double>("torso_height", torsoHeight, 0.1);
+        nh.param("leash_length", leashLength, 1.5);
+        nh.param<double>("dog_height", dogHeight, 0.1);
         torsoClient.waitForServer();
         as.start();
     }
@@ -61,16 +65,12 @@ namespace {
     torsoClient.waitForResult();
    
     ROS_INFO("Moving arm to high position");
-    vector<double> positions(7);
-    positions[0] = -1.55;
-    positions[1] = -0.5;
-    positions[2] = 0.0;
-    positions[3] = -1.2;
-    positions[4] = 0.0;
-    positions[5] = 0.0;
-    positions[6] = 0.0;
-    rightArm.setJointValueTarget(positions);
-    rightArm.move(); 
+
+    rightArm.setPoseReferenceFrame(goal->dogPose.header.frame_id);
+    // Assumes the planning frame has equivalent z axis to world frame
+    rightArm.setPositionTarget(goal->dogPose.pose.position.x, goal->dogPose.pose.position.y, leashLength + dogHeight / 2.0);
+    rightArm.setStartStateToCurrentState();
+    rightArm.move();
     as.setSucceeded();
     return true;
   }
@@ -84,7 +84,11 @@ namespace {
         string actionName;
         move_group_interface::MoveGroup rightArm;
         TorsoClient torsoClient;
+        tf::TransformListener tf;
+
         double torsoHeight;
+        double leashLength;
+        double dogHeight;
     };
 }
 

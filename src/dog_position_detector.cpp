@@ -12,13 +12,13 @@ using namespace std;
 using namespace dogsim;
 using namespace geometry_msgs;
 
-static const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
-static const double STALE_THRESHOLD_DEFAULT = 1.0;
-static const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
+const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
+const double STALE_THRESHOLD_DEFAULT = 1.0;
+const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
 
-static double distance2(const PointStamped& a, const PointStamped &b) {
+double distance2(const PointStamped& a, const PointStamped &b) {
     return utils::square(a.point.x - b.point.x)
             + utils::square(a.point.y - b.point.y)
             + utils::square(a.point.z - b.point.z);
@@ -179,7 +179,6 @@ private:
                     std::remove_if(possiblePositions.begin(), possiblePositions.end(),
                             OutOfLeashDistance(leashLength, leashStretchError, handInBaseFrame, tf)), possiblePositions.end());
 
-            // TODO: Add additional filter operations.
             ROS_DEBUG("%lu possible dog positions at end of filtering", possiblePositions.size());
 
             // Apply preference filters. These filters distinguish between feasible

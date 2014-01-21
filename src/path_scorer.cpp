@@ -13,19 +13,25 @@ namespace {
     using namespace std;
     using namespace ros;
 
+    const double DOG_HEIGHT = 0.05;
 class PathScorer {
   private:
     NodeHandle nh;
     NodeHandle privateHandle;
     double totalDistanceDeviation;
+    double meanHeightDeviation;
+    unsigned int n;
     Timer timer;
     Time lastTime;
     message_filters::Subscriber<position_tracker::StartMeasurement> startMeasuringSub;
     message_filters::Subscriber<position_tracker::StopMeasurement> stopMeasuringSub;
+
  public:
     PathScorer() : 
        privateHandle("~"), 
        totalDistanceDeviation(0),
+       meanHeightDeviation(0),
+       n(0),
        startMeasuringSub(nh, "start_measuring", 1),
        stopMeasuringSub(nh, "stop_measuring", 1){
          timer = nh.createTimer(Duration(0.1), &PathScorer::callback, this);
@@ -49,6 +55,7 @@ class PathScorer {
     void stopMeasuring(const position_tracker::StopMeasurementConstPtr msg) {
         timer.stop();
         ROS_INFO("Path measurement ended. Total position deviation squared(m): %f", totalDistanceDeviation);
+        ROS_INFO("Mean height deviation: %f", meanHeightDeviation);
     }
 
     void callback(const TimerEvent& timerEvent){
@@ -76,10 +83,17 @@ class PathScorer {
       gazebo::math::Vector3 actual(modelState.response.pose.position.x, modelState.response.pose.position.y, modelState.response.pose.position.z);
       double currPositionDeviation = gazeboGoal.Distance(actual);
 
+      // Increase number of samples
+      n++;
+
       // Update the sum squared.
       double duration = timerEvent.current_real.toSec() - lastTime.toSec();
       totalDistanceDeviation += utils::square(currPositionDeviation) * duration;
-	  lastTime = timerEvent.current_real;
+
+      double deltaP = modelState.response.pose.position.z - DOG_HEIGHT - meanHeightDeviation;
+      meanHeightDeviation += deltaP / double(n);
+
+      lastTime = timerEvent.current_real;
       ROS_DEBUG("Current Position Deviation(m): %f, Total Position Deviation squared(m): %f, Duration(s): %f", currPositionDeviation, totalDistanceDeviation, duration);
    }
 };

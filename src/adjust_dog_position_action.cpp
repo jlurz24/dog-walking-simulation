@@ -23,12 +23,12 @@ namespace {
   using namespace geometry_msgs;
 
   // Calibrated through experimentation.
-  static const double MAX_ARM_HEIGHT = 1.376;
+  const double MAX_ARM_HEIGHT = 1.376;
 
   // It is possible to get lower than this height, but likely will not help for optimization.
-  static const double MIN_ARM_HEIGHT = 0.2;
+  const double MIN_ARM_HEIGHT = 0.2;
 
-  static const double ARM_HEIGHT_SEARCH_INCREMENT = 0.1;
+  const double ARM_HEIGHT_SEARCH_INCREMENT = 0.1;
 
   class AdjustDogPositionAction {
     public:

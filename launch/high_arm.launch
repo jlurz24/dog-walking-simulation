@@ -1,5 +1,6 @@
 <launch>
-  <include file="$(find dogsim)/launch/base.launch" />
+  <include file="$(find dogsim)/launch/base_no_sensors.launch" />
+  <include file="$(find dogsim)/launch/simulated_sensors.launch" />
   <include file="$(find dogsim)/launch/dog.launch" />
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
   <node pkg="dogsim" type="high_arm_position_action" name="adjust_dog_position_action" output="screen">

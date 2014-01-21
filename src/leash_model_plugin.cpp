@@ -9,15 +9,17 @@
 #include <time.h>
 #include <dogsim/LeashInfo.h>
 
-using namespace std;
 
-namespace gazebo {
+
+namespace {
+using namespace std;
+using namespace gazebo;
+
 // Amount of force the leash can apply at its maximum
-// This is 3x the maximum force the dog can apply.
-static const double SPRING_FORCE = 30.0;
+const double SPRING_FORCE = 50.0;
 
 // Rate to run the updates to the force
-static const double UPDATE_RATE = 0.05;
+const double UPDATE_RATE = 0.05;
 
 class LeashModelPlugin : public ModelPlugin {
 public:
@@ -90,27 +92,22 @@ private:
             // function.
             // Octave function:
             // x = [0:0.01:2.5];
-            // y = 1 ./ (1 + e.^(-42*(x - 1.25)));
-            const double ratio = 1.0 / (1.0 + exp(-42.0 * (abs(distance) - leashLength)));
+            // y = 1 ./ (1 + e.^(-48*(x - 1.25)));
+            const double ratio = 1.0 / (1.0 + exp(-48.0 * (abs(distance) - leashLength)));
 
             // The hand force is a spring like attractive force between the hand and
             // the dog.
-            // Determine the angle between the robot and the dog in the world frame.
-            double a = atan2(handPosition.y - dogPosition.y, handPosition.x - dogPosition.x);
-
-            math::Vector3 handForce;
-            handForce.x = handPosition.x - dogPosition.x;
-            handForce.y = handPosition.y - dogPosition.y;
-            handForce.z = handPosition.z - dogPosition.z;
-            handForce = handForce.Normalize();
+            const math::Vector3 handForce = (handPosition - dogPosition).Normalize();
 
             // Reduce the force.
             appliedForce = SPRING_FORCE * handForce * ratio;
 
-            ROS_DEBUG("Applying force x: %f y: %f z: %f at angle %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, appliedForce.z, a, ratio, distance);
+            ROS_DEBUG("Applying force x: %f y: %f z: %f with ratio: %f at distance: %f", appliedForce.x, appliedForce.y, appliedForce.z, ratio, distance);
 
             if(leashInfoPub.getNumSubscribers() > 0){
                 dogsim::LeashInfo info;
+                info.header.stamp = ros::Time(currTime.Double());
+                info.header.frame_id = "/map";
                 info.force.x = appliedForce.x;
                 info.force.y = appliedForce.y;
                 info.force.z = appliedForce.z;

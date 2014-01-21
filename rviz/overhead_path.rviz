@@ -725,21 +725,21 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /move_robot_action/move_goal_viz
       Name: Move Goal
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /path/walk_goal_viz_perm
       Name: Walk Goal
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /adjust_dog_position_action/start_viz
@@ -757,13 +757,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /move_robot_action/planned_move_viz
       Name: Planned Move Viz
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /dogsim/dog_goal_viz
@@ -785,7 +785,7 @@ Visualization Manager:
       Marker Topic: /object_tracks/dog/markers
       Name: Possible Dog Positions
       Namespaces:
-        dod_pv_arrows: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -793,7 +793,7 @@ Visualization Manager:
       Marker Topic: /object_tracks/dog/identities
       Name: Possible Dog Ids
       Namespaces:
-        dod_ids: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -801,7 +801,7 @@ Visualization Manager:
       Marker Topic: /focus_head_action/look_direction_viz
       Name: Focus Targets
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker

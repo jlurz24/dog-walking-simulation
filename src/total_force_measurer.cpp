@@ -8,6 +8,7 @@
 #include <position_tracker/StartMeasurement.h>
 #include <position_tracker/StopMeasurement.h>
 
+namespace {
 using namespace std;
 
 class TotalForceMeasurer {
@@ -84,6 +85,7 @@ class TotalForceMeasurer {
       ROS_DEBUG("Delta seconds(s): %f Delta force(N): %f Total force(N): %f", deltaSecs, deltaForce, totalForce);
    }
 };
+}
 
 int main(int argc, char **argv){
   ros::init(argc, argv, "total_force_measurer");

@@ -6,14 +6,14 @@
       <inertial>
         <pose>0 0 -0.05 0 0 0</pose>
         <inertia>
-          <ixx>0.015104167</ixx>
+          <ixx>0.03020833</ixx>
           <ixy>0</ixy>
           <ixz>0.0</ixz>
-          <iyy>0.015104167</iyy>
+          <iyy>0.03020833</iyy>
           <iyz>0.0</iyz>
-          <izz>0.004166667</izz>
+          <izz>0.008333334</izz>
         </inertia>
-        <mass>2.5</mass>
+        <mass>5</mass>
       </inertial>
       <collision name="collision">
         <geometry>
@@ -24,8 +24,8 @@
         <surface>
           <friction>
             <ode>
-              <mu>0.18</mu>
-              <mu2>0.18</mu2>
+              <mu>0.09</mu>
+              <mu2>0.09</mu2>
             </ode>
           </friction>
         </surface>

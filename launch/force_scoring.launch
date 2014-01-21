@@ -1,4 +1,5 @@
 <launch>
   <node pkg="dogsim" type="total_force_measurer" name="total_force_measurer" output="screen"/>
+  <node pkg="dogsim" type="leash_force_measurer" name="leash_force_measurer" output="screen"/>
 </launch>
 

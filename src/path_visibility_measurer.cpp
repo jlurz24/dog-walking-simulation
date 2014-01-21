@@ -41,11 +41,11 @@ private:
     void startMeasuring(const position_tracker::StartMeasurementConstPtr msg) {
         startTime = lastTime = msg->header.stamp;
         pathViewMetricsSub->registerCallback(boost::bind(&PathVisibilityMeasurer::callback, this, _1));
-        ROS_INFO("Measurement of path visibility initiated");
+        ROS_DEBUG("Measurement of path visibility initiated");
     }
 
     void stopMeasuring(const position_tracker::StopMeasurementConstPtr msg) {
-        ROS_INFO("Measurement of path visibility completed");
+        ROS_DEBUG("Measurement of path visibility completed");
         pathViewMetricsSub.release();
         ROS_INFO("Total path visibility score was %f over %f seconds", totalScore, msg->header.stamp.toSec() - startTime.toSec());
     }

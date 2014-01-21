@@ -7,9 +7,12 @@
 
 namespace {
   using namespace std;
-  static const double pi = boost::math::constants::pi<double>();
+
+  const double ROUNDING_DISTANCE = 1.0;
+
+  const double pi = boost::math::constants::pi<double>();
   
-  static const double VELOCITY = 0.125; // m/s
+  const double VELOCITY = 0.125; // m/s
   
   class PiecewiseLinearPathProvider : public PathProvider {
       public:
@@ -155,7 +158,5 @@ namespace {
         double totalDuration;
         
         vector<btVector3> segments;
-        
-        static const double ROUNDING_DISTANCE = 1.0;
   };
 }

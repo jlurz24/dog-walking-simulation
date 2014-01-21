@@ -2,7 +2,7 @@
   <include file="$(find dogsim)/launch/good_dog.launch" />
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   <include file="$(find dogsim)/launch/simulated_sensors.launch" />
-  <node pkg="dogsim" type="get_path_server" name="get_path_server" output="screen">
+  <node pkg="dogsim" type="get_path_server" name="get_path_server">
     <param name="path_type" value="rectangle"/>
   </node>
  <param name="add_gaussians_to_path" value="true"/>

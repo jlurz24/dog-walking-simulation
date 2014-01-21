@@ -215,7 +215,14 @@ private:
             lastFullyVisibleTime = messageTime;
         }
 
-        Point_2 center = CGAL::centroid(pathPointsIn2D.vertices_begin(), pathPointsIn2D.vertices_end(), K());
+        Point_2 center;
+        if(pathPointsIn2D.vertices_begin() == pathPointsIn2D.vertices_end()){
+            center = *pathPointsIn2D.vertices_begin();
+        }
+        else {
+            center = CGAL::centroid(pathPointsIn2D.vertices_begin(), pathPointsIn2D.vertices_end(), K());
+        }
+
         geometry_msgs::PointStamped pointToLookAt;
         pointToLookAt.header.frame_id = cameraModel.tfFrame();
         pointToLookAt.header.stamp = messageTime;

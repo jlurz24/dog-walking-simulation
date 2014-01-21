@@ -16,13 +16,13 @@ using namespace ros;
 using namespace std;
 
 //! Slope delta for calculating robot path.
-static const ros::Duration SLOPE_DELTA(0.01);
+const ros::Duration SLOPE_DELTA(0.01);
 
-static const double TRAILING_DISTANCE = 0;
+const double TRAILING_DISTANCE = 0;
 
 //! Shift distance from base to desired arm position
 //! Calculated as the negative of /base_footprint to /r_wrist_roll_link in x axis
-static const double SHIFT_DISTANCE = 0.6;
+const double SHIFT_DISTANCE = 0.6;
 
 class GetPathServer {
 
@@ -102,15 +102,16 @@ private:
 	bool getPlannedRobotPose(dogsim::GetPlannedRobotPose::Request& req,
 			dogsim::GetPlannedRobotPose::Response& res) {
 
+	    ROS_DEBUG("Getting planned robot pose for time %f", req.time.toSec());
 		computeStartAndEnd(req.time, res.started, res.ended);
-		if (!res.started || res.ended) {
+		if (res.ended) {
 			return true;
 		}
 
 		const geometry_msgs::PointStamped dogGoal =
-				pathProvider->positionAtTime(req.time - startTime);
+				pathProvider->positionAtTime(res.started ? req.time - startTime : ros::Duration(0));
 
-		const geometry_msgs::PointStamped goal2 = pathProvider->positionAtTime((req.time - startTime) + SLOPE_DELTA);
+		const geometry_msgs::PointStamped goal2 = pathProvider->positionAtTime((res.started ? (req.time - startTime) : ros::Duration(0)) + SLOPE_DELTA);
 
 		// Calculate the vector of the tangent line.
 		btVector3 tangent = btVector3(goal2.point.x, goal2.point.y, 0)
@@ -145,9 +146,15 @@ private:
 
 	bool getPath(dogsim::GetPath::Request& req,
 			dogsim::GetPath::Response& res) {
+
+	    ROS_DEBUG("Getting path position for time %f", startTime.toSec());
 		res.elapsedTime = req.time - startTime;
+		ROS_DEBUG("Elapsed time is %f", res.elapsedTime.toSec());
+
 		computeStartAndEnd(ros::Time(req.time), res.started, res.ended);
-		res.point = pathProvider->positionAtTime(req.time - startTime);
+
+		// Allow calling get path prior to starting and return the begin position.
+		res.point = pathProvider->positionAtTime(res.started ? (req.time - startTime): ros::Duration(0));
 		assert(res.point.header.frame_id.size() > 0);
 		return true;
 	}
