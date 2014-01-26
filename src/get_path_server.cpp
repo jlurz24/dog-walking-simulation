@@ -167,7 +167,7 @@ private:
 			rEnded = false;
 			rStarted = false;
 		} else if ((time - startTime) > pathProvider->getMaximumTime()) {
-		    ROS_DEBUG("Path ended");
+		    ROS_INFO("Path ended @ time %f for start time %f and maximum time %f", time.toSec(), startTime.toSec(), pathProvider->getMaximumTime().toSec());
 			rEnded = true;
 			rStarted = true;
 		} else {

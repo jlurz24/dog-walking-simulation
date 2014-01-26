@@ -170,11 +170,20 @@ private:
         }
         else {
             ROS_DEBUG("%lu possible dog positions at beginning of filtering", msg->objects.size());
+
+            // Convert positions to /base_footprint
+            tf.waitForTransform("/base_footprint", msg->header.frame_id, msg->header.stamp, ros::Duration(1.0));
+            DetectedDynamicObjectsList possiblePositions = msg->objects;
+
+            for(unsigned int i = 0; i < possiblePositions.size(); ++i){
+                tf.transformPoint("/base_footprint", possiblePositions[i].position, possiblePositions[i].position);
+            }
+
             PointStamped handInBaseFrame = findHandInBaseFrame();
 
             // Apply definitive filters to the possible points. These filters
             // eliminate points that cannot possibly be the correct point.
-            DetectedDynamicObjectsList possiblePositions = msg->objects;
+
             possiblePositions.erase(
                     std::remove_if(possiblePositions.begin(), possiblePositions.end(),
                             OutOfLeashDistance(leashLength, leashStretchError, handInBaseFrame, tf)), possiblePositions.end());

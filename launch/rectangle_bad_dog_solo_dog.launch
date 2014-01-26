@@ -1,0 +1,6 @@
+<launch>
+  <include file="$(find dogsim)/launch/solo_dog.launch" />
+  <include file="$(find dogsim)/launch/bad_dog.launch" />
+  <include file="$(find dogsim)/launch/rectangle.launch" />
+  <include file="$(find dogsim)/launch/scoring.launch" />
+</launch>

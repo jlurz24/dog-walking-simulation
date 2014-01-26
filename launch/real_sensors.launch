@@ -1,21 +1,22 @@
 <launch>
 <node pkg="position_tracker" type="dynamic_object_detector" name="dynamic_object_detector">
     <param name="object_name" value="dog" />
-    <param name="frame" value="/base_footprint" />
-    <param name="initial_velocity" value="0.0" />
+    <param name="frame" value="/map" />
+    <param name="initial_velocity" value="0.00" />
     <param name="kalman_observation_noise" value="0.05" />
-    <param name="kalman_acceleration_dist" value="0.1" />
+    <param name="kalman_acceleration_dist" value="0.25" />
     <param name="association_epsilon" value="1e-6" />
     <param name="association_max_success_score" value="5" />
-    <param name="filter_stale_threshold" value="5.0" />
+    <param name="filter_stale_threshold" value="10" />
     <param name="max_correlation_distance" value="5" />
   </node>
 
   <node pkg="position_tracker" type="multi_object_detector" name="r_forearm_multi_object_detector">
+    <param name="output_frame" value="/map" />
     <param name="object_name" value="dog" />
-    <param name="cluster_distance_tolerance" value="0.5" />
+    <param name="cluster_distance_tolerance" value="1.0" />
     <param name="voxel_leaf_size" value="0.01" />
-    <param name="min_cluster_size" value="1" />
+    <param name="min_cluster_size" value="5" />
     <param name="max_cluster_size" value="25000" />
     <param name="stereo_camera_mode" value="false" />
     <remap from="blobs" to="/r_forearm_cam/blobs"/>
@@ -52,10 +53,11 @@
   </node>
 
   <node pkg="position_tracker" type="multi_object_detector" name="wide_stereo_multi_object_detector">
+    <param name="output_frame" value="/map" />
     <param name="object_name" value="dog" />
-    <param name="cluster_distance_tolerance" value="0.25" />
+    <param name="cluster_distance_tolerance" value="1.0" />
     <param name="voxel_leaf_size" value="0.01" />
-    <param name="min_cluster_size" value="1" />
+    <param name="min_cluster_size" value="10" />
     <param name="max_cluster_size" value="25000" />
     <remap from="blobs" to="/wide_stereo/blobs"/>
     <remap from="points" to="/wide_stereo/left/points"/>
@@ -87,5 +89,8 @@
     <remap from="blobs" to="r_forearm_cam/blobs"/>
   </node>
   	
-  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector"/>
+  <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector">
+    <param name="stale_threshold" value="5.0" />
+    <param name="leash_stretch_error" value="0.25" />
+  </node>
 </launch>

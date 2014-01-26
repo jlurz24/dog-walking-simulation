@@ -13,7 +13,7 @@ function x, y = add_gaussians(xorig, yorig)
 
     if(unifrnd(0,1) <= pNewGauss)
       # Start a new gaussian
-      g(end + 1, :) = [unifrnd(-pi, pi), unifrnd(pi / 2, 4 * pi), i];
+      g(end + 1, :) = [unifrnd(-pi, pi), unifrnd(3 * pi / 4, 4 * pi), i];
     endif;
     
     # Now iterate over all the gaussians.

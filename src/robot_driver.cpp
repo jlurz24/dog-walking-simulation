@@ -205,7 +205,7 @@ public:
         }
 
         if (dogPosition->unknown || dogPosition->stale) {
-            ROS_DEBUG("Dog position is unknown or stale. Starting search.");
+            ROS_DEBUG("Dog position is unknown or stale. Canceling movement of arm.");
             adjustDogClient.cancelGoal();
             return;
         }

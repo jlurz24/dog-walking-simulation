@@ -14,8 +14,8 @@
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
 #include <tf/tf.h>
-#include <google/profiler.h>
-
+#include <position_tracker/StartMeasurement.h>
+#include <position_tracker/StopMeasurement.h>
 
 
 namespace {
@@ -35,13 +35,13 @@ const double GAUSS_HALF_WIDTH = 3;
 
 const double KP_DEFAULT = 0.0075;
 
-const double MAXIMUM_FORCE = 10;
+const double MAXIMUM_FORCE = 15;
 
 // Number of simulator iterations per second.
 const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
 
 // Rate to run the updates at
-const double UPDATE_RATE = 0.05;
+const double UPDATE_RATE = 0.001;
 
 class DogModelPlugin: public ModelPlugin {
 public:
@@ -84,10 +84,19 @@ public:
             initGaussians();
         }
 
+        startMeasuringPub = nh.advertise<position_tracker::StartMeasurement>("start_measuring", 1,
+                true);
+        stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1,
+                true);
+
         // Start the path if we are in solo mode. In regular mode the robot does this.
         bool isSoloDog;
         nh.param<bool>("solo_dog", isSoloDog, false);
         if (isSoloDog) {
+            // Notify clients to start measuring.
+            position_tracker::StartMeasurement startMeasuringMsg;
+            startMeasuringMsg.header.stamp = ros::Time::now();
+            startMeasuringPub.publish(startMeasuringMsg);
             startPath();
         }
 
@@ -173,9 +182,22 @@ private:
 
         // Calculate the desired position.
         common::Time currTime = this->model->GetWorld()->GetSimTime();
-        if (currTime - this->previousTime > common::Time::SecToNano(UPDATE_RATE)) {
-            bool running;
-            math::Vector3 goalPosition = calcGoalPosition(currTime, running);
+        if (currTime - this->previousTime >= common::Time::SecToNano(UPDATE_RATE)) {
+            bool running, ended;
+            math::Vector3 goalPosition = calcGoalPosition(currTime, running, ended);
+            if(ended){
+                ROS_INFO("Stopping dog model movement");
+                // Stop updates.
+                event::Events::DisconnectWorldUpdateBegin(this->updateConnection);
+                bool isSoloDog;
+                nh.param<bool>("solo_dog", isSoloDog, false);
+                if (isSoloDog) {
+                    // Notify clients to stop measuring.
+                    position_tracker::StopMeasurement stopMeasuringMsg;
+                    stopMeasuringMsg.header.stamp = ros::Time::now();
+                    stopMeasuringPub.publish(stopMeasuringMsg);
+                }
+            }
             if (!running) {
                 return;
             }
@@ -261,16 +283,18 @@ private:
         return KP * _error + KD * _errorDerivative;
     }
 
-    math::Vector3 calcGoalPosition(common::Time time, bool& running) {
+    math::Vector3 calcGoalPosition(common::Time time, bool& running, bool& ended) {
         dogsim::GetPath getPath;
         getPath.request.time = ros::Time(time.Double());
         getPathClient.call(getPath);
         if (!getPath.response.started || getPath.response.ended) {
+            ended = getPath.response.ended;
             running = false;
             return math::Vector3();
         }
 
         running = true;
+        ended = false;
 
         // Check the goal for the current time.
         gazebo::math::Vector3 base;
@@ -380,6 +404,10 @@ private:
     ros::ServiceClient getPathClient;
 
     ros::ServiceServer dogOrientationService;
+
+    //! Publishers for starting and stopping measurement.
+    ros::Publisher startMeasuringPub;
+    ros::Publisher stopMeasuringPub;
 
     physics::LinkPtr body;
 

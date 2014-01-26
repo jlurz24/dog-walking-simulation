@@ -729,7 +729,7 @@ Visualization Manager:
       Marker Topic: /move_robot_action/move_goal_viz
       Name: Move Goal
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -761,17 +761,17 @@ Visualization Manager:
       Marker Topic: /move_robot_action/planned_move_viz
       Name: Planned Move Viz
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /dogsim/dog_goal_viz
       Name: DogGoal
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /path/walk_goal_viz_complete
@@ -886,25 +886,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.01
+      Distance: 10.4899
       Focal Point:
         X: 1.69312
         Y: 1.59334
         Z: 13.26
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 1.5698
+      Pitch: 1.5448
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.05542
+      Yaw: 6.23542
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: false
+    collapsed: true
   Height: 808
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000002fb000000100044006900730070006c0061007900730100000028000002e2000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000028000002e20000000000000000000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff00000105000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a2000002e2fc0200000002fb000000100044006900730070006c0061007900730000000028000002e2000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000028000002e20000000000000000000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000002ad000002e200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Tool Properties:
     collapsed: false
   Width: 685

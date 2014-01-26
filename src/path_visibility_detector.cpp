@@ -202,7 +202,7 @@ private:
             pathArea = CGAL::to_double(pathPointsIn2D.area());
         }
 
-        ROS_INFO("Image area width %f and height%f",
+        ROS_DEBUG("Image area width %f and height %f",
                 sqrt(CGAL::to_double(CGAL::squared_distance(imagePointsIn2D[0], imagePointsIn2D[1]))),
                 sqrt(CGAL::to_double(CGAL::squared_distance(imagePointsIn2D[1], imagePointsIn2D[2]))));
 
