@@ -17,6 +17,7 @@ private:
 
     double meanLeashStretch;
     double m2LeashStretch;
+    double maxLeashStretch;
 
     double leashLength;
 
@@ -34,6 +35,7 @@ public:
         totalForce(0.0),
         meanLeashStretch(0),
         m2LeashStretch(0),
+        maxLeashStretch(0),
         n(0),
         startMeasuringSub(nh, "start_measuring", 1), stopMeasuringSub(
                 nh, "stop_measuring", 1), leashSub(nh, "leash_model/info", 1) {
@@ -57,7 +59,7 @@ private:
         ROS_INFO("Total leash force(N): %f", totalForce);
 
         double leashLengthVariance = m2LeashStretch / (n - 1);
-        ROS_INFO("Mean Leash Stretch: %f, Leash Stretch Variance: %f", meanLeashStretch, leashLengthVariance);
+        ROS_INFO("Mean Leash Stretch: %f, Leash Stretch Variance: %f, Maximum Leash Stretch: %f", meanLeashStretch, leashLengthVariance, maxLeashStretch);
 
         leashSub.unsubscribe();
     }
@@ -92,6 +94,7 @@ private:
         double deltaP = max(leashState->distance - leashLength, 0.0) - meanLeashStretch;
         meanLeashStretch += deltaP / double(n);
         m2LeashStretch += utils::square(deltaP);
+        maxLeashStretch = max(deltaP, maxLeashStretch);
 
         // Save off the message.
         lastLeashState = leashState;

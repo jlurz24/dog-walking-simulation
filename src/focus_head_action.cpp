@@ -5,7 +5,6 @@
 #include <tf/transform_listener.h>
 #include <dogsim/DogPosition.h>
 #include <message_filters/subscriber.h>
-#include <type_traits>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <tf/message_filter.h>
@@ -32,7 +31,7 @@ typedef vector<geometry_msgs::PointStamped> PointStampedVector;
 
 static const ros::Duration FOCUS_TIMEOUT(1.0);
 static const double PATH_VIS_THRESHOLD_DEFAULT = 0.99;
-static const double LOOK_AT_PATH_WEIGHT_DEFAULT = -1.0; // 10;
+static const double LOOK_AT_PATH_WEIGHT_DEFAULT = 2;
 static const double SEARCH_FOR_DOG_WEIGHT_DEFAULT = 1;
 static const string STATE_NAMES[] = { "Idle", "Looking_At_Path", "Looking_for_Dog" };
 static const string SEARCH_STATE_NAMES[] = { "None", "Last Known", "Head", "Arm", "Done" };

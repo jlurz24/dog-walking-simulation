@@ -16,10 +16,10 @@ using namespace std;
 using namespace gazebo;
 
 // Amount of force the leash can apply at its maximum
-const double SPRING_FORCE = 50.0;
+const double SPRING_FORCE = 75.0;
 
 // Rate to run the updates to the force
-const double UPDATE_RATE = 0.05;
+const double UPDATE_RATE = 0.01;
 
 class LeashModelPlugin : public ModelPlugin {
 public:

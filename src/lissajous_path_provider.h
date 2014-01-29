@@ -28,15 +28,15 @@ namespace {
             // Lissajous parameters.
             static const double a = sqrt(2);
             static const double delta = boost::math::constants::pi<long double>() / 2.0;
-            static const double A = 8.0;
-            static const double B = 4.0;
+            static const double A = 6.0;
+            static const double B = 3.0;
             static const double b = 2 * a;
             double t = baseT.toSec() / TIMESCALE_FACTOR;
             
             geometry_msgs::PointStamped goal;
             goal.header.frame_id = "/map";
-            goal.point.x = -(A * sin(a * t + delta)) + 9; // Offset the start and invert;
-            goal.point.y = B * sin(b * t);
+            goal.point.y = (A * sin(a * t + delta)) - 7; // Offset the start and invert;
+            goal.point.x = B * sin(b * t);
             goal.point.z = 0.0;
             return goal;
         }

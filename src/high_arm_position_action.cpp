@@ -3,7 +3,6 @@
 #include <actionlib/client/simple_action_client.h>
 #include <moveit/move_group_interface/move_group.h>
 #include <tf/transform_listener.h>
-#include <moveit_msgs/RobotState.h>
 
 // Generated messages
 #include <dogsim/AdjustDogPositionAction.h>
@@ -59,17 +58,20 @@ namespace {
     pr2_controllers_msgs::SingleJointPositionGoal up;
     up.position = torsoHeight;
     up.min_duration = ros::Duration(0.0);
-    up.max_velocity = 2.0;
+    up.max_velocity = 10.0;
     
     torsoClient.sendGoal(up);
-    torsoClient.waitForResult();
-   
-    ROS_INFO("Moving arm to high position");
 
-    rightArm.setPoseReferenceFrame(goal->dogPose.header.frame_id);
-    // Assumes the planning frame has equivalent z axis to world frame
-    rightArm.setPositionTarget(goal->dogPose.pose.position.x, goal->dogPose.pose.position.y, leashLength + dogHeight / 2.0);
-    rightArm.setStartStateToCurrentState();
+    ROS_INFO("Moving arm to high position");
+    vector<double> positions(7);
+    positions[0] = -1.55;
+    positions[1] = -0.5;
+    positions[2] = 0.0;
+    positions[3] = -1.2;
+    positions[4] = 0.0;
+    positions[5] = 0.0;
+    positions[6] = 0.0;
+    rightArm.setJointValueTarget(positions);
     rightArm.move();
     as.setSucceeded();
     return true;

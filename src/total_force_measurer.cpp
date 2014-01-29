@@ -46,7 +46,7 @@ class TotalForceMeasurer {
 
     void stopMeasuring(const position_tracker::StopMeasurementConstPtr msg) {
         // Print out the final measurements
-        ROS_INFO("Total force(N): %f", totalForce);
+        ROS_INFO("Total force(Nm): %f", totalForce);
     }
 
     void callback(sensor_msgs::JointStateConstPtr jointState){
