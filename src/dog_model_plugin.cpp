@@ -35,13 +35,17 @@ const double GAUSS_HALF_WIDTH = 3;
 
 const double KP_DEFAULT = 0.0075;
 
-const double MAXIMUM_FORCE = 15;
+const double MAXIMUM_FORCE = 13.5;
 
 // Number of simulator iterations per second.
-const unsigned int SIMULATOR_CYCLES_PER_SECOND = 1000;
+const unsigned int SIMULATOR_CYCLES_PER_SECOND = 100;
 
 // Rate to run the updates at
 const double UPDATE_RATE = 0.001;
+
+const double MIN_DISTANCE_FROM_ROBOT = 0.5;
+const double BASE_RADIUS = sqrt(2 * utils::square(0.668 / 2.0));
+const double AVOIDANCE_FORCE_MULT = 1.25;
 
 class DogModelPlugin: public ModelPlugin {
 public:
@@ -64,7 +68,7 @@ public:
 
         this->previousErrorX = this->previousErrorY = 0.0;
         this->forceX = this->forceY = this->forceZ = 0.0;
-        this->liftFactor = 1.0;
+        this->appliedForceX = this->appliedForceY = 0.0;
 
         getPathClient = nh.serviceClient<dogsim::GetPath>("/dogsim/get_path", true);
 
@@ -202,11 +206,7 @@ private:
                 return;
             }
 
-            // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smoothing function
-            // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
-            double liftFactor = min(log(10 * this->model->GetWorldPose().pos.z) / log(10 * 0.05),
-                    1.0);
-            ROS_DEBUG("LIFT_FACTOR %f @ height %f", liftFactor, this->model->GetWorldPose().pos.z);
+
 
             // Publish the position.
             if(dogGoalVizPub.getNumSubscribers() > 0) {
@@ -257,10 +257,50 @@ private:
 
             // Save the previous time.
             this->previousTime = currTime;
+
+
+            // Add force to push dog away from base of robot.
+            // y = 2 * MAX_FORCE * 1/0.25^2 * (0.25 - x).^2
+            const physics::ModelPtr robot = this->model->GetWorld()->GetModel("pr2");
+
+            double avoidanceForceX = 0;
+            double avoidanceForceY = 0;
+            if(robot){
+                math::Vector3 basePosition = robot->GetLink("base_footprint")->GetWorldPose().pos;
+                basePosition.z = 0;
+                math::Vector3 dogPose = this->model->GetWorldPose().pos;
+                dogPose.z = 0;
+                double distance = dogPose.Distance(basePosition);
+                if(distance - BASE_RADIUS < MIN_DISTANCE_FROM_ROBOT){
+                    double avoidanceForce = AVOIDANCE_FORCE_MULT * MAXIMUM_FORCE * 1.0
+                            / utils::square(MIN_DISTANCE_FROM_ROBOT)
+                    * utils::square(MIN_DISTANCE_FROM_ROBOT - max(distance - BASE_RADIUS, 0.0));
+                    math::Vector3 diff = (this->model->GetWorldPose().pos - basePosition).Normalize();
+                    avoidanceForceX = avoidanceForce * diff.x;
+                    avoidanceForceY = avoidanceForce * diff.y;
+                    // ROS_INFO("distance %f BX %f BY %f AX %f AY %f", distance, this->forceX, this->forceY, avoidanceForceX, avoidanceForceY);
+                }
+            }
+
+            this->appliedForceX = this->forceX + avoidanceForceX;
+            this->appliedForceY = this->forceY + avoidanceForceY;
+
+            if (abs(this->appliedForceX) > AVOIDANCE_FORCE_MULT * MAXIMUM_FORCE) {
+                this->appliedForceX = copysign(AVOIDANCE_FORCE_MULT * MAXIMUM_FORCE,
+                        this->appliedForceX);
+            }
+            if (abs(this->appliedForceY) > AVOIDANCE_FORCE_MULT * MAXIMUM_FORCE) {
+                this->appliedForceY = copysign(AVOIDANCE_FORCE_MULT * MAXIMUM_FORCE,
+                        this->appliedForceY);
+            }
         }
 
-        body->AddForce(
-                math::Vector3(this->forceX * this->liftFactor, this->forceY * this->liftFactor, 0.0));
+        // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smoothing function
+        // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
+        double liftFactor = min(log(10 * this->model->GetWorldPose().pos.z) / log(10 * 0.05),
+                1.0);
+
+        body->AddForce(math::Vector3(this->appliedForceX * liftFactor, this->appliedForceY * liftFactor, 0.0));
 
         // Calculate the torque
         const math::Vector3 relativeForce = body->GetRelativeForce();
@@ -389,8 +429,8 @@ private:
     // Z Force
     double forceZ;
 
-    // Lift factor
-    double liftFactor;
+    double appliedForceX;
+    double appliedForceY;
 
     // Previous goal
     math::Vector3 previousBase;
@@ -425,7 +465,6 @@ private:
 
     // KD term
     double KD;
-
 };
 
 // Register this plugin with the simulator

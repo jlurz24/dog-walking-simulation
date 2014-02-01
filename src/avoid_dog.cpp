@@ -13,10 +13,12 @@ using namespace std;
 using namespace dogsim;
 
 //! Radius of the robot to edge of the square base.
-static const double BASE_RADIUS = 0.668 / 2.0;
+const double BASE_RADIUS = 0.668 / 2.0;
 
-//! Space to keep in front of the robot in meters
-static const double FRONT_AVOIDANCE_THRESHOLD = 0.50;
+//! Space to keep in front of the robot in meters.
+const double FRONT_AVOIDANCE_THRESHOLD = 0.5;
+
+const double SIDE_AVOIDANCE_THRESHOLD = 0.1;
 
 typedef actionlib::SimpleActionClient<MoveDogAwayAction> MoveDogAwayClient;
 
@@ -84,9 +86,9 @@ public:
 		}
 		// Determine if we should avoid the dog.
 		bool dogInFront = dogPoseInBaseFrame.pose.position.x
-				< (FRONT_AVOIDANCE_THRESHOLD - BASE_RADIUS)
+				< (FRONT_AVOIDANCE_THRESHOLD + BASE_RADIUS)
 				&& dogPoseInBaseFrame.pose.position.x >= BASE_RADIUS
-				&& abs(dogPoseInBaseFrame.pose.position.y) < BASE_RADIUS;
+				&& abs(dogPoseInBaseFrame.pose.position.y) < (BASE_RADIUS + SIDE_AVOIDANCE_THRESHOLD);
 		if (dogInFront) {
 			ROS_INFO(
 					"Attempting to avoid dog @ %f %f with FAT %f and BR = %f", dogPoseInBaseFrame.pose.position.x, dogPoseInBaseFrame.pose.position.y, FRONT_AVOIDANCE_THRESHOLD, BASE_RADIUS);
@@ -97,12 +99,12 @@ public:
 			msg.avoiding = true;
 			avoidingDogPub.publish(msg);
 
-			if (!avoidingDog) {
+			if (moveDogAwayClient.getState() != actionlib::SimpleClientGoalState::ACTIVE) {
 				ROS_INFO("Activating the move dog away client");
 				MoveDogAwayGoal goal;
 				moveDogAwayClient.sendGoal(goal);
+				avoidingDog = true;
 			}
-			avoidingDog = true;
 		} else if (!dogInFront) {
 			if (avoidingDog) {
 				ROS_INFO("Deactivating the move dog away client");

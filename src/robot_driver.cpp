@@ -181,10 +181,9 @@ public:
         ROS_DEBUG("Robot driver received avoid dog callback");
         if (avoidDogMsg->avoiding) {
             ROS_INFO("Canceling movement as the avoiding flag is set");
-            // Cancel all movement
-            adjustDogClient.cancelGoal();
+            // Cancel all base movement. Arm movement will be cancelled
+            // by sending the command from the avoid dog client.
             moveRobotClient.cancelGoal();
-            moveArmToBasePositionClient.cancelGoal();
         }
         else if (avoidingDog) {
             ROS_INFO("Resetting arm as the avoiding flag is not set");

@@ -11,7 +11,6 @@
 #include <message_filters/synchronizer.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/feature.h>
-#include <cmath>
 #include <boost/math/constants/constants.hpp>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/voxel_grid.h>

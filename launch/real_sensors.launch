@@ -9,6 +9,7 @@
     <param name="association_max_success_score" value="5" />
     <param name="filter_stale_threshold" value="10" />
     <param name="max_correlation_distance" value="5" />
+    <param name="max_filters" value="3" />
   </node>
 
   <node pkg="position_tracker" type="multi_object_detector" name="r_forearm_multi_object_detector">

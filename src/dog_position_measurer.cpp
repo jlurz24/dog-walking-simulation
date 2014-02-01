@@ -22,12 +22,18 @@ private:
 
     double meanTimeDuration;
     double m2TimeDuration;
+
+    double meanUnknownTimeDuration;
+    double m2UnknownTimeDuration;
+
     unsigned int n;
+    unsigned int unknownN;
 
     ros::Time lastTime;
     ros::Time startTime;
     ros::Duration knownTime;
     ros::Duration unknownTime;
+    ros::Time lastKnownTime;
 
     auto_ptr<message_filters::Subscriber<dogsim::DogPosition> > dogSub;
     message_filters::Subscriber<position_tracker::StartMeasurement> startMeasuringSub;
@@ -41,7 +47,10 @@ public:
             m2PositionDeviation(0),
             meanTimeDuration(0),
             m2TimeDuration(0),
+            meanUnknownTimeDuration(0),
+            m2UnknownTimeDuration(0),
             n(0),
+            unknownN(0),
             startMeasuringSub(nh, "start_measuring", 1),
             stopMeasuringSub(nh, "stop_measuring", 1) {
 
@@ -62,7 +71,7 @@ public:
 
 private:
     void startMeasuring(const position_tracker::StartMeasurementConstPtr msg) {
-        startTime = lastTime = msg->header.stamp;
+        lastKnownTime = startTime = lastTime = msg->header.stamp;
         dogSub->subscribe();
         ROS_INFO("Measurement of dog position initiated");
     }
@@ -83,6 +92,10 @@ private:
         double timeDurationVariance = m2TimeDuration / (n - 1);
         ROS_INFO("Mean Time Duration: %f, Time Variance: %f", meanTimeDuration,
                 timeDurationVariance);
+
+        double unknownTimeDurationVariance = m2UnknownTimeDuration / (unknownN - 1);
+        ROS_INFO("Mean Unknown Time Duration: %f, Unknown Time Variance: %f", meanUnknownTimeDuration,
+                unknownTimeDurationVariance);
     }
 
     void callback(const dogsim::DogPositionConstPtr dogPositionMsg) {
@@ -94,8 +107,13 @@ private:
         // Check if there are any messages.
         if (dogPositionMsg->unknown) {
             unknownTime += timePassed;
+            unknownN++;
+            double deltaUT = (dogPositionMsg->header.stamp.toSec() - lastKnownTime.toSec()) - meanUnknownTimeDuration;
+            meanUnknownTimeDuration += deltaUT / double(unknownN);
+            m2UnknownTimeDuration += square(deltaUT);
             return;
         }
+        lastKnownTime = dogPositionMsg->header.stamp;
         knownTime += timePassed;
 
         // Fetch the model for the true position

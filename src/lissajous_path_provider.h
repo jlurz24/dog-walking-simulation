@@ -6,10 +6,10 @@ namespace {
     
   //! Factor to slow down the lissajous calculation.
   //! TODO: Be smarter about making time scale based on velocity.
-  static const double TIMESCALE_FACTOR = 90.0;
+  const double TIMESCALE_FACTOR = 75.0;
 
   //! Amount of time it takes to perform a full lissajous cycle.
-  static const double FULL_CYCLE_T = 4.45;
+  const double FULL_CYCLE_T = 4.45;
   
   class LissajousPathProvider : public PathProvider {
       public:
@@ -36,7 +36,7 @@ namespace {
             geometry_msgs::PointStamped goal;
             goal.header.frame_id = "/map";
             goal.point.y = (A * sin(a * t + delta)) - 7; // Offset the start and invert;
-            goal.point.x = B * sin(b * t);
+            goal.point.x = B * sin(b * t) + 1;
             goal.point.z = 0.0;
             return goal;
         }
