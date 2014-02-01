@@ -66,8 +66,10 @@ class PathScorer {
       getPath.request.time = timerEvent.current_real;
       getPathClient.call(getPath);
      
-      assert(getPath.response.started);
-      assert(!getPath.response.ended);
+      if(!getPath.response.started || getPath.response.ended){
+          ROS_WARN("Received callback after timer should have stopped");
+          return;
+      }
 
       ServiceClient modelStateServ = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
       gazebo_msgs::GetModelState modelState;

@@ -85,6 +85,13 @@ private:
     ros::Publisher startMeasuringPub;
     ros::Publisher stopMeasuringPub;
 
+    void publishStopMeasurement() {
+        // Notify clients to stop measuring.
+        position_tracker::StopMeasurement stopMeasuringMsg;
+        stopMeasuringMsg.header.stamp = ros::Time::now();
+        stopMeasuringPub.publish(stopMeasuringMsg);
+    }
+
 public:
     //! ROS node initialization
     RobotDriver() :
@@ -139,6 +146,10 @@ public:
 
         if (!noSteeringMode) {
             driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::steeringCallback,
+                    this);
+        }
+        else {
+            driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::noSteeringCallback,
                     this);
         }
 
@@ -240,6 +251,19 @@ public:
         return getPath.response.point;
     }
 
+    void noSteeringCallback(const ros::TimerEvent& event){
+        dogsim::GetPlannedRobotPose getPlannedPose;
+        getPlannedPose.request.time = event.current_real;
+        getPlannedRobotPoseClient.call(getPlannedPose);
+        if (getPlannedPose.response.ended) {
+            driverTimer.stop();
+            dogPositionSub->unsubscribe();
+            avoidingDogSub->unsubscribe();
+            // Notify clients to stop measuring.
+            publishStopMeasurement();
+        }
+    }
+
     void steeringCallback(const ros::TimerEvent& event) {
         ROS_DEBUG("Received steering callback @ %f : %f", event.current_real.toSec(),
                 event.current_expected.toSec());
@@ -259,9 +283,7 @@ public:
             avoidingDogSub->unsubscribe();
 
             // Notify clients to stop measuring.
-            position_tracker::StopMeasurement stopMeasuringMsg;
-            stopMeasuringMsg.header.stamp = ros::Time::now();
-            stopMeasuringPub.publish(stopMeasuringMsg);
+            publishStopMeasurement();
             return;
         }
 

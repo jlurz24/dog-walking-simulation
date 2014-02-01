@@ -16,9 +16,9 @@ using namespace dogsim;
 const double BASE_RADIUS = 0.668 / 2.0;
 
 //! Space to keep in front of the robot in meters.
-const double FRONT_AVOIDANCE_THRESHOLD = 0.5;
+const double FRONT_AVOIDANCE_THRESHOLD = 0.25;
 
-const double SIDE_AVOIDANCE_THRESHOLD = 0.1;
+const double SIDE_AVOIDANCE_THRESHOLD = 0.0;
 
 typedef actionlib::SimpleActionClient<MoveDogAwayAction> MoveDogAwayClient;
 
