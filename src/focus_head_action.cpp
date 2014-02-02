@@ -374,14 +374,16 @@ private:
             bool found = false;
             do {
                 if (searchState == SearchState::NONE) {
-                    moveToNextSearchState();
+                    bool proceeding = moveToNextSearchState();
+                    assert(proceeding);
                 }
 
                 // If the search state is last known and there is no last known,
                 // immediate increment the search.
                 if (searchState == SearchState::LAST_KNOWN && !isPositionSet) {
                     ROS_INFO("Skipping last known search state because position is not set");
-                    moveToNextSearchState();
+                    bool proceeding = moveToNextSearchState();
+                    assert(proceeding);
                 }
 
                 ROS_INFO("Executing search step %s",
@@ -613,6 +615,8 @@ private:
         else {
             ROS_WARN("Search failed. Resetting search state to retry");
             searchState = SearchState::NONE;
+            state = ActionState::IDLE;
+            currentActionScore = 0;
         }
         ROS_INFO("Transition complete. New search state is %s.",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
