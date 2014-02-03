@@ -50,8 +50,6 @@ class TotalForceMeasurer {
     }
 
     void callback(sensor_msgs::JointStateConstPtr jointState){
-      ROS_DEBUG("Received a message @ %f", jointState->header.stamp.toSec());
-
       // Ignore the first measurement so we can get a clean baseline.
       if(!lastJointState.get()){
         lastJointState = jointState;
@@ -64,16 +62,25 @@ class TotalForceMeasurer {
       // Iterate over all the joints.
       double deltaForce = 0.0;
       for(unsigned int i = 0; i < jointState->effort.size(); ++i){
-        ROS_DEBUG("Joint %s is exerting %f", jointState->name[i].c_str(), jointState->effort[i]);
-        if(signbit(jointState->effort[i]) != signbit(lastJointState->effort[i]) && abs(jointState->effort[i]) > 0 && abs(lastJointState->effort[i]) > 0){
-            double ratio = abs(jointState->effort[i]) / abs(lastJointState->effort[i]);
-            double l1 = ratio * deltaSecs / (1 + ratio);
-            double l2 = deltaSecs - l1;
-            deltaForce += utils::square(0.5 * jointState->effort[i] * l1) + utils::square(0.5 * lastJointState->effort[i] * l2);
-        }
-        else {
-            // Apply trapezoidal rule
-            deltaForce += utils::square(deltaSecs * (jointState->effort[i] + lastJointState->effort[i]) / 2.0);
+
+          if(jointState->effort[i] == 0 && lastJointState->effort[i] == 0){
+              continue;
+          }
+          double additionalForce = 0;
+          if(signbit(jointState->effort[i]) != signbit(lastJointState->effort[i]) && abs(jointState->effort[i]) > 0 && abs(lastJointState->effort[i]) > 0){
+              double ratio = abs(jointState->effort[i]) / abs(lastJointState->effort[i]);
+              double l1 = ratio * deltaSecs / (1 + ratio);
+              double l2 = deltaSecs - l1;
+              additionalForce = utils::square(0.5 * jointState->effort[i] * l1) + utils::square(0.5 * lastJointState->effort[i] * l2);
+          }
+          else {
+              // Apply trapezoidal rule
+              additionalForce = utils::square(deltaSecs * (jointState->effort[i] + lastJointState->effort[i]) / 2.0);
+          }
+
+        deltaForce += additionalForce;
+        if(additionalForce > 0){
+            ROS_DEBUG("Joint %s is exerting %f resulting in %f and df %f", jointState->name[i].c_str(), jointState->effort[i], additionalForce, deltaForce);
         }
       }
 
