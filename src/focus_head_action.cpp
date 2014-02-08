@@ -327,12 +327,21 @@ private:
     void pointArmCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const dogsim::PointArmCameraResultConstPtr result) {
         ROS_INFO("Received point arm complete callback");
+        if (searchState != SearchState::ARM) {
+            ROS_WARN("Spurious point arm complete callback received");
+            return;
+        }
         searchCompleteCallback();
     }
 
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result) {
         ROS_INFO("Received point head complete callback");
+        if (searchState != SearchState::HEAD) {
+            ROS_WARN("Spurious point head complete callback received");
+            return;
+        }
+
         searchCompleteCallback();
     }
 
@@ -625,7 +634,6 @@ private:
     }
 
     bool nextBestSearch(geometry_msgs::PointStamped& resultPoint) const {
-        // Precondition: Search points lock held.
         ROS_INFO("Executing nextBestSearch. Current search state is %s",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
         assert(searchState == SearchState::HEAD || searchState == SearchState::ARM);
