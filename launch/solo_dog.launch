@@ -8,5 +8,7 @@
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
   <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
-  <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer" />
+  <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer">
+    <remap from="dog_position_in" to="/dog_position_detector/dog_position"/>
+  </node>
 </launch>

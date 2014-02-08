@@ -1,3 +1,5 @@
 <launch>
-  <node pkg="dogsim" type="simulated_dog_position_detector" name="dog_position_detector" output="screen"/>
+  <node pkg="dogsim" type="simulated_dog_position_detector" name="dog_position_detector" output="screen">
+    <remap to="/dog_position_detector/dog_position" from="out"/>
+  </node>
 </launch>

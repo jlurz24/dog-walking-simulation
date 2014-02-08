@@ -26,7 +26,7 @@ namespace {
    public:
       //! ROS node initialization
       SimulatedDogPositionDetector():pnh("~"){
-        dogPositionPub = nh.advertise<DogPosition>("/dog_position_detector/dog_position", 1);
+        dogPositionPub = nh.advertise<DogPosition>("out", 1);
         
         ros::service::waitForService("/gazebo/get_model_state");
         

@@ -49,7 +49,7 @@ public:
 
 		dogPositionSub.reset(
 				new message_filters::Subscriber<dogsim::DogPosition>(nh,
-						"/dog_position_detector/dog_position", 1));
+						"dog_position_in", 1));
 		dogPositionSub->registerCallback(
 				boost::bind(&DogVisualizer::callback, this, _1));
 		dogPositionSub->unsubscribe();
