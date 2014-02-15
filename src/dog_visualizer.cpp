@@ -111,7 +111,7 @@ private:
 			geometry_msgs::QuaternionStamped orientation;
 			orientation.quaternion = dogPose.pose.orientation;
 			visualization_msgs::Marker marker;
-			marker.header = orientation.header;
+			marker.header = dogPose.header;
 			marker.ns = "dogsim";
 			marker.id = 0;
 			marker.type = visualization_msgs::Marker::ARROW;
