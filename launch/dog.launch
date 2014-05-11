@@ -5,6 +5,6 @@
   <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog" respawn="false" output="screen" />
 
   <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer">
-    <remap from="dog_position_in" to="/simulated_dog_position_detector/dog_position"/>
+    <remap from="dog_position_in" to="/dog_position_detector/dog_position"/>
   </node>
 </launch>
