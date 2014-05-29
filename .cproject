@@ -22,37 +22,22 @@
 <pathentry excluding="**/CMakeFiles/" kind="out" path=""/>
 <pathentry kind="mac" name="BOOST_CB_DISABLE_DEBUG" path="" value=""/>
 <pathentry include="/home/jlurz/ros_workspace/litterbox_project/dogsim/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo/gazebo/include/gazebo-1.5" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo/gazebo/include/gazebo-1.5/gazebo" kind="inc" path="" system="true"/>
-<pathentry include="/usr/include/OGRE" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo/msg_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo/srv_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo_msgs/msg_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/simulator_gazebo/gazebo_msgs/srv_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/bullet/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/pr2_controllers/pr2_controllers_msgs/msg_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/pr2_controllers/pr2_controllers_msgs/srv_gen/cpp/include" kind="inc" path="" system="true"/>
 <pathentry include="/home/jlurz/ros_workspace/litterbox_project/position_tracker/msg_gen/cpp/include" kind="inc" path="" system="true"/>
 <pathentry include="/home/jlurz/ros_workspace/litterbox_project/position_tracker/srv_gen/cpp/include" kind="inc" path="" system="true"/>
 <pathentry include="/home/jlurz/ros_workspace/litterbox_project/kalman/src" kind="inc" path="" system="true"/>
-<pathentry include="/home/jlurz/ros_workspace/litterbox_project/cmvision/msg/cpp" kind="inc" path="" system="true"/>
-<pathentry include="/home/jlurz/ros_workspace/litterbox_project/cmvision/msg_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/arm_navigation/arm_navigation_msgs/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/arm_navigation/arm_navigation_msgs/msg_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/arm_navigation/arm_navigation_msgs/srv_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/stacks/filters/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/include" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/include/opencv" kind="inc" path="" system="true"/>
-<pathentry include="/opt/ros/groovy/include/pcl-1.6" kind="inc" path="" system="true"/>
+<pathentry include="/opt/ros/hydro/include" kind="inc" path="" system="true"/>
+<pathentry include="/opt/ros/hydro/include/opencv" kind="inc" path="" system="true"/>
 <pathentry include="/usr/include/eigen3" kind="inc" path="" system="true"/>
+<pathentry include="/usr/include/pcl-1.7" kind="inc" path="" system="true"/>
+<pathentry include="/usr/include/ni" kind="inc" path="" system="true"/>
 <pathentry include="/usr/include/vtk-5.8" kind="inc" path="" system="true"/>
 <pathentry include="/usr/include/qhull" kind="inc" path="" system="true"/>
+<pathentry include="/usr/include" kind="inc" path="" system="true"/>
+<pathentry include="/usr/include/gazebo-1.9" kind="inc" path="" system="true"/>
+<pathentry include="/usr/include/gazebo-1.9/gazebo" kind="inc" path="" system="true"/>
+<pathentry include="/usr/include/sdformat-1.4" kind="inc" path="" system="true"/>
 <pathentry include="/home/jlurz/ros_workspace/litterbox_project/dogsim/msg_gen/cpp/include" kind="inc" path="" system="true"/>
 <pathentry include="/home/jlurz/ros_workspace/litterbox_project/dogsim/srv_gen/cpp/include" kind="inc" path="" system="true"/>
-<pathentry include="/usr/include" kind="inc" path="" system="true"/>
-<pathentry include="/usr/include/gazebo-2.2" kind="inc" path="" system="true"/>
-<pathentry include="/usr/include/sdformat-1.4" kind="inc" path="" system="true"/>
 <pathentry include="/usr/src/gtest/include" kind="inc" path="" system="true"/>
 <pathentry include="/usr/src/gtest" kind="inc" path="" system="true"/>
 </storageModule>
@@ -891,6 +876,34 @@
 <stopOnError>true</stopOnError>
 <useDefaultCommand>false</useDefaultCommand>
 </target>
+<target name="[exe] set_max_update_rate" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/make</buildCommand>
+<buildArguments>-j8</buildArguments>
+<buildTarget>set_max_update_rate</buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
+<target name="[exe] set_max_update_rate/fast" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/make</buildCommand>
+<buildArguments>-j8</buildArguments>
+<buildTarget>set_max_update_rate/fast</buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
+<target name="Build" path="[Targets]/[exe] set_max_update_rate" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/make</buildCommand>
+<buildArguments>-C "/home/jlurz/ros_workspace/litterbox_project/dogsim" -j8</buildArguments>
+<buildTarget>set_max_update_rate</buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
+<target name="Clean" path="[Targets]/[exe] set_max_update_rate" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/cmake</buildCommand>
+<buildArguments>-E chdir "/home/jlurz/ros_workspace/litterbox_project/dogsim" "/usr/bin/cmake" -P "CMakeFiles/set_max_update_rate.dir/cmake_clean.cmake"</buildArguments>
+<buildTarget></buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
 <target name="[exe] simulated_dog_position_detector" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
 <buildCommand>/usr/bin/make</buildCommand>
 <buildArguments>-j8</buildArguments>
@@ -1525,6 +1538,27 @@
 <buildCommand>/usr/bin/make</buildCommand>
 <buildArguments>-j8</buildArguments>
 <buildTarget>src/robot_driver.cpp.s</buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
+<target name="[obj] src/set_max_update_rate.cpp.o" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/make</buildCommand>
+<buildArguments>-j8</buildArguments>
+<buildTarget>src/set_max_update_rate.cpp.o</buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
+<target name="[pre] src/set_max_update_rate.cpp.i" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/make</buildCommand>
+<buildArguments>-j8</buildArguments>
+<buildTarget>src/set_max_update_rate.cpp.i</buildTarget>
+<stopOnError>true</stopOnError>
+<useDefaultCommand>false</useDefaultCommand>
+</target>
+<target name="[to asm] src/set_max_update_rate.cpp.s" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+<buildCommand>/usr/bin/make</buildCommand>
+<buildArguments>-j8</buildArguments>
+<buildTarget>src/set_max_update_rate.cpp.s</buildTarget>
 <stopOnError>true</stopOnError>
 <useDefaultCommand>false</useDefaultCommand>
 </target>

@@ -183,10 +183,9 @@ private:
 
     // Called by the world update start event
     void OnUpdate() {
-
         // Calculate the desired position.
         common::Time currTime = this->model->GetWorld()->GetSimTime();
-        if (currTime - this->previousTime >= common::Time::SecToNano(UPDATE_RATE)) {
+        if (currTime - this->previousTime >= UPDATE_RATE) {
             bool running, ended;
             math::Vector3 goalPosition = calcGoalPosition(currTime, running, ended);
             if(ended){

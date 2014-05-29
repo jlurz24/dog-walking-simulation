@@ -81,7 +81,7 @@ private:
         }
 
         common::Time currTime = this->world->GetSimTime();
-        if (currTime - this->previousTime > common::Time::SecToNano(UPDATE_RATE)) {
+        if (currTime - this->previousTime > UPDATE_RATE) {
 
             // Calculate the distance between the two.
             const math::Vector3 handPosition = robotHand->GetWorldPose().pos;

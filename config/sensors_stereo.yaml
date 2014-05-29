@@ -1,0 +1,19 @@
+sensors:
+  - sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
+    point_cloud_topic: /wide_stereo/points2
+    max_range: 5.0
+    frame_subsample: 1
+    point_subsample: 1
+    padding_offset: 0.1
+    padding_scale: 1.0
+    filtered_cloud_topic: /wide_stereo/points_filtered
+  - sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
+    point_cloud_topic: /r_forearm_cam/points2
+    max_range: 5.0
+    frame_subsample: 1
+    point_subsample: 1
+    padding_offset: 0.1
+    padding_scale: 1.0
+    filtered_cloud_topic: /r_forearm_cam/points_filtered
+
+

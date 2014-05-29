@@ -10,9 +10,10 @@
   <url>http://ros.org/wiki/dogsim</url>
   <rosdep name="bullet" />
   <rosdep name="boost" />
-  <rosdep name="gazebo" />
   <rosdep name="cgal" />
-  <depend package="gazebo" />
+  <rosdep name="gazebo" />
+  <rosdep name="pcl" />
+  <depend package="gazebo_ros" />
   <depend package="gazebo_msgs" />
   <depend package="actionlib_msgs" />
   <depend package="actionlib" />
@@ -23,7 +24,8 @@
   <depend package="image_transport"/>
   <depend package="position_tracker" />
   <depend package="image_geometry" />
-  <depend package="pr2_navigation_self_filter"/>
+  <depend package="geometry_msgs" />
+  <depend package="cmvision" />
    <export>
     <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
   </export>

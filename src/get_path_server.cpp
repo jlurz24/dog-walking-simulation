@@ -114,20 +114,20 @@ private:
 		const geometry_msgs::PointStamped goal2 = pathProvider->positionAtTime((res.started ? (req.time - startTime) : ros::Duration(0)) + SLOPE_DELTA);
 
 		// Calculate the vector of the tangent line.
-		btVector3 tangent = btVector3(goal2.point.x, goal2.point.y, 0)
-						- btVector3(dogGoal.point.x, dogGoal.point.y, 0);
+		tf2::Vector3 tangent = tf2::Vector3(goal2.point.x, goal2.point.y, 0)
+						- tf2::Vector3(dogGoal.point.x, dogGoal.point.y, 0);
 		tangent.normalize();
 
 		// Now select a point on the vector but slightly behind.
-		btVector3 backGoal = btVector3(dogGoal.point.x, dogGoal.point.y, 0)
-						- tangent * btScalar(TRAILING_DISTANCE);
+		tf2::Vector3 backGoal = tf2::Vector3(dogGoal.point.x, dogGoal.point.y, 0)
+						- tangent * tfScalar(TRAILING_DISTANCE);
 
 		// Rotate the vector to perpendicular
-		btVector3 perp = tangent.rotate(btVector3(0, 0, 1),
-				btScalar(boost::math::constants::pi<double>() / 2.0));
+		tf2::Vector3 perp = tangent.rotate(tf2::Vector3(0, 0, 1),
+				tfScalar(boost::math::constants::pi<double>() / 2.0));
 
 		// Select a point on the perpendicular line.
-		btVector3 finalGoal = backGoal + perp * btScalar(SHIFT_DISTANCE);
+		tf2::Vector3 finalGoal = backGoal + perp * tfScalar(SHIFT_DISTANCE);
 
 		geometry_msgs::Point robotGoal;
 		robotGoal.x = finalGoal.x();
@@ -138,7 +138,7 @@ private:
 		res.pose.header = dogGoal.header;
 
 		// Calculate the yaw so we can create an orientation.
-		btScalar yaw = btAtan2(tangent.y(), tangent.x());
+		tfScalar yaw = tfAtan2(tangent.y(), tangent.x());
 		res.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
 
 		return true;

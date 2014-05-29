@@ -15,6 +15,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/feature.h>
 #include <Eigen/Core>
+#include <pcl_conversions/pcl_conversions.h>
 
 // Generated messages
 #include <dogsim/PathViewInfo.h>

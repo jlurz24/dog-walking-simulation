@@ -11,11 +11,11 @@
   </include>
    <include file="$(find pr2_moveit_config)/launch/move_group.launch">
     <arg name="allow_trajectory_execution" value="true"/>
+    <arg name="moveit_octomap_sensor_params_file" value="$(find dogsim)/config/sensors_stereo.yaml"/>
   </include>
-  <!--<include file="$(find pr2_moveit_config)/launch/default_warehouse_db.launch" />-->
   <!-- End move it -->
 
-  <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find navigation_stage)/stage_config/maps/willow-full.pgm 0.1" respawn="true" />
  
   <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" />
 
@@ -38,7 +38,7 @@
    <node pkg="dogsim" type="move_arm_to_base_position_action" name="move_arm_to_base_position_action"/>
    
   <node pkg="dogsim" type="focus_head_action" name="focus_head_action">
-    <remap to="/wide_stereo/left/points_filtered" from="head_search_cloud_in"/>
+    <remap to="/wide_stereo/points_filtered" from="head_search_cloud_in"/>
     <remap to="/r_forearm_cam/points_filtered" from="arm_search_cloud_in" />
   </node>
 

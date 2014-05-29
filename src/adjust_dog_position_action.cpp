@@ -10,8 +10,7 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
-#include <moveit/robot_state/robot_state.h>
-#include <tf2/LinearMath/btVector3.h>
+#include <tf2/LinearMath/Vector3.h>
 #include <moveit_msgs/GetPositionIK.h>
 #include <boost/bind.hpp>
 
@@ -80,18 +79,19 @@ namespace {
 
         // Find the angle between the dog and the goal point.
         // Calculate the unit vector given x1, y1 = dog and x2, y2 = goal
-        btVector3 dogToGoal = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - btVector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+        tf2::Vector3 dogToGoal = tf2::Vector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - tf2::Vector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
         dogToGoal.normalize();
     
         double distanceFromDogToGoal = utils::pointToPointXYDistance(goalInBaseFrame.point, dogInBaseFrame.pose.position);
         ROS_DEBUG("Distance from dog to goal %f", distanceFromDogToGoal);
     
-        btVector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
-        btVector3 startVector = dogVector + btScalar(distanceFromDogToGoal) * dogToGoal;
+        tf2::Vector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+        tf2::Vector3 startVector = dogVector + tf2Scalar(distanceFromDogToGoal) * dogToGoal;
         
         // Now add the leash length.
-        btVector3 leashToGoal = dogToGoal.rotate(btVector3(0, 0, 1), btScalar(angle));
-        startVector = startVector + btScalar(planarLeashLength) * leashToGoal;
+        tf2::Vector3 leashToGoal = dogToGoal.rotate(tf2::Vector3(0, 0, 1), tf2Scalar(angle));
+
+        startVector = startVector + tf2Scalar(planarLeashLength) * leashToGoal;
         
         // Now update the goal to move to the dog to the goal point.
         PointStamped start;
@@ -265,8 +265,8 @@ namespace {
      // Default is 0.05
      req.ik_request.timeout = ros::Duration(0.05);
      
-     const robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
-     const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
+     const moveit::core::JointModelGroup* jointStateGroup = kinematicState->getRobotModel()->getJointModelGroup("right_arm");
+     const vector<string>& jointNames = jointStateGroup->getJointModelNames();
      
      // Seed state defaults to current positions
      

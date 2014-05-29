@@ -5,7 +5,7 @@
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Twist.h>
-#include <tf2/LinearMath/btVector3.h>
+#include <tf2/LinearMath/Vector3.h>
 
 // Generated messages
 #include <dogsim/MoveRobotAction.h>
@@ -52,7 +52,7 @@ namespace {
   }
   
   static double calcQDistance(const tf::Quaternion& q1, const tf::Quaternion& q2){
-      return (1 - btPow(q1.dot(q2), btScalar(2)));
+      return (1 - tf2Pow(q1.dot(q2), tf2Scalar(2)));
   }
   
   void move(const dogsim::MoveRobotGoalConstPtr& goal){
@@ -143,8 +143,8 @@ namespace {
         ROS_DEBUG("Total distance %f current distance %f ratio %f", totalDistance, currentDistance, ratio);
         
         // Interpolate between the starting orientation and goal.
-        btVector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
-        btScalar yawToTarget = btAtan2(goalVector.y(), goalVector.x());
+        tf2::Vector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
+        tf2Scalar yawToTarget = tf2Atan2(goalVector.y(), goalVector.x());
         tf::Quaternion goalOrientation = tf::createQuaternionFromYaw(yawToTarget);
         
         tf::Quaternion interp = tf::slerp(goalOrientation, goalPoseTF, ratio);

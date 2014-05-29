@@ -3,7 +3,7 @@
 #include <tf/transform_listener.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <image_geometry/pinhole_camera_model.h>
-#include <tf2/LinearMath/btVector3.h>
+#include <tf2/LinearMath/Vector3.h>
 #include <dogsim/PathViewInfo.h>
 #include <visualization_msgs/Marker.h>
 #include <dogsim/utils.h>
@@ -42,15 +42,15 @@ static Polygon_2 to2DPoints(const vector<geometry_msgs::Point32>& points,
         const cv::Point3d& centerPoint) {
     Polygon_2 results;
     for (unsigned int i = 0; i < points.size(); ++i) {
-        const btVector3 pVector = btVector3(points[i].x, points[i].y, points[i].z);
+        const tf2::Vector3 pVector = tf2::Vector3(points[i].x, points[i].y, points[i].z);
         // The points have varying z values. We need to ray trace back to the focal point
         // of the lens to distance Z=1 to match the raytraced values from the image.
-        const btVector3 focal = btVector3(centerPoint.x, centerPoint.y, centerPoint.z);
-        const btVector3 focalToP = (pVector - focal).normalized();
-        const btScalar angle = focalToP.angle(btVector3(0, 0, 1));
-        const btScalar length = btScalar(1) / btCos(angle);
+        const tf2::Vector3 focal = tf2::Vector3(centerPoint.x, centerPoint.y, centerPoint.z);
+        const tf2::Vector3 focalToP = (pVector - focal).normalized();
+        const tfScalar angle = focalToP.angle(tf2::Vector3(0, 0, 1));
+        const tfScalar length = tfScalar(1) / tf2Cos(angle);
 
-        const btVector3 adjusted = focal + length * focalToP;
+        const tf2::Vector3 adjusted = focal + length * focalToP;
         results.push_back(Point_2(adjusted.x(), adjusted.y()));
     }
     if(!results.is_simple()){

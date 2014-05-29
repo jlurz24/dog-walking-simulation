@@ -4,8 +4,8 @@
   <param name="add_gaussians_to_path" value="true"/>
   <param name="solo_dog" value="true" />
   <param name="dog" textfile="$(find dogsim)/models/dog.model" />
-  <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.1" respawn="false" output="screen" />
-  <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
+  <node name="spawn_dog" pkg="gazebo_ros" type="spawn_model" args="-param dog -gazebo -model dog -x 1.5 -z 0.1" respawn="false" output="screen" />
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find navigation_stage)/stage_config/maps/willow-full.pgm 0.1" respawn="true" />
   <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
   <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
   <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer">

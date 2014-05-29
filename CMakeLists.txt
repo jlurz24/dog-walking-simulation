@@ -15,14 +15,13 @@ include(${actionlib_msgs_PACKAGE_PATH}/cmake/actionbuild.cmake)
 genaction()
 
 rosbuild_init()
-rosbuild_check_for_sse()
-rosbuild_add_boost_directories()
-rosbuild_genmsg()
-rosbuild_gensrv()
+
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+
+rosbuild_check_for_sse()
 
 find_package(Eigen REQUIRED)
 find_package(gazebo REQUIRED)
@@ -38,6 +37,13 @@ include_directories(${GAZEBO_INCLUDE_DIRS})
 link_directories(${GAZEBO_LIBRARY_DIRS})
 
 include_directories(${roscpp_INCLUDE_DIRS})
+
+rosbuild_genmsg()
+rosbuild_gensrv()
+
+#common commands for building c++ executables and libraries
+rosbuild_add_boost_directories()
+
 link_directories(${roscpp_LIBRARY_DIRS})
 set(CMAKE_INSTALL_RPATH "${roscpp_LIBRARY_DIRS}")
 
@@ -47,14 +53,14 @@ set_target_properties(dog_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS
 set_target_properties(dog_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
 target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
 
-install (TARGETS dog_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
+install (TARGETS dog_model_plugin LIBRARY DESTINATION /usr/lib/gazebo-1.9/plugins/)
 
 # Leash plugin
 add_library(leash_model_plugin SHARED src/leash_model_plugin.cpp)
 set_target_properties(leash_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
 set_target_properties(leash_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
 target_link_libraries(leash_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
-install (TARGETS leash_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
+install (TARGETS leash_model_plugin LIBRARY DESTINATION /usr/lib/gazebo-1.9/plugins/)
 
 rosbuild_add_executable(robot_driver src/robot_driver.cpp)
 
@@ -77,7 +83,7 @@ rosbuild_add_executable(avoid_dog src/avoid_dog.cpp)
 rosbuild_add_executable(path_visualizer src/path_visualizer.cpp)
 rosbuild_add_executable(leash_visualizer src/leash_visualizer.cpp)
 rosbuild_add_executable(dog_visualizer src/dog_visualizer.cpp)
-rosbuild_add_executable(high_arm_position_action src/high_arm_position_action)
+rosbuild_add_executable(high_arm_position_action src/high_arm_position_action.cpp)
 rosbuild_add_executable(no_op_adjust_arm_position_action src/no_op_adjust_arm_position_action.cpp)
 rosbuild_add_executable(focus_head_action src/focus_head_action.cpp)
 rosbuild_add_compile_flags(focus_head_action -std=c++0x)

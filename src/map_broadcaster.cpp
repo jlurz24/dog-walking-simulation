@@ -25,7 +25,7 @@ namespace {
             getModelState.request.model_name = "pr2";
             modelStateClient.call(getModelState);
             if(!getModelState.response.success){
-                ROS_ERROR("get_model_state failed");
+                ROS_WARN("get_model_state failed");
                 return;
             }
         

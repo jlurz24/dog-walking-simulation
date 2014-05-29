@@ -14,7 +14,6 @@
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
 #include <actionlib/client/simple_action_client.h>
-#include <tf2/LinearMath/btVector3.h>
 
 namespace {
 using namespace std;

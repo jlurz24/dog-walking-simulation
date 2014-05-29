@@ -33,24 +33,8 @@
     <remap from="points" to="/r_forearm_cam/points2"/>
   </node>
 
-  <node pkg="robot_self_filter" type="self_filter" name="r_arm_self_filter">
-    <remap from="cloud_in" to="/r_forearm_cam/points2" />
-    <remap from="cloud_out" to="/r_forearm_cam/points_filtered" />
-    <param name="sensor_frame" value="r_forearm_cam_optical_frame" />
-    <param name="subsample_value" value="0.1"/>
-    <rosparam command="load" file="$(find pr2_navigation_perception)/config/base_self_filter.yaml" />
-   </node>
-
   <node pkg="topic_tools" type="throttle" name="wide_stereo_throttle" args="messages /wide_stereo/left/points 20.0 /wide_stereo/left/points_throttled" output="screen">
      <param name="lazy" value="true"/>
-  </node>
-
-  <node pkg="robot_self_filter" type="self_filter" name="wide_stereo_self_filter">
-    <remap from="cloud_in" to="/wide_stereo/left/points_throttled" />
-    <remap from="cloud_out" to="/wide_stereo/left/points_filtered" />
-    <param name="sensor_frame" value=" /wide_stereo_optical_frame" />
-    <param name="subsample_value" value="0.1"/>
-    <rosparam command="load" file="$(find pr2_navigation_perception)/config/base_self_filter.yaml" />
   </node>
 
   <node pkg="position_tracker" type="multi_object_detector" name="wide_stereo_multi_object_detector">
@@ -61,7 +45,7 @@
     <param name="min_cluster_size" value="10" />
     <param name="max_cluster_size" value="25000" />
     <remap from="blobs" to="/wide_stereo/blobs"/>
-    <remap from="points" to="/wide_stereo/left/points"/>
+    <remap from="points" to="/wide_stereo/points"/>
   </node>
 
   <!-- cmvision global parameters -->
