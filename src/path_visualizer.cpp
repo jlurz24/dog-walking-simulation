@@ -50,7 +50,7 @@ public:
     getEntirePathClient = nh.serviceClient<GetEntirePath>("/dogsim/get_entire_path", true /* persist */);
             
     displayTimer = nh.createTimer(ros::Duration(0.1), &PathVisualizer::displayCallback, this);
-    displayTimerComplete = nh.createTimer(ros::Duration(0.25), &PathVisualizer::displayCompleteCallback, this);
+    displayTimerComplete = nh.createTimer(ros::Duration(1.0), &PathVisualizer::displayCompleteCallback, this);
   }
 
   geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started, bool& ended){
@@ -83,8 +83,8 @@ public:
             getPath.request.increment = 0.5;
             getEntirePathClient.call(getPath);
             
-            for(size_t i = 0; i < getPath.response.points.size(); ++i){
-                marker.points.push_back(getPath.response.points[i].point);
+            for(size_t i = 0; i < getPath.response.poses.size(); ++i){
+                marker.points.push_back(getPath.response.poses[i].pose.position);
             }
             goalPubComplete.publish(marker);  
         }

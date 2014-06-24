@@ -26,6 +26,10 @@
   <depend package="image_geometry" />
   <depend package="geometry_msgs" />
   <depend package="cmvision" />
+  <depend package="base_local_planner"/>
+  <depend package="costmap_2d" />
+  <depend package="navfn" />
+  <depend package="dwa_local_planner"/>
    <export>
     <gazebo plugin_path="${prefix}/lib" gazebo_media_path="${prefix}" />
   </export>

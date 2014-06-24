@@ -2,10 +2,11 @@
 #include <dogsim/utils.h>
 #include <visualization_msgs/Marker.h>
 #include <dogsim/DogPosition.h>
-#include <dogsim/GetPlannedRobotPose.h>
+#include <dogsim/GetEntireRobotPath.h>
 #include <dogsim/AvoidingDog.h>
 #include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
+#include <dogsim/MaximumTime.h>
 #include <position_tracker/StartMeasurement.h>
 #include <position_tracker/StopMeasurement.h>
 #include <message_filters/subscriber.h>
@@ -38,8 +39,8 @@ private:
     //! Private nh
     ros::NodeHandle pnh;
 
-    //! Timer that controls movement of the robot (in solo mode only)
-    ros::Timer driverTimer;
+    //! Timer that controls completion of the walk
+    ros::Timer completeTimer;
 
     //! One shot timer that performs delayed start
     ros::Timer initTimer;
@@ -61,15 +62,7 @@ private:
 
     //! Cached service client.
     ros::ServiceClient getPathClient;
-
-    //! Planner client
-    ros::ServiceClient getPlannedRobotPoseClient;
-
-    //! Frequency to update the path of the robot
-    ros::Duration moveRobotUpdateInterval;
-
-    //! Amount of time prior to starting
-    ros::Duration delayTime;
+    ros::ServiceClient getEntireRobotPathClient;
 
     //! Whether the robot is operating on its own
     bool soloMode;
@@ -104,11 +97,12 @@ public:
 
         ros::service::waitForService("/dogsim/get_path");
         ros::service::waitForService("/dogsim/start");
-        ros::service::waitForService("/dogsim/get_planned_robot_pose");
+        ros::service::waitForService("/dogsim/maximum_time");
+        ros::service::waitForService("/dogsim/get_entire_robot_path");
 
         getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
-        getPlannedRobotPoseClient = nh.serviceClient<GetPlannedRobotPose>(
-                "/dogsim/get_planned_robot_pose", true);
+
+        getEntireRobotPathClient = nh.serviceClient<GetEntireRobotPath>("/dogsim/get_entire_robot_path", true /* persist */);
 
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
@@ -118,13 +112,10 @@ public:
         stopMeasuringPub = nh.advertise<position_tracker::StopMeasurement>("stop_measuring", 1,
                 true);
 
-        double moveRobotUpdateIntervalD;
-        pnh.param<double>("move_robot_update_interval", moveRobotUpdateIntervalD,
-                MOVE_ROBOT_UPDATE_INTERVAL_DEFAULT);
-        moveRobotUpdateInterval.fromSec(moveRobotUpdateIntervalD);
-
         double delayTimeD;
         pnh.param<double>("start_delay", delayTimeD, DELAY_TIME_DEFAULT);
+
+        ros::Duration delayTime;
         delayTime.fromSec(delayTimeD);
 
         // Only use the steering callback when in solo mode. Otherwise we'll move based on the required positions to
@@ -143,15 +134,6 @@ public:
         initTimer = nh.createTimer(delayTime, &RobotDriver::init, this,
                 true /* One shot */);
 
-        if (!noSteeringMode) {
-            driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::steeringCallback,
-                    this);
-        }
-        else {
-            driverTimer = nh.createTimer(moveRobotUpdateInterval, &RobotDriver::noSteeringCallback,
-                    this);
-        }
-
         ROS_INFO("Robot driver initialization complete @ %f. Waiting for %f(s) to start.", ros::Time::now().toSec(), delayTime.toSec());
     }
 
@@ -159,7 +141,7 @@ public:
         ROS_INFO("Entering delayed init");
 
         MoveArmToBasePositionGoal moveArmToBasePositionGoal;
-        utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 10.0);
+        utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 1.0 /* 10.0 */);
 
         dogPositionSub.reset(
                 new message_filters::Subscriber<DogPosition>(nh,
@@ -172,6 +154,7 @@ public:
 
         startPath(ros::Time::now());
 
+
         ROS_INFO("Delayed init complete");
     }
 
@@ -181,10 +164,36 @@ public:
         ros::ServiceClient startPathClient = nh.serviceClient<StartPath>("/dogsim/start", false);
         startPathClient.call(startPath);
 
+        // Calculate the maximum runtime
+        dogsim::MaximumTime maxTime;
+        ros::ServiceClient maxTimeClient = nh.serviceClient<dogsim::MaximumTime>(
+                "/dogsim/maximum_time", false);
+        if (!maxTimeClient.call(maxTime)) {
+            ROS_ERROR("Failed to call maximum time");
+        }
+
         // Notify clients to start measuring.
         position_tracker::StartMeasurement startMeasuringMsg;
         startMeasuringMsg.header.stamp = ros::Time::now();
         startMeasuringPub.publish(startMeasuringMsg);
+
+        completeTimer = nh.createTimer(maxTime.response.maximumTime, &RobotDriver::walkComplete,
+                this, true /* One shot */);
+
+        // Begin moving towards the target
+        sendMoveBaseGoal();
+    }
+
+    void sendMoveBaseGoal(){
+        ROS_INFO("Sending move base goal");
+        MoveRobotGoal goal;
+        GetEntireRobotPath getPath;
+        getPath.request.increment = 0.25;
+        getEntireRobotPathClient.call(getPath);
+        ROS_INFO("Path has %lu poses", getPath.response.poses.size());
+        goal.poses = getPath.response.poses;
+
+        moveRobotClient.sendGoal(goal);
     }
 
     void avoidingDogCallback(const AvoidingDogConstPtr& avoidDogMsg) {
@@ -200,6 +209,7 @@ public:
             // Reset the arm
             MoveArmToBasePositionGoal moveArmToBasePositionGoal;
             moveArmToBasePositionClient.sendGoal(moveArmToBasePositionGoal);
+            sendMoveBaseGoal();
         }
         // Set the flag
         avoidingDog = avoidDogMsg->avoiding;
@@ -250,47 +260,11 @@ public:
         return getPath.response.point;
     }
 
-    void noSteeringCallback(const ros::TimerEvent& event){
-        dogsim::GetPlannedRobotPose getPlannedPose;
-        getPlannedPose.request.time = event.current_real;
-        getPlannedRobotPoseClient.call(getPlannedPose);
-        if (getPlannedPose.response.ended) {
-            driverTimer.stop();
-            dogPositionSub->unsubscribe();
-            avoidingDogSub->unsubscribe();
-            // Notify clients to stop measuring.
-            publishStopMeasurement();
-        }
-    }
-
-    void steeringCallback(const ros::TimerEvent& event) {
-        ROS_DEBUG("Received steering callback @ %f : %f", event.current_real.toSec(),
-                event.current_expected.toSec());
-
-        dogsim::GetPlannedRobotPose getPlannedPose;
-        getPlannedPose.request.time = event.current_real + moveRobotUpdateInterval;
-        getPlannedRobotPoseClient.call(getPlannedPose);
-
-        // TODO: This is slightly wrong as its planned, not current.
-        if (getPlannedPose.response.ended) {
-            ROS_INFO("Walk ended");
-            if (moveRobotClient.getState() == actionlib::SimpleClientGoalState::ACTIVE) {
-                moveRobotClient.cancelGoal();
-            }
-            driverTimer.stop();
-            dogPositionSub->unsubscribe();
-            avoidingDogSub->unsubscribe();
-
-            // Notify clients to stop measuring.
-            publishStopMeasurement();
-            return;
-        }
-
-        // This will automatically cancel the last goal.
-        MoveRobotGoal goal;
-        goal.pose = getPlannedPose.response.pose;
-        moveRobotClient.sendGoal(goal);
-        ROS_DEBUG("Completed robot driver callback");
+    void walkComplete(const ros::TimerEvent& event){
+        dogPositionSub->unsubscribe();
+        avoidingDogSub->unsubscribe();
+        // Notify clients to stop measuring.
+        publishStopMeasurement();
     }
 };
 }

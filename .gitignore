@@ -3,3 +3,12 @@
 /lib
 /msg_gen
 /srv_gen
+/CMakeFiles
+/catkin_generated
+/catkin
+/CMakeCache.txt
+/cmake_install.cmake
+/CTestTestfile.cmake
+/Makefile
+/devel
+/gtest

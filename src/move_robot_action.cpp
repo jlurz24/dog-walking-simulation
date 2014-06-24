@@ -23,7 +23,6 @@ namespace {
         // Set up the publisher for the cmd_vel topic
         cmdVelocityPub = nh.advertise<geometry_msgs::Twist>("base_controller/command", 1, true);
 
-        goalPub = nh.advertise<visualization_msgs::Marker>("move_robot_action/move_goal_viz", 1);
         movePub = nh.advertise<visualization_msgs::Marker>("move_robot_action/planned_move_viz", 1);
         as.start();
   }
@@ -61,29 +60,26 @@ namespace {
       return;
     }
     
-    // Visualize the goal.
-    if(goalPub.getNumSubscribers() > 0){
-        std_msgs::ColorRGBA GREEN = utils::createColor(0, 1, 0);
-        goalPub.publish(utils::createMarker(goal->pose.pose.position, goal->pose.header, GREEN, false));
-    }
+    // Goals should always be in the map frame
+    assert(goal->poses.size() > 0 && goal->poses[0].header.frame_id == "/map");
     
-    // Determine the pose in the map frame. This allows us to store
-    // an absolute pose
+    // TODO: This needs to follow the entire path as part of one action call.
+    // Find the goal closest to the current time in the future. Plans are always in
+    // increasing order.
+    bool found = false;
     geometry_msgs::PoseStamped absoluteGoal;
-    if(goal->pose.header.frame_id != "/map"){
-        try {
-            tf.transformPose("/map", ros::Time(0), goal->pose, goal->pose.header.frame_id, absoluteGoal);
-        }
-        catch(tf::TransformException& ex){
-            ROS_ERROR("Failed to transform goal from %s to /map frame", goal->pose.header.frame_id.c_str());
-            as.setAborted();
-            return;
+    ros::Time now = ros::Time::now();
+    for(unsigned int i = 0; i < goal->poses.size(); ++i){
+        if(goal->poses[i].header.stamp > now){
+            absoluteGoal = goal->poses[i];
         }
     }
-    else {
-        absoluteGoal = goal->pose;
+    if(!found){
+        ROS_ERROR("Could not locate any future goals");
+        as.setAborted();
+        return;
     }
-    
+
     // Determine the updated position of the robot.
     geometry_msgs::PoseStamped goalPose;
     try {

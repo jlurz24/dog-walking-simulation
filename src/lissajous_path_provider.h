@@ -10,7 +10,7 @@ namespace {
 
   //! Amount of time it takes to perform a full lissajous cycle.
   const double FULL_CYCLE_T = 4.45;
-  
+
   class LissajousPathProvider : public PathProvider {
       public:
         LissajousPathProvider(){
@@ -24,7 +24,8 @@ namespace {
             return ros::Duration(FULL_CYCLE_T * TIMESCALE_FACTOR);
         }
         
-        virtual geometry_msgs::PointStamped positionAtTime(const ros::Duration baseT) const {
+      protected:
+        virtual geometry_msgs::Point positionAtTime(const ros::Duration baseT) const {
             // Lissajous parameters.
             static const double a = sqrt(2);
             static const double delta = boost::math::constants::pi<long double>() / 2.0;
@@ -33,12 +34,11 @@ namespace {
             static const double b = 2 * a;
             double t = baseT.toSec() / TIMESCALE_FACTOR;
             
-            geometry_msgs::PointStamped goal;
-            goal.header.frame_id = "/map";
-            goal.point.y = (A * sin(a * t + delta)) - 7; // Offset the start and invert;
-            goal.point.x = B * sin(b * t) + 1;
-            goal.point.z = 0.0;
-            return goal;
+            geometry_msgs::Point position;
+            position.y = (A * sin(a * t + delta)) - 7; // Offset the start and invert;
+            position.x = B * sin(b * t) + 1;
+            position.z = 0.0;
+            return position;
         }
   };
 }

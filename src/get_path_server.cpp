@@ -2,21 +2,18 @@
 #include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
-#include <dogsim/GetPlannedRobotPose.h>
 #include <geometry_msgs/Point.h>
 #include "path_provider.h"
 #include "lissajous_path_provider.h"
 #include "rectangle_path_provider.h"
 #include "block_walk_path_provider.h"
 #include <dogsim/GetEntirePath.h>
+#include <dogsim/GetEntireRobotPath.h>
 #include <tf/transform_listener.h>
 
 namespace {
 using namespace ros;
 using namespace std;
-
-//! Slope delta for calculating robot path.
-const ros::Duration SLOPE_DELTA(0.01);
 
 const double TRAILING_DISTANCE = 0;
 
@@ -33,7 +30,7 @@ private:
 	ros::ServiceServer startService;
 	ros::ServiceServer maxService;
 	ros::ServiceServer entirePathService;
-	ros::ServiceServer plannedRobotPoseService;
+	ros::ServiceServer entireRobotPathService;
 
 	bool started;
 	ros::Time startTime;
@@ -47,13 +44,13 @@ public:
 				&GetPathServer::getPath, this);
 		entirePathService = nh.advertiseService("/dogsim/get_entire_path",
 				&GetPathServer::getEntirePath, this);
+		entireRobotPathService = nh.advertiseService("/dogsim/get_entire_robot_path",
+                &GetPathServer::getEntireRobotPath, this);
+
 		startService = nh.advertiseService("/dogsim/start",
 				&GetPathServer::start, this);
 		maxService = nh.advertiseService("/dogsim/maximum_time",
 				&GetPathServer::maximumTime, this);
-		plannedRobotPoseService = nh.advertiseService(
-				"/dogsim/get_planned_robot_pose",
-				&GetPathServer::getPlannedRobotPose, this);
 
 		string pathType;
 		pnh.param<string>("path_type", pathType, "lissajous");
@@ -94,54 +91,61 @@ private:
 				"Getting entire path for max time %f and increment %f", pathProvider->getMaximumTime().toSec(), req.increment);
 		for (double t = 0; t < pathProvider->getMaximumTime().toSec();
 				t += req.increment) {
-			res.points.push_back(pathProvider->positionAtTime(ros::Duration(t)));
+		    geometry_msgs::PoseStamped pose = pathProvider->poseAtTime(ros::Duration(t));
+		    // Set the time to the moment of the goal
+		    pose.header.stamp = startTime + ros::Duration(t);
+			res.poses.push_back(pose);
 		}
 		return true;
 	}
 
-	bool getPlannedRobotPose(dogsim::GetPlannedRobotPose::Request& req,
-			dogsim::GetPlannedRobotPose::Response& res) {
+    bool getEntireRobotPath(dogsim::GetEntireRobotPath::Request& req,
+            dogsim::GetEntireRobotPath::Response& res) {
+        ROS_DEBUG(
+                "Getting entire robot path for max time %f and increment %f", pathProvider->getMaximumTime().toSec(), req.increment);
+        for (double t = 0; t < pathProvider->getMaximumTime().toSec();
+                t += req.increment) {
+            geometry_msgs::PoseStamped pose = getPlannedRobotPose(ros::Duration(t));
+            // Set the time to the moment of the goal
+            pose.header.stamp = startTime + ros::Duration(t);
+            res.poses.push_back(pose);
+        }
+        return true;
+    }
 
-	    ROS_DEBUG("Getting planned robot pose for time %f", req.time.toSec());
-		computeStartAndEnd(req.time, res.started, res.ended);
-		if (res.ended) {
-			return true;
-		}
+	geometry_msgs::PoseStamped getPlannedRobotPose(ros::Duration t) {
 
-		const geometry_msgs::PointStamped dogGoal =
-				pathProvider->positionAtTime(res.started ? req.time - startTime : ros::Duration(0));
+	    const geometry_msgs::PoseStamped dogGoal = pathProvider->poseAtTime(t);
 
-		const geometry_msgs::PointStamped goal2 = pathProvider->positionAtTime((res.started ? (req.time - startTime) : ros::Duration(0)) + SLOPE_DELTA);
+	    const geometry_msgs::PoseStamped goal2 = pathProvider->poseAtTime(t + SLOPE_DELTA);
 
-		// Calculate the vector of the tangent line.
-		tf2::Vector3 tangent = tf2::Vector3(goal2.point.x, goal2.point.y, 0)
-						- tf2::Vector3(dogGoal.point.x, dogGoal.point.y, 0);
-		tangent.normalize();
+	    // Calculate the vector of the tangent line.
+	    tf2::Vector3 tangent = tf2::Vector3(goal2.pose.position.x, goal2.pose.position.y, 0)
+	    - tf2::Vector3(dogGoal.pose.position.x, dogGoal.pose.position.y, 0);
+	    tangent.normalize();
 
-		// Now select a point on the vector but slightly behind.
-		tf2::Vector3 backGoal = tf2::Vector3(dogGoal.point.x, dogGoal.point.y, 0)
-						- tangent * tfScalar(TRAILING_DISTANCE);
+	    // Now select a point on the vector but slightly behind.
+	    tf2::Vector3 backGoal = tf2::Vector3(dogGoal.pose.position.x, dogGoal.pose.position.y, 0)
+	    - tangent * tfScalar(TRAILING_DISTANCE);
 
-		// Rotate the vector to perpendicular
-		tf2::Vector3 perp = tangent.rotate(tf2::Vector3(0, 0, 1),
-				tfScalar(boost::math::constants::pi<double>() / 2.0));
+	    // Rotate the vector to perpendicular
+	    tf2::Vector3 perp = tangent.rotate(tf2::Vector3(0, 0, 1),
+	            tfScalar(boost::math::constants::pi<double>() / 2.0));
 
-		// Select a point on the perpendicular line.
-		tf2::Vector3 finalGoal = backGoal + perp * tfScalar(SHIFT_DISTANCE);
+	    // Select a point on the perpendicular line.
+	    tf2::Vector3 finalGoal = backGoal + perp * tfScalar(SHIFT_DISTANCE);
 
-		geometry_msgs::Point robotGoal;
-		robotGoal.x = finalGoal.x();
-		robotGoal.y = finalGoal.y();
-		robotGoal.z = finalGoal.z();
+	    geometry_msgs::PoseStamped robotGoal;
+	    robotGoal.pose.position.x = finalGoal.x();
+	    robotGoal.pose.position.y = finalGoal.y();
+	    robotGoal.pose.position.z = finalGoal.z();
+	    robotGoal.header = dogGoal.header;
 
-		res.pose.pose.position = robotGoal;
-		res.pose.header = dogGoal.header;
+	    // Calculate the yaw so we can create an orientation.
+	    tfScalar yaw = tfAtan2(tangent.y(), tangent.x());
+	    robotGoal.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
 
-		// Calculate the yaw so we can create an orientation.
-		tfScalar yaw = tfAtan2(tangent.y(), tangent.x());
-		res.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
-
-		return true;
+	    return robotGoal;
 	}
 
 	bool getPath(dogsim::GetPath::Request& req,
@@ -154,7 +158,9 @@ private:
 		computeStartAndEnd(ros::Time(req.time), res.started, res.ended);
 
 		// Allow calling get path prior to starting and return the begin position.
-		res.point = pathProvider->positionAtTime(res.started ? (req.time - startTime): ros::Duration(0));
+		geometry_msgs::PoseStamped result = pathProvider->poseAtTime(res.started ? (req.time - startTime): ros::Duration(0));
+		res.point.header = result.header;
+		res.point.point = result.pose.position;
 		assert(res.point.header.frame_id.size() > 0);
 		return true;
 	}

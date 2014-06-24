@@ -30,10 +30,9 @@ namespace {
             return ros::Duration(totalDuration);
         }
         
-        virtual geometry_msgs::PointStamped positionAtTime(const ros::Duration t) const {
-            geometry_msgs::PointStamped goal;
-            goal.header.frame_id = "/map";
-            goal.header.stamp = ros::Time::now();
+      protected:
+        virtual geometry_msgs::Point positionAtTime(const ros::Duration t) const {
+            geometry_msgs::Point goal;
             
             if(t.toSec() < 0){
                 return goal;
@@ -134,9 +133,9 @@ namespace {
             }
             
 
-            goal.point.x = result.x() + 1.0; // Offset the start position
-            goal.point.y = result.y();
-            goal.point.z = 0;
+            goal.x = result.x() + 1.0; // Offset the start position
+            goal.y = result.y();
+            goal.z = 0;
             return goal;
         }
         

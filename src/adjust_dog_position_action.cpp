@@ -49,7 +49,7 @@ namespace {
         ros::service::waitForService("compute_ik");
         ikClient = nh.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
         
-        ROS_INFO("Completed init of the adjust dog position action");
+        ROS_DEBUG("Completed init of the adjust dog position action");
         as.start();
     }
   
