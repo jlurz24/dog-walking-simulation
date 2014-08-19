@@ -269,11 +269,10 @@ namespace {
      const vector<string>& jointNames = jointStateGroup->getJointModelNames();
      
      // Seed state defaults to current positions
-     ROS_INFO("Beginning IK");
+     ROS_INFO("Starting call to IK");
      ikClient.call(req, res);
-     ROS_INFO("Ending IK");
      if(res.error_code.val == res.error_code.SUCCESS){
-         
+         ROS_INFO("IK solution was found successfully");
          // For some reason this returns all joints. Copy over ones we need.
          positions.resize(jointNames.size());
          for(unsigned int i = 0; i < jointNames.size(); ++i){
@@ -286,7 +285,7 @@ namespace {
          }
      }
      else {
-         ROS_DEBUG_STREAM("Failed to find IK solution. Error code " << res.error_code);
+         ROS_INFO_STREAM("Failed to find IK solution. Error code " << res.error_code);
          return false;
      }
      return true;
