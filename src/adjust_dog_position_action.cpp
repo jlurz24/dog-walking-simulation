@@ -207,12 +207,12 @@ namespace {
     }
     
    if(found){
-     ROS_DEBUG("IK succeeded in %f", ros::Time::now().toSec() - startTime.toSec());
+     ROS_INFO("IK succeeded in %f", ros::Time::now().toSec() - startTime.toSec());
      ros::Time planStartTime = ros::Time::now();
      rightArm.setJointValueTarget(positions);
      moveit::planning_interface::MoveGroup::Plan plan;
      bool success = rightArm.plan(plan);
-     ROS_DEBUG("Planning completed in %f", ros::Time::now().toSec() - planStartTime.toSec());
+     ROS_INFO("Planning completed in %f", ros::Time::now().toSec() - planStartTime.toSec());
      if(success){
         rightArm.execute(plan);
      }
@@ -246,7 +246,7 @@ namespace {
   
   bool moveRightArm(const Point goalPoint, vector<double>& positions){
      // Transform to the planning frame.
-     ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.x, goalPoint.y, goalPoint.z, rightArm.getPlanningFrame().c_str(), ros::Time::now().toSec());
+     ROS_INFO("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.x, goalPoint.y, goalPoint.z, rightArm.getPlanningFrame().c_str(), ros::Time::now().toSec());
      
      moveit_msgs::GetPositionIK::Request req;
      moveit_msgs::GetPositionIK::Response res; 
@@ -269,8 +269,9 @@ namespace {
      const vector<string>& jointNames = jointStateGroup->getJointModelNames();
      
      // Seed state defaults to current positions
-     
+     ROS_INFO("Beginning IK");
      ikClient.call(req, res);
+     ROS_INFO("Ending IK");
      if(res.error_code.val == res.error_code.SUCCESS){
          
          // For some reason this returns all joints. Copy over ones we need.
