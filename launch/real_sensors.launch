@@ -33,7 +33,7 @@
     <remap from="points" to="/r_forearm_cam/points2"/>
   </node>
 
-  <node pkg="topic_tools" type="throttle" name="wide_stereo_throttle" args="messages /wide_stereo/left/points 20.0 /wide_stereo/left/points_throttled" output="screen">
+  <node pkg="topic_tools" type="throttle" name="wide_stereo_throttle" args="messages /wide_stereo/points2 20.0 /wide_stereo/left/points_throttled" output="screen">
      <param name="lazy" value="true"/>
   </node>
 
@@ -45,7 +45,7 @@
     <param name="min_cluster_size" value="10" />
     <param name="max_cluster_size" value="25000" />
     <remap from="blobs" to="/wide_stereo/blobs"/>
-    <remap from="points" to="/wide_stereo/points"/>
+    <remap from="points" to="/wide_stereo/points2"/>
   </node>
 
   <!-- cmvision global parameters -->

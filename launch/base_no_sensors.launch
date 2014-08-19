@@ -1,6 +1,5 @@
 <launch>
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
-  <rosparam command="load" file="$(find pr2_moveit_config)/config/kinematics.yaml"/>
 
   <node pkg="rostopic" type="rostopic" name="move_left_arm_away" args="pub l_arm_controller/joint_trajectory_action/goal pr2_controllers_msgs/JointTrajectoryActionGoal '{goal:{trajectory:{joint_names: [l_shoulder_pan_joint, l_shoulder_lift_joint, l_upper_arm_roll_joint, l_elbow_flex_joint, l_forearm_roll_joint, l_wrist_flex_joint, l_wrist_roll_joint], points: [{positions: [1.5, 2.0, 0.0, -2.55, 0.0, -0.1, 0.0], velocities: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], accelerations: [] }]}}}' -1" />
   
@@ -28,7 +27,7 @@
     </rosparam>
   </node>
   
-  <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action" output="screen">
+  <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action">
     <remap from="odom" to="base_odometry/odom" />
     <remap from="cmd_vel" to="navigation/cmd_vel" />
     
