@@ -241,6 +241,7 @@ public:
 
         // Only adjust dog position if the last adjustment finished
         if (adjustDogClient.getState() != actionlib::SimpleClientGoalState::ACTIVE) {
+	    	ROS_DEBUG("Sending new adjust dog goal");
             AdjustDogPositionGoal adjustGoal;
             adjustGoal.dogPose = dogPosition->pose;
             adjustGoal.goalPosition = goalCurrent;
