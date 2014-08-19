@@ -51,7 +51,7 @@ protected:
     }
 
     bool move(const dogsim::MoveRobotGoalConstPtr& goal) {
-        ROS_INFO("Received Move Robot Goal with: %lu poses", goal->poses.size());
+        ROS_DEBUG("Received Move Robot Goal with: %lu poses", goal->poses.size());
 
         if (!as.isActive()) {
             ROS_INFO("Move robot action canceled prior to start");
@@ -94,7 +94,7 @@ protected:
         while (true) {
             const ros::Time nextUpdateTime = ros::Time::now() + pathUpdateRate;
 
-            ROS_INFO("Recomputing path segment");
+            ROS_DEBUG("Recomputing path segment");
             vector<geometry_msgs::PoseStamped>::const_iterator i;
 
             // We always want to include the last pose if there are no
@@ -132,7 +132,7 @@ protected:
                     baseCmd.angular.z = 0.0;
                 }
                 else {
-                    ROS_WARN("Successfully computed base command %f %f %f", baseCmd.linear.x,
+                    ROS_DEBUG("Successfully computed base command %f %f %f", baseCmd.linear.x,
                             baseCmd.linear.y, baseCmd.angular.z);
                 }
                 // Publish the command to the base
@@ -141,7 +141,7 @@ protected:
             }
 
             if(i == goal->poses.end() - 1 && tp.isGoalReached()){
-                ROS_INFO("Path completed successfully");
+                ROS_DEBUG("Path completed successfully");
                 break;
             }
         }
