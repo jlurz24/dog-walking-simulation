@@ -53,14 +53,14 @@ set_target_properties(dog_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS
 set_target_properties(dog_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
 target_link_libraries(dog_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
 
-install (TARGETS dog_model_plugin LIBRARY DESTINATION /usr/lib/gazebo-1.9/plugins/)
+install (TARGETS dog_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
 
 # Leash plugin
 add_library(leash_model_plugin SHARED src/leash_model_plugin.cpp)
 set_target_properties(leash_model_plugin PROPERTIES COMPILE_FLAGS "${roscpp_CFLAGS_OTHER}")
 set_target_properties(leash_model_plugin PROPERTIES LINK_FLAGS "${roscpp_LDFLAGS_OTHER}")
 target_link_libraries(leash_model_plugin ${roscpp_LIBRARIES} ${GAZEBO_LIBRARIES})
-install (TARGETS leash_model_plugin LIBRARY DESTINATION /usr/lib/gazebo-1.9/plugins/)
+install (TARGETS leash_model_plugin DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/gazebo_plugins/)
 
 rosbuild_add_executable(robot_driver src/robot_driver.cpp)
 

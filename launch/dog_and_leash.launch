@@ -4,7 +4,7 @@
  <include file="$(find dogsim)/launch/good_dog.launch" />
 
  <include file="$(find dogsim)/launch/dog.launch" />
-   <node name="map_server" pkg="map_server" type="map_server" args="$(find navigation_stage)/stage_config/maps/willow-full.pgm 0.1" respawn="true" />
+   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
 
  <node pkg="dogsim" type="map_broadcaster" name="map_broadcaster" output="screen"/>
 </launch>

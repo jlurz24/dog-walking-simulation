@@ -2,7 +2,7 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <actionlib/server/simple_action_server.h>
 #include <tf/transform_listener.h>
-#include <tf2/LinearMath/Vector3.h>
+#include <tf2/LinearMath/btVector3.h>
 #include <dogsim/utils.h>
 
 // Generated messages
@@ -93,15 +93,15 @@ protected:
         ROS_DEBUG("Moving arm to point at point %f %f %f in frame %s",
                 goalInBaseFrame.point.x, goalInBaseFrame.point.y, goalInBaseFrame.point.z, goalInBaseFrame.header.frame_id.c_str());
 
-        tf2::Vector3 elbowBase = tf2::Vector3(ELBOW_DISTANCE_FROM_BASE_X, ELBOW_DISTANCE_FROM_BASE_Y, ELBOW_DISTANCE_FROM_BASE_Z);
+        btVector3 elbowBase = btVector3(ELBOW_DISTANCE_FROM_BASE_X, ELBOW_DISTANCE_FROM_BASE_Y, ELBOW_DISTANCE_FROM_BASE_Z);
 
         // Create the unit vector between the two points
-        tf2::Vector3 direction = tf2::Vector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, goalInBaseFrame.point.z) - elbowBase;
+        btVector3 direction = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, goalInBaseFrame.point.z) - elbowBase;
         direction.normalize();
 
         ROS_INFO("Unit vector in shoulder frame %f, %f, %f", direction.x(), direction.y(), direction.z());
 
-        tf2::Vector3 planeDirection(direction.x(), direction.y(), 0);
+        btVector3 planeDirection(direction.x(), direction.y(), 0);
 
         // Compute RPY
         double yaw = atan2(direction.y(), direction.x());

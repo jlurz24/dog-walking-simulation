@@ -3,7 +3,7 @@
 #include "path_provider.h"
 #include <boost/math/constants/constants.hpp>
 #include <vector>
-#include <tf2/LinearMath/Vector3.h>
+#include <tf2/LinearMath/btVector3.h>
 
 namespace {
   using namespace std;
@@ -39,7 +39,7 @@ namespace {
             }
             
             double distance = VELOCITY * t.toSec();
-            tf2::Vector3 result = tf2::Vector3(0, 0, 0);
+            btVector3 result = btVector3(0, 0, 0);
             bool roundingRequired = false;
             bool firstRoundingSegment = false;
             unsigned int lastSegmentNumber = 0;
@@ -54,19 +54,19 @@ namespace {
                 // Determine if rounding will be required.
                 if(segments[i].w() - distance < ROUNDING_DISTANCE && i != segments.size() - 1){
                     // Only add the distance up to the point where rounding will begin
-                    result += segments[i] * tf2Scalar(segments[i].w() - ROUNDING_DISTANCE);
+                    result += segments[i] * btScalar(segments[i].w() - ROUNDING_DISTANCE);
                     roundingRequired = true;
                     lastSegmentNumber = i;
                     firstRoundingSegment = true;
                 }
                 // Beginning of rounded segment
                 else if(distance < ROUNDING_DISTANCE && i != 0){
-                    result += segments[i] * tf2Scalar(ROUNDING_DISTANCE);
+                    result += segments[i] * btScalar(ROUNDING_DISTANCE);
                     roundingRequired = true;
                     lastSegmentNumber = i;
                 }
                 else {
-                    result += segments[i] * tf2Scalar(distance);
+                    result += segments[i] * btScalar(distance);
                 }
                 break;
               }
@@ -74,16 +74,16 @@ namespace {
 
             if(roundingRequired){
                 // Find the center point.
-                tf2::Vector3 center;
+                btVector3 center;
                 if(firstRoundingSegment){
-                    center = result + segments[lastSegmentNumber + 1] * tf2Scalar(ROUNDING_DISTANCE);
+                    center = result + segments[lastSegmentNumber + 1] * btScalar(ROUNDING_DISTANCE);
                 }
                 else {
-                    center = result + segments[lastSegmentNumber - 1] * -1 * tf2Scalar(ROUNDING_DISTANCE);
+                    center = result + segments[lastSegmentNumber - 1] * -1 * btScalar(ROUNDING_DISTANCE);
                 }
                 double a;
                 double ratio;
-                tf2::Vector3 segment1, segment2;
+                btVector3 segment1, segment2;
                 if(firstRoundingSegment){
                     ratio = 1 - (segments[lastSegmentNumber].w() - distance) / ROUNDING_DISTANCE;
                     a = ratio * pi / 4.0;
@@ -128,7 +128,7 @@ namespace {
                 
                 // Now add the circular radius
 
-                tf2::Vector3 rounding(center.x() + ROUNDING_DISTANCE * cos(a), center.y() + ROUNDING_DISTANCE * -sin(a), 0);
+                btVector3 rounding(center.x() + ROUNDING_DISTANCE * cos(a), center.y() + ROUNDING_DISTANCE * -sin(a), 0);
                 result = rounding;
             }
             
@@ -141,7 +141,7 @@ namespace {
         
     protected:
     
-        virtual vector<tf2::Vector3> getSegments() const = 0;
+        virtual vector<btVector3> getSegments() const = 0;
         
         void calculateTotalLength(){
             // Calculate the total length
@@ -156,6 +156,6 @@ namespace {
      private:
         double totalDuration;
         
-        vector<tf2::Vector3> segments;
+        vector<btVector3> segments;
   };
 }

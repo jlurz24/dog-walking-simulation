@@ -70,7 +70,7 @@ struct HasPointInCell {
         vector<float> pointNKNSquaredDistance(1);
 
         if (kdtree.nearestKSearch(p, 1, pointIdxNKNSearch, pointNKNSquaredDistance) == 0) {
-            ROS_INFO("No neighboring point in cloud");
+            ROS_DEBUG("No neighboring point in cloud");
             return false;
         }
 
@@ -146,12 +146,12 @@ private:
 
         // Ignore any timeouts after completion.
         if (state == ActionState::IDLE) {
-            ROS_INFO("Timeout received when state is idle");
+            ROS_DEBUG("Timeout received when state is idle");
             return;
         }
 
         if (state == ActionState::LOOKING_FOR_DOG) {
-            ROS_INFO("Continuing search after timeout");
+            ROS_DEBUG("Continuing search after timeout");
             executeNext(PointStamped(), ActionState::LOOKING_FOR_DOG, false);
             return;
         }
@@ -179,12 +179,12 @@ private:
             return false;
         }
 
-        ROS_INFO("Accepted new goal with score %f (previous score was %f) and type %s", score,
+        ROS_DEBUG("Accepted new goal with score %f (previous score was %f) and type %s", score,
                 currentActionScore, STATE_NAMES[static_cast<int>(actionType)].c_str());
         currentActionScore = score;
 
         if (state != ActionState::IDLE) {
-            ROS_INFO("Preempting action for new goal. Total interrupts: %u", interrupts);
+            ROS_DEBUG("Preempting action for new goal. Total interrupts: %u", interrupts);
             // Do not reset search state as we want the search to continue when it is
             // resumed.
             interrupts++;
@@ -207,19 +207,19 @@ private:
     }
 
     void subscribeToPoints() {
-        ROS_INFO("Subscribing to points messages");
+        ROS_DEBUG("Subscribing to points messages");
         headSearchPointsSub->subscribe();
         armSearchPointsSub->subscribe();
     }
 
     void unsubscribeToPoints() {
-        ROS_INFO("Unsubscribing to points messages");
+        ROS_DEBUG("Unsubscribing to points messages");
         headSearchPointsSub->unsubscribe();
         armSearchPointsSub->unsubscribe();
     }
 
     void resetSearch() {
-        ROS_INFO("Resetting search state");
+        ROS_DEBUG("Resetting search state");
         searchState = SearchState::NONE;
         searchCloud->points.clear();
         publishSearchCloud();
@@ -231,7 +231,7 @@ private:
     }
 
     void resetSearchMap() {
-        ROS_INFO("Initializing search map");
+        ROS_DEBUG("Initializing search map");
 
         // Generate a new search cloud.
         searchCloud->points.clear();
@@ -246,7 +246,7 @@ private:
         // Assume the cells are circular and slightly overlap.
         double cellWidth = searchCellSize / sqrt(2.0);
 
-        ROS_INFO("Creating a new search cloud for planar leash length %f and cell width %f",
+        ROS_DEBUG("Creating a new search cloud for planar leash length %f and cell width %f",
                 planarLeashLength, cellWidth);
         unsigned int size = currentSearchOriginalSize = static_cast<unsigned int>(ceil(
                 planarLeashLength * 2 / cellWidth));
@@ -278,7 +278,7 @@ private:
             }
             x += cellWidth;
         }
-        ROS_INFO("New search map has %lu points", searchCloud->points.size());
+        ROS_DEBUG("New search map has %lu points", searchCloud->points.size());
         publishSearchCloud();
     }
 
@@ -290,7 +290,7 @@ private:
         handInHandFrame.header.frame_id = "r_wrist_roll_link";
         while (!tf.waitForTransform("/base_footprint", handInHandFrame.header.frame_id,
                 ros::Time(0), ros::Duration(30.0))) {
-            ROS_INFO("Waiting for transform from /r_wrist_roll_link to /base_footprint");
+            ROS_DEBUG("Waiting for transform from /r_wrist_roll_link to /base_footprint");
         }
         try {
             tf.transformPoint("/base_footprint", ros::Time(0), handInHandFrame,
@@ -327,9 +327,9 @@ private:
 
     void pointArmCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const dogsim::PointArmCameraResultConstPtr result) {
-        ROS_INFO("Received point arm complete callback");
+        ROS_DEBUG("Received point arm complete callback");
         if (searchState != SearchState::ARM) {
-            ROS_WARN("Spurious point arm complete callback received");
+            ROS_DEBUG("Spurious point arm complete callback received");
             return;
         }
         searchCompleteCallback();
@@ -337,7 +337,7 @@ private:
 
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result) {
-        ROS_INFO("Received point head complete callback");
+        ROS_DEBUG("Received point head complete callback");
         if (searchState != SearchState::HEAD) {
             ROS_WARN("Spurious point head complete callback received");
             return;
@@ -366,7 +366,7 @@ private:
 
     void executeNext(const PointStamped& target, const ActionState targetType,
             const bool isPositionSet) {
-        ROS_INFO("Executing search for target type %s with position set %u and target frame %s",
+        ROS_DEBUG("Executing search for target type %s with position set %u and target frame %s",
                 STATE_NAMES[static_cast<int>(targetType)].c_str(), isPositionSet,
                 target.header.frame_id.c_str());
 
@@ -376,7 +376,7 @@ private:
         if (targetType == ActionState::LOOKING_FOR_DOG) {
             // Determine if the search failed and should be reset
             if (searchCloud->points.size() == 0) {
-                ROS_INFO(
+                ROS_DEBUG(
                         "Resetting search due to either failed search or previous successful search.");
                 resetSearch();
             }
@@ -391,15 +391,15 @@ private:
                 // If the search state is last known and there is no last known,
                 // immediate increment the search.
                 if (searchState == SearchState::LAST_KNOWN && !isPositionSet) {
-                    ROS_INFO("Skipping last known search state because position is not set");
+                    ROS_DEBUG("Skipping last known search state because position is not set");
                     bool proceeding = moveToNextSearchState();
                     assert(proceeding);
                 }
 
-                ROS_INFO("Executing search step %s",
+                ROS_DEBUG("Executing search step %s",
                         SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
                 if (searchState == SearchState::LAST_KNOWN) {
-                    ROS_INFO("Searching last known position");
+                    ROS_DEBUG("Searching last known position");
                     finalTarget = target;
                     found = true;
                 }
@@ -412,13 +412,13 @@ private:
                         ROS_WARN("Temporarily aborting search");
                         return;
                     }
-                    ROS_INFO("Search target - x: %f, y: %f, z: %f", finalTarget.point.x,
+                    ROS_DEBUG("Search target - x: %f, y: %f, z: %f", finalTarget.point.x,
                             finalTarget.point.y, finalTarget.point.z);
                 }
             } while (!found);
         }
         else if (targetType == ActionState::LOOKING_AT_PATH) {
-            ROS_INFO("Focusing head on path target in frame %s, %f %f %f",
+            ROS_DEBUG("Focusing head on path target in frame %s, %f %f %f",
                     target.header.frame_id.c_str(), target.point.x, target.point.y, target.point.z);
             assert(isPositionSet && "is position not set for path action");
             finalTarget = target;
@@ -427,7 +427,7 @@ private:
             assert(false && "Unknown target type");
         }
 
-        ROS_INFO("Sending goal of type %s for %s",
+        ROS_DEBUG("Sending goal of type %s for %s",
                 STATE_NAMES[static_cast<int>(targetType)].c_str(),
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
 
@@ -442,13 +442,17 @@ private:
             pr2_controllers_msgs::PointHeadGoal phGoal;
             phGoal.target = finalTarget;
             phGoal.pointing_frame = "wide_stereo_link";
+            phGoal.pointing_axis.x = 1;
+            phGoal.pointing_axis.y = 0;
+            phGoal.pointing_axis.z = 0;
+
             // Pointing axis defaults to the x-axis.
             pointHeadClient.sendGoal(phGoal,
                     boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
         }
         timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
                 true /* One shot */);
-        ROS_INFO("Focus target step completed");
+        ROS_DEBUG("Focus target step completed");
     }
 
     void visualizeGoal(const PointStamped& goal, const ActionState targetType) const {
@@ -510,7 +514,7 @@ private:
             resetState();
             resetSearch();
             unsubscribeToPoints();
-            ROS_INFO("Exiting dog position callback after dog found");
+            ROS_DEBUG("Exiting dog position callback after dog found");
         }
     }
 
@@ -538,7 +542,7 @@ private:
             pointHeadClient.cancelGoal();
             pointArmClient.cancelGoal();
             resetState();
-            ROS_INFO("Exiting path view callback after path visible");
+            ROS_DEBUG("Exiting path view callback after path visible");
         }
     }
 
@@ -589,7 +593,7 @@ private:
         assert(remainingPoints <= initialPoints);
         ROS_DEBUG("Filtering complete. The search cloud has %lu points remaining", remainingPoints);
 
-        ROS_INFO("Points update in the %s frame removed %lu points",
+        ROS_DEBUG("Points update in the %s frame removed %lu points",
                 points->header.frame_id.c_str(), initialPoints - remainingPoints);
 
         // Publish the results
@@ -607,7 +611,7 @@ private:
     }
 
     bool moveToNextSearchState() {
-        ROS_INFO("Transitioning to next search state. Current state is %s.",
+        ROS_DEBUG("Transitioning to next search state. Current state is %s.",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
         if (searchState == SearchState::NONE) {
             // Start a new search
@@ -628,14 +632,14 @@ private:
             state = ActionState::IDLE;
             currentActionScore = 0;
         }
-        ROS_INFO("Transition complete. New search state is %s.",
+        ROS_DEBUG("Transition complete. New search state is %s.",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
         // Return whether the search aborted
         return searchState != SearchState::NONE;
     }
 
     bool nextBestSearch(geometry_msgs::PointStamped& resultPoint) const {
-        ROS_INFO("Executing nextBestSearch. Current search state is %s",
+        ROS_DEBUG("Executing nextBestSearch. Current search state is %s",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
         assert(searchState == SearchState::HEAD || searchState == SearchState::ARM);
 
@@ -668,7 +672,7 @@ private:
         Eigen::Vector4f centroid;
         vector<pcl::PointIndices>::const_iterator it;
         for (it = clusterIndices.begin(); it != clusterIndices.end(); ++it) {
-            ROS_INFO("Selected a next best search cluster with size %lu", it->indices.size());
+            ROS_DEBUG("Selected a next best search cluster with size %lu", it->indices.size());
 
             // Now find the centroid
             pcl::compute3DCentroid(*searchCloud, it->indices, centroid);
@@ -686,22 +690,22 @@ private:
             PointStampedVector::const_iterator closest = std::min_element(searchedPoints.begin(),
                     searchedPoints.end(), DistanceFromPoint(resultPoint));
             if (closest == searchedPoints.end()) {
-                ROS_INFO("No searched points to check for closeness.");
+                ROS_DEBUG("No searched points to check for closeness.");
                 break;
             }
             if (utils::pointToPointXYDistance(closest->point, resultPoint.point) > 0.01) {
-                ROS_INFO("Selected a point that was %f distance away from the closest point",
+                ROS_DEBUG("Selected a point that was %f distance away from the closest point",
                         utils::pointToPointXYDistance(closest->point, resultPoint.point));
                 break;
             }
             else {
-                ROS_INFO("Target at %f, %f, %f was not selected because it was too close to searched point %f, %f, %f",
+                ROS_DEBUG("Target at %f, %f, %f was not selected because it was too close to searched point %f, %f, %f",
                         resultPoint.point.x, resultPoint.point.y, resultPoint.point.z, closest->point.x, closest->point.y, closest->point.z);
             }
         }
 
         if (it == clusterIndices.end()) {
-            ROS_INFO("Failed to find a cluster to search");
+            ROS_DEBUG("Failed to find a cluster to search");
             return false;
         }
 

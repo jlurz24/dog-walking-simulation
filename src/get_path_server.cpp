@@ -120,20 +120,20 @@ private:
 	    const geometry_msgs::PoseStamped goal2 = pathProvider->poseAtTime(t + SLOPE_DELTA);
 
 	    // Calculate the vector of the tangent line.
-	    tf2::Vector3 tangent = tf2::Vector3(goal2.pose.position.x, goal2.pose.position.y, 0)
-	    - tf2::Vector3(dogGoal.pose.position.x, dogGoal.pose.position.y, 0);
+	    btVector3 tangent = btVector3(goal2.pose.position.x, goal2.pose.position.y, 0)
+	    - btVector3(dogGoal.pose.position.x, dogGoal.pose.position.y, 0);
 	    tangent.normalize();
 
 	    // Now select a point on the vector but slightly behind.
-	    tf2::Vector3 backGoal = tf2::Vector3(dogGoal.pose.position.x, dogGoal.pose.position.y, 0)
+	    btVector3 backGoal = btVector3(dogGoal.pose.position.x, dogGoal.pose.position.y, 0)
 	    - tangent * tfScalar(TRAILING_DISTANCE);
 
 	    // Rotate the vector to perpendicular
-	    tf2::Vector3 perp = tangent.rotate(tf2::Vector3(0, 0, 1),
+	    btVector3 perp = tangent.rotate(btVector3(0, 0, 1),
 	            tfScalar(boost::math::constants::pi<double>() / 2.0));
 
 	    // Select a point on the perpendicular line.
-	    tf2::Vector3 finalGoal = backGoal + perp * tfScalar(SHIFT_DISTANCE);
+	    btVector3 finalGoal = backGoal + perp * tfScalar(SHIFT_DISTANCE);
 
 	    geometry_msgs::PoseStamped robotGoal;
 	    robotGoal.pose.position.x = finalGoal.x();

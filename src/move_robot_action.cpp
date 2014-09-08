@@ -5,7 +5,7 @@
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Twist.h>
-#include <tf2/LinearMath/Vector3.h>
+#include <tf2/LinearMath/btVector3.h>
 
 // Generated messages
 #include <dogsim/MoveRobotAction.h>
@@ -51,7 +51,7 @@ namespace {
   }
   
   static double calcQDistance(const tf::Quaternion& q1, const tf::Quaternion& q2){
-      return (1 - tf2Pow(q1.dot(q2), tf2Scalar(2)));
+      return (1 - btPow(q1.dot(q2), btScalar(2)));
   }
   
   void move(const dogsim::MoveRobotGoalConstPtr& goal){
@@ -63,7 +63,6 @@ namespace {
     // Goals should always be in the map frame
     assert(goal->poses.size() > 0 && goal->poses[0].header.frame_id == "/map");
     
-    // TODO: This needs to follow the entire path as part of one action call.
     // Find the goal closest to the current time in the future. Plans are always in
     // increasing order.
     bool found = false;
@@ -139,8 +138,8 @@ namespace {
         ROS_DEBUG("Total distance %f current distance %f ratio %f", totalDistance, currentDistance, ratio);
         
         // Interpolate between the starting orientation and goal.
-        tf2::Vector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
-        tf2Scalar yawToTarget = tf2Atan2(goalVector.y(), goalVector.x());
+        btVector3 goalVector(goalPose.pose.position.x, goalPose.pose.position.y, 0);
+        btScalar yawToTarget = btAtan2(goalVector.y(), goalVector.x());
         tf::Quaternion goalOrientation = tf::createQuaternionFromYaw(yawToTarget);
         
         tf::Quaternion interp = tf::slerp(goalOrientation, goalPoseTF, ratio);

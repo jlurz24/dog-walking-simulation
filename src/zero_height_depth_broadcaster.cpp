@@ -3,7 +3,7 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <image_geometry/pinhole_camera_model.h>
 #include <message_filters/subscriber.h>
-#include <tf2/LinearMath/Vector3.h>
+#include <tf2/LinearMath/btVector3.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <limits>
 #include <sensor_msgs/PointCloud2.h>
@@ -40,20 +40,20 @@ public:
         nh.param("dog_height", dogHeight, DOG_HEIGHT_DEFAULT);
     }
 
-    tf2::Vector3 intersection(const tf2::Vector3& n, const tf2::Vector3& p0, const tf2::Vector3& l, const tf2::Vector3& l0){
+    btVector3 intersection(const btVector3& n, const btVector3& p0, const btVector3& l, const btVector3& l0){
         // Make sure everything is normalized
         assert(n.length() - 1 < 1e-6);
         assert(l.length() - 1 < 1e-6);
 
-        tfScalar denom = n.dot(l);
+        btScalar denom = n.dot(l);
         if(fabs(denom) < 1e-6){
-            return tf2::Vector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
+            return btVector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
         }
 
-        tfScalar t = n.dot(p0 - l0)/ denom;
+        btScalar t = n.dot(p0 - l0)/ denom;
         if(t < 0){
             // Intersection behind the camera
-            return tf2::Vector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
+            return btVector3(numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN());
         }
         // Now project the vector l to the plane.
         return l0 + (l * t);
@@ -89,11 +89,11 @@ public:
         PointStamped groundOrigin;
         tf.transformPoint(cameraModel.tfFrame(), groundOriginInBaseFrame, groundOrigin);
 
-        tf2::Vector3 groundOriginV(groundOrigin.point.x, groundOrigin.point.y, groundOrigin.point.z);
-        tf2::Vector3 groundNormalV(groundNormal.vector.x, groundNormal.vector.y, groundNormal.vector.z);
+        btVector3 groundOriginV(groundOrigin.point.x, groundOrigin.point.y, groundOrigin.point.z);
+        btVector3 groundNormalV(groundNormal.vector.x, groundNormal.vector.y, groundNormal.vector.z);
 
         cv::Point3d cameraOriginCV = cameraModel.projectPixelTo3dRay(cv::Point2d(cameraModel.cx(), cameraModel.cy()));
-        tf2::Vector3 cameraOrigin(cameraOriginCV.x, cameraOriginCV.y, 0);
+        btVector3 cameraOrigin(cameraOriginCV.x, cameraOriginCV.y, 0);
         PointCloudXYZPtr cloud(new PointCloudXYZ());
 
         cloud->is_dense = false;
@@ -102,8 +102,8 @@ public:
         for(int u = 0; u < cameraModel.fullResolution().height; ++u){
             for(int v = 0; v < cameraModel.fullResolution().width; v++){
                 cv::Point3d p = cameraModel.projectPixelTo3dRay(cv::Point2d(u, v));
-                tf2::Vector3 pVector(p.x, p.y, p.z);
-                tf2::Vector3 zeroHVector = intersection(groundNormalV, groundOriginV, pVector.normalized(), cameraOrigin);
+                btVector3 pVector(p.x, p.y, p.z);
+                btVector3 zeroHVector = intersection(groundNormalV, groundOriginV, pVector.normalized(), cameraOrigin);
                 cloud->points.push_back(PointXYZ(zeroHVector.x(), zeroHVector.y(), zeroHVector.z()));
             }
         }

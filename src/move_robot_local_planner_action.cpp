@@ -116,6 +116,7 @@ protected:
             const vector<geometry_msgs::PoseStamped> currentPath = vector<geometry_msgs::PoseStamped>(i, j);
             assert(currentPath.size() > 0 && "No poses in current path");
 
+            ROS_DEBUG("Setting plan for local planner");
             if (!tp.setPlan(currentPath)) {
                 ROS_ERROR("Failed to set plan");
                 as.setAborted();
@@ -138,6 +139,10 @@ protected:
                 // Publish the command to the base
                 cmdVelocityPub.publish(baseCmd);
                 updateRate.sleep();
+            }
+
+            if(tp.isGoalReached()){
+                ROS_DEBUG("Local planner reached goal");
             }
 
             if(i == goal->poses.end() - 1 && tp.isGoalReached()){

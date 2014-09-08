@@ -203,7 +203,7 @@ private:
                     match = possiblePositions.begin();
                 }
                 else {
-                    ROS_INFO("Possible position filter did not reduce number of possible positions to 1");
+                    ROS_DEBUG("Possible position filter did not reduce number of possible positions to 1");
                     match = std::find_if(possiblePositions.begin(), possiblePositions.end(), MatchesID(lastId));
 
                     if(match == possiblePositions.end()){

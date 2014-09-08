@@ -199,13 +199,13 @@ public:
     void avoidingDogCallback(const AvoidingDogConstPtr& avoidDogMsg) {
         ROS_DEBUG("Robot driver received avoid dog callback");
         if (avoidDogMsg->avoiding) {
-            ROS_INFO("Canceling movement as the avoiding flag is set");
+            ROS_INFO("Canceling movement as the dog is obstructing the robot");
             // Cancel all base movement. Arm movement will be cancelled
             // by sending the command from the avoid dog client.
             moveRobotClient.cancelGoal();
         }
         else if (avoidingDog) {
-            ROS_INFO("Resetting arm as the avoiding flag is not set");
+            ROS_INFO("Resetting arm and initiating base movement as dog is no longer obstructing robot");
             // Reset the arm
             MoveArmToBasePositionGoal moveArmToBasePositionGoal;
             moveArmToBasePositionClient.sendGoal(moveArmToBasePositionGoal);

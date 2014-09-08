@@ -10,7 +10,8 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
-#include <tf2/LinearMath/Vector3.h>
+#include <moveit/robot_state/robot_state.h>
+#include <tf2/LinearMath/btVector3.h>
 #include <moveit_msgs/GetPositionIK.h>
 #include <boost/bind.hpp>
 
@@ -79,19 +80,19 @@ namespace {
 
         // Find the angle between the dog and the goal point.
         // Calculate the unit vector given x1, y1 = dog and x2, y2 = goal
-        tf2::Vector3 dogToGoal = tf2::Vector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - tf2::Vector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+        btVector3 dogToGoal = btVector3(goalInBaseFrame.point.x, goalInBaseFrame.point.y, armHeight) - btVector3(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
         dogToGoal.normalize();
     
         double distanceFromDogToGoal = utils::pointToPointXYDistance(goalInBaseFrame.point, dogInBaseFrame.pose.position);
         ROS_DEBUG("Distance from dog to goal %f", distanceFromDogToGoal);
     
-        tf2::Vector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
-        tf2::Vector3 startVector = dogVector + tf2Scalar(distanceFromDogToGoal) * dogToGoal;
+        btVector3 dogVector(dogInBaseFrame.pose.position.x, dogInBaseFrame.pose.position.y, armHeight);
+        btVector3 startVector = dogVector + btScalar(distanceFromDogToGoal) * dogToGoal;
         
         // Now add the leash length.
-        tf2::Vector3 leashToGoal = dogToGoal.rotate(tf2::Vector3(0, 0, 1), tf2Scalar(angle));
+        btVector3 leashToGoal = dogToGoal.rotate(btVector3(0, 0, 1), btScalar(angle));
 
-        startVector = startVector + tf2Scalar(planarLeashLength) * leashToGoal;
+        startVector = startVector + btScalar(planarLeashLength) * leashToGoal;
         
         // Now update the goal to move to the dog to the goal point.
         PointStamped start;
@@ -246,7 +247,7 @@ namespace {
   
   bool moveRightArm(const Point goalPoint, vector<double>& positions){
      // Transform to the planning frame.
-     ROS_INFO("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.x, goalPoint.y, goalPoint.z, rightArm.getPlanningFrame().c_str(), ros::Time::now().toSec());
+     ROS_DEBUG("Moving arm to position %f %f %f in frame %s @ %f", goalPoint.x, goalPoint.y, goalPoint.z, rightArm.getPlanningFrame().c_str(), ros::Time::now().toSec());
      
      moveit_msgs::GetPositionIK::Request req;
      moveit_msgs::GetPositionIK::Response res; 
@@ -264,12 +265,11 @@ namespace {
      // req.ik_request.attempts = 10;
      // Default is 0.05
      req.ik_request.timeout = ros::Duration(0.05);
-     
-     const moveit::core::JointModelGroup* jointStateGroup = kinematicState->getRobotModel()->getJointModelGroup("right_arm");
-     const vector<string>& jointNames = jointStateGroup->getJointModelNames();
-     
+     const robot_state::JointStateGroup* jointStateGroup = kinematicState->getJointStateGroup("right_arm");
+     const vector<string>& jointNames = jointStateGroup->getJointModelGroup()->getJointModelNames();
+
      // Seed state defaults to current positions
-     ROS_INFO("Starting call to IK");
+     ROS_DEBUG("Starting call to IK");
      ikClient.call(req, res);
      if(res.error_code.val == res.error_code.SUCCESS){
          ROS_INFO("IK solution was found successfully");
@@ -285,7 +285,8 @@ namespace {
          }
      }
      else {
-         ROS_INFO_STREAM("Failed to find IK solution. Error code " << res.error_code);
+
+         ROS_DEBUG_STREAM("Failed to find IK solution. Error code " << res.error_code);
          return false;
      }
      return true;

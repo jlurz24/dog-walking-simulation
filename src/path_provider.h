@@ -1,6 +1,7 @@
 #pragma once
 #include <geometry_msgs/Point.h>
 #include <tf/transform_listener.h>
+#include <tf2/LinearMath/btVector3.h>
 
 namespace {
 
@@ -15,16 +16,16 @@ namespace {
 
         geometry_msgs::PoseStamped poseAtTime(const ros::Duration baseT) const {
             geometry_msgs::PoseStamped goal;
-            goal.header.frame_id = "map";
+            goal.header.frame_id = "/map";
             goal.pose.position = positionAtTime(baseT);
 
             geometry_msgs::PoseStamped goal2;
-            goal2.header.frame_id = "map";
+            goal2.header.frame_id = "/map";
             goal2.pose.position = positionAtTime(baseT + SLOPE_DELTA);
 
             // Calculate the vector of the tangent line.
-            tf2::Vector3 tangent = tf2::Vector3(goal2.pose.position.x, goal2.pose.position.y, 0)
-                            - tf2::Vector3(goal.pose.position.x, goal.pose.position.y, 0);
+            btVector3 tangent = btVector3(goal2.pose.position.x, goal2.pose.position.y, 0)
+                            - btVector3(goal.pose.position.x, goal.pose.position.y, 0);
             tangent.normalize();
 
             // Calculate the yaw so we can create an orientation.
