@@ -6,4 +6,7 @@
   <node pkg="dogsim" type="set_max_update_rate" name="set_max_update_rate" output="screen">
     <param name="max_update_rate" value="250"/>
   </node>
+  
+  <node pkg="dogsim" type="robot_path_scorer" name="robot_path_scorer" output="screen">
+  </node>
 </launch>

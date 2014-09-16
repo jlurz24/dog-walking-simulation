@@ -4,7 +4,7 @@ local_planner:
   acc_lim_y: 2.5
 
   max_vel_x: 1
-  min_vel_x: 0.3
+  min_vel_x: 0.6
 
   max_vel_y: 0.1
   min_vel_y: -0.1
@@ -36,8 +36,8 @@ local_planner:
 
   sim_period: 0.1
 
-  xy_goal_tolerance: 0.25
-  yaw_goal_tolerance: 0.17
+  xy_goal_tolerance: 0.10
+  yaw_goal_tolerance: 0.05
 
   rot_stopped_vel: 0.01
   trans_stopped_vel: 0.01

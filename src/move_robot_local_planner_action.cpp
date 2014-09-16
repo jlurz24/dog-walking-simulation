@@ -6,6 +6,7 @@
 #include <visualization_msgs/Marker.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <dwa_local_planner/dwa_planner_ros.h>
+#include <boost/thread.hpp>
 
 // Generated messages
 #include <dogsim/MoveRobotAction.h>
@@ -25,6 +26,13 @@ public:
         costmap.start();
         tp.initialize("local_planner", &tf, &costmap);
         as.start();
+
+        // Initialize the command thread
+        baseCommandThread = unique_ptr<boost::thread>(new boost::thread(boost::bind(&MoveRobotLocalPlannerAction::sendCommandLoop, this)));
+    }
+
+    ~MoveRobotLocalPlannerAction(){
+        baseCommandThread->interrupt();
     }
 
 protected:
@@ -42,12 +50,13 @@ protected:
 
     void stop() {
         ROS_INFO("Stopping the base");
-        geometry_msgs::Twist baseCmd;
-        baseCmd.linear.x = 0.0;
-        baseCmd.angular.z = 0.0;
 
-        // Publish the command to the base
-        cmdVelocityPub.publish(baseCmd);
+        {
+            boost::mutex::scoped_lock(cmdLock);
+            baseCmd.linear.x = baseCmd.linear.y = baseCmd.linear.z = 0.0;
+            baseCmd.angular.z = 0.0;
+        }
+        // This will be published by the command loop
     }
 
     bool move(const dogsim::MoveRobotGoalConstPtr& goal) {
@@ -89,9 +98,10 @@ protected:
 
         // Loop and move the robot, checking the position of the goal in the base
         // frame after each move.
-        ros::Rate updateRate(20);
+        ros::Rate updateRate(10);
 
-        while (true) {
+        bool success = false;
+        while (ros::ok() && as.isActive() && !as.isPreemptRequested()) {
             const ros::Time nextUpdateTime = ros::Time::now() + pathUpdateRate;
 
             ROS_DEBUG("Recomputing path segment");
@@ -123,40 +133,81 @@ protected:
                 return false;
             }
 
-            while (ros::ok() && as.isActive() && !tp.isGoalReached() && ros::Time::now() < nextUpdateTime) {
-                geometry_msgs::Twist baseCmd;
+            while (ros::ok() && as.isActive() && !as.isPreemptRequested() && !tp.isGoalReached() && ros::Time::now() < nextUpdateTime) {
 
-                if (!tp.computeVelocityCommands(baseCmd)) {
+                geometry_msgs::Twist baseCmdTemp;
+                if (!tp.computeVelocityCommands(baseCmdTemp)) {
                     ROS_WARN("Failed to compute velocity commands. Publishing zero velocity.");
-                    baseCmd.linear.x = 0.0;
-                    baseCmd.linear.y = 0.0;
-                    baseCmd.angular.z = 0.0;
+                    {
+                        boost::mutex::scoped_lock(cmdLock);
+                        baseCmd.linear.x = 0.0;
+                        baseCmd.linear.y = 0.0;
+                        baseCmd.angular.z = 0.0;
+                    }
+
                 }
                 else {
                     ROS_DEBUG("Successfully computed base command %f %f %f", baseCmd.linear.x,
                             baseCmd.linear.y, baseCmd.angular.z);
+                    {
+                        boost::mutex::scoped_lock(cmdLock);
+                        baseCmd = baseCmdTemp;
+                    }
                 }
-                // Publish the command to the base
-                cmdVelocityPub.publish(baseCmd);
                 updateRate.sleep();
             }
 
             if(tp.isGoalReached()){
                 ROS_DEBUG("Local planner reached goal");
             }
+            if(ros::Time::now() >= nextUpdateTime){
+                ROS_DEBUG("Exiting loop because next update time reached");
+            }
+            if(!ros::ok() && !as.isActive() && as.isPreemptRequested()){
+                ROS_INFO("Exiting due to premption or failure");
+            }
 
             if(i == goal->poses.end() - 1 && tp.isGoalReached()){
+                success = true;
                 ROS_DEBUG("Path completed successfully");
                 break;
             }
         }
 
-        // TODO: Should this only signal success if it reached the last point?
-        as.setSucceeded();
-        return true;
+        // Stop movement
+        ROS_INFO("Stopping movement as movement plan is complete");
+        {
+            boost::mutex::scoped_lock(cmdLock);
+            baseCmd.linear.x = 0.0;
+            baseCmd.linear.y = 0.0;
+            baseCmd.angular.z = 0.0;
+        }
+
+        if(success){
+            as.setSucceeded();
+        }
+        else {
+            as.setAborted();
+        }
+        return success;
     }
 
 private:
+
+    void sendCommandLoop(){
+        static const boost::posix_time::seconds CYCLE_TIME = boost::posix_time::seconds(1.0 / 50.0);
+        while(true){
+            // Publish the command to the base
+            geometry_msgs::Twist baseCmdTemp;
+            {
+                boost::mutex::scoped_lock(cmdLock);
+                baseCmdTemp = baseCmd;
+            }
+            cmdVelocityPub.publish(baseCmdTemp);
+        }
+        boost::this_thread::sleep(CYCLE_TIME);
+    }
+
     ros::NodeHandle nh;
 
     // Actionlib classes
@@ -176,8 +227,17 @@ private:
      */
     dwa_local_planner::DWAPlannerROS tp;
 
-//! Publisher for command velocities
+    //! Publisher for command velocities
     ros::Publisher cmdVelocityPub;
+
+    //! Thread that executes the base movement loop
+    unique_ptr<boost::thread> baseCommandThread;
+
+    //! Current command. This will be sent until it is updated again.
+    geometry_msgs::Twist baseCmd;
+
+    //! Lock for the current command
+    boost::mutex cmdLock;
 }
 ;
 }

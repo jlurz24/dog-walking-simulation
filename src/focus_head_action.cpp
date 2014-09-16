@@ -339,7 +339,7 @@ private:
             const pr2_controllers_msgs::PointHeadResultConstPtr result) {
         ROS_DEBUG("Received point head complete callback");
         if (searchState != SearchState::HEAD) {
-            ROS_WARN("Spurious point head complete callback received");
+            ROS_DEBUG("Spurious point head complete callback received");
             return;
         }
 

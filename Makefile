@@ -628,6 +628,19 @@ robot_driver/fast:
 .PHONY : robot_driver/fast
 
 #=============================================================================
+# Target rules for targets named robot_path_scorer
+
+# Build rule for target.
+robot_path_scorer: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 robot_path_scorer
+.PHONY : robot_path_scorer
+
+# fast build rule for target.
+robot_path_scorer/fast:
+	$(MAKE) -f CMakeFiles/robot_path_scorer.dir/build.make CMakeFiles/robot_path_scorer.dir/build
+.PHONY : robot_path_scorer/fast
+
+#=============================================================================
 # Target rules for targets named rosbuild_clean-test-results
 
 # Build rule for target.
@@ -1489,6 +1502,30 @@ src/robot_driver.cpp.s:
 	$(MAKE) -f CMakeFiles/robot_driver.dir/build.make CMakeFiles/robot_driver.dir/src/robot_driver.cpp.s
 .PHONY : src/robot_driver.cpp.s
 
+src/robot_path_scorer.o: src/robot_path_scorer.cpp.o
+.PHONY : src/robot_path_scorer.o
+
+# target to build an object file
+src/robot_path_scorer.cpp.o:
+	$(MAKE) -f CMakeFiles/robot_path_scorer.dir/build.make CMakeFiles/robot_path_scorer.dir/src/robot_path_scorer.cpp.o
+.PHONY : src/robot_path_scorer.cpp.o
+
+src/robot_path_scorer.i: src/robot_path_scorer.cpp.i
+.PHONY : src/robot_path_scorer.i
+
+# target to preprocess a source file
+src/robot_path_scorer.cpp.i:
+	$(MAKE) -f CMakeFiles/robot_path_scorer.dir/build.make CMakeFiles/robot_path_scorer.dir/src/robot_path_scorer.cpp.i
+.PHONY : src/robot_path_scorer.cpp.i
+
+src/robot_path_scorer.s: src/robot_path_scorer.cpp.s
+.PHONY : src/robot_path_scorer.s
+
+# target to generate assembly for a file
+src/robot_path_scorer.cpp.s:
+	$(MAKE) -f CMakeFiles/robot_path_scorer.dir/build.make CMakeFiles/robot_path_scorer.dir/src/robot_path_scorer.cpp.s
+.PHONY : src/robot_path_scorer.cpp.s
+
 src/set_max_update_rate.o: src/set_max_update_rate.cpp.o
 .PHONY : src/set_max_update_rate.o
 
@@ -1634,6 +1671,7 @@ help:
 	@echo "... point_arm_camera_action"
 	@echo "... rebuild_cache"
 	@echo "... robot_driver"
+	@echo "... robot_path_scorer"
 	@echo "... rosbuild_clean-test-results"
 	@echo "... rosbuild_precompile"
 	@echo "... rosbuild_premsgsrvgen"
@@ -1729,6 +1767,9 @@ help:
 	@echo "... src/robot_driver.o"
 	@echo "... src/robot_driver.i"
 	@echo "... src/robot_driver.s"
+	@echo "... src/robot_path_scorer.o"
+	@echo "... src/robot_path_scorer.i"
+	@echo "... src/robot_path_scorer.s"
 	@echo "... src/set_max_update_rate.o"
 	@echo "... src/set_max_update_rate.i"
 	@echo "... src/set_max_update_rate.s"

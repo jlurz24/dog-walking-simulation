@@ -57,13 +57,11 @@ namespace {
     private:
   
     void preemptCB(){
-        ROS_DEBUG("Preempting the adjust dog position action");
-
+        ROS_INFO("Preempting the adjust dog position action ");
         if(!as.isActive()){
             ROS_DEBUG("Adjust dog position action canceled prior to start");
             return;
         }
-
         rightArm.stop();
         as.setPreempted();
     }

@@ -78,6 +78,8 @@ rosbuild_add_executable(adjust_dog_position_action src/adjust_dog_position_actio
 rosbuild_add_executable(move_robot_action src/move_robot_action.cpp)
 rosbuild_add_executable(move_robot_local_planner_action src/move_robot_local_planner_action.cpp)
 target_link_libraries(move_robot_local_planner_action ${roscpp_LIBRARIES})
+rosbuild_add_compile_flags(move_robot_local_planner_action -std=c++0x)
+
 rosbuild_add_executable(move_dog_away_action src/move_dog_away_action.cpp)
 rosbuild_add_executable(map_broadcaster src/map_broadcaster.cpp)
 rosbuild_add_executable(move_arm_to_base_position_action src/move_arm_to_base_position_action.cpp)
@@ -98,3 +100,5 @@ target_link_libraries(path_visibility_detector ${CGAL_LIBRARY} ${GMP_LIBRARY} ${
 rosbuild_add_executable(dog_position_measurer src/dog_position_measurer.cpp)
 rosbuild_add_executable(zero_height_depth_broadcaster src/zero_height_depth_broadcaster.cpp)
 rosbuild_add_executable(point_arm_camera_action src/point_arm_camera_action.cpp)
+rosbuild_add_executable(robot_path_scorer src/robot_path_scorer.cpp)
+
