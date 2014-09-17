@@ -1,0 +1,6 @@
+<launch>
+  <include file="$(find dogsim)/launch/heuristic.launch">
+    <arg name="insitu" value="true"/>
+  </include>
+  <include file="$(find dogsim)/launch/rectangle.launch" />
+</launch>

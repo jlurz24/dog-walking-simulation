@@ -1,5 +1,7 @@
 <launch>
-  <include file="$(find dogsim)/launch/heuristic.launch" />
+  <include file="$(find dogsim)/launch/heuristic.launch">
+    <arg name="insitu" value="false"/>
+  </include>
   <include file="$(find dogsim)/launch/bad_dog.launch" />
   <include file="$(find dogsim)/launch/lissajous.launch" />
   <include file="$(find dogsim)/launch/scoring.launch" />

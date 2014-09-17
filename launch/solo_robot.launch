@@ -1,5 +1,8 @@
 <launch>
-  <include file="$(find dogsim)/launch/base_no_sensors.launch" />
+  <include file="$(find dogsim)/launch/base_no_sensors.launch">
+        <arg name="insitu" value="false"/>
+  </include>
+  
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen">
     <param name="solo_mode" value="true"/>
   </node>
