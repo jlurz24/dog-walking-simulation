@@ -329,6 +329,19 @@ clean_test_results/fast:
 .PHONY : clean_test_results/fast
 
 #=============================================================================
+# Target rules for targets named detection_image_publisher
+
+# Build rule for target.
+detection_image_publisher: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 detection_image_publisher
+.PHONY : detection_image_publisher
+
+# fast build rule for target.
+detection_image_publisher/fast:
+	$(MAKE) -f CMakeFiles/detection_image_publisher.dir/build.make CMakeFiles/detection_image_publisher.dir/build
+.PHONY : detection_image_publisher/fast
+
+#=============================================================================
 # Target rules for targets named dog_model_plugin
 
 # Build rule for target.
@@ -973,6 +986,30 @@ src/avoid_dog.s: src/avoid_dog.cpp.s
 src/avoid_dog.cpp.s:
 	$(MAKE) -f CMakeFiles/avoid_dog.dir/build.make CMakeFiles/avoid_dog.dir/src/avoid_dog.cpp.s
 .PHONY : src/avoid_dog.cpp.s
+
+src/detection_image_publisher.o: src/detection_image_publisher.cpp.o
+.PHONY : src/detection_image_publisher.o
+
+# target to build an object file
+src/detection_image_publisher.cpp.o:
+	$(MAKE) -f CMakeFiles/detection_image_publisher.dir/build.make CMakeFiles/detection_image_publisher.dir/src/detection_image_publisher.cpp.o
+.PHONY : src/detection_image_publisher.cpp.o
+
+src/detection_image_publisher.i: src/detection_image_publisher.cpp.i
+.PHONY : src/detection_image_publisher.i
+
+# target to preprocess a source file
+src/detection_image_publisher.cpp.i:
+	$(MAKE) -f CMakeFiles/detection_image_publisher.dir/build.make CMakeFiles/detection_image_publisher.dir/src/detection_image_publisher.cpp.i
+.PHONY : src/detection_image_publisher.cpp.i
+
+src/detection_image_publisher.s: src/detection_image_publisher.cpp.s
+.PHONY : src/detection_image_publisher.s
+
+# target to generate assembly for a file
+src/detection_image_publisher.cpp.s:
+	$(MAKE) -f CMakeFiles/detection_image_publisher.dir/build.make CMakeFiles/detection_image_publisher.dir/src/detection_image_publisher.cpp.s
+.PHONY : src/detection_image_publisher.cpp.s
 
 src/dog_model_plugin.o: src/dog_model_plugin.cpp.o
 .PHONY : src/dog_model_plugin.o
@@ -1642,6 +1679,7 @@ help:
 	@echo "... adjust_dog_position_action"
 	@echo "... avoid_dog"
 	@echo "... clean_test_results"
+	@echo "... detection_image_publisher"
 	@echo "... dog_model_plugin"
 	@echo "... dog_position_detector"
 	@echo "... dog_position_measurer"
@@ -1701,6 +1739,9 @@ help:
 	@echo "... src/avoid_dog.o"
 	@echo "... src/avoid_dog.i"
 	@echo "... src/avoid_dog.s"
+	@echo "... src/detection_image_publisher.o"
+	@echo "... src/detection_image_publisher.i"
+	@echo "... src/detection_image_publisher.s"
 	@echo "... src/dog_model_plugin.o"
 	@echo "... src/dog_model_plugin.i"
 	@echo "... src/dog_model_plugin.s"

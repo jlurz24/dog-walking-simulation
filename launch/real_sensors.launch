@@ -101,4 +101,10 @@
       <remap to="/simulated_dog_position_detector/dog_position" from="out"/>
     </node>
   </group>
+  
+  <node name="detection_image_publisher" pkg="dogsim" type="detection_image_publisher" output="screen">
+    <remap from="/image_in" to="wide_stereo/left/image_rect_color"/>
+    <remap from="/dog_position_in" to="/dog_position_detector/dog_position"/>
+    <remap from="camera_info_in" to="/wide_stereo/left/camera_info"/>
+  </node>
 </launch>
