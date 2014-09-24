@@ -2,7 +2,7 @@
 <arg name="insitu" />
 <node pkg="position_tracker" type="dynamic_object_detector" name="dynamic_object_detector">
     <param name="object_name" value="dog" />
-    <param name="frame" value="/map" />
+    <param name="frame" value="/base_footprint" />
     <param name="initial_velocity" value="0.00" />
     <param name="kalman_observation_noise" value="0.05" />
     <param name="kalman_acceleration_dist" value="0.25" />
@@ -14,7 +14,7 @@
   </node>
 
   <node pkg="position_tracker" type="multi_object_detector" name="r_forearm_multi_object_detector">
-    <param name="output_frame" value="/map" />
+    <param name="output_frame" value="/base_footprint" />
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="1.0" />
     <param name="voxel_leaf_size" value="0.01" />
@@ -55,7 +55,7 @@
   </node>
 
   <node pkg="position_tracker" type="multi_object_detector" name="wide_stereo_multi_object_detector">
-    <param name="output_frame" value="/map" />
+    <param name="output_frame" value="/base_footprint" />
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="1.0" />
     <param name="voxel_leaf_size" value="0.01" />

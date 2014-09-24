@@ -169,12 +169,12 @@ class MultiObjectDetector {
         resultPoint.point.y = centroid[1];
         resultPoint.point.z = centroid[2];
        
-        geometry_msgs::PointStamped resultPointMap;
-        resultPointMap.header.frame_id = "/base_footprint";
-        resultPointMap.header.stamp = depthPointsMsg->header.stamp;
-        tf.transformPoint(resultPointMap.header.frame_id, resultPoint, resultPointMap);
-        ROS_DEBUG("Transformed centroid to frame %s with coordinates %f %f %f", resultPointMap.header.frame_id.c_str(), resultPointMap.point.x, resultPointMap.point.y, resultPointMap.point.z);
-        objects->positions.push_back(resultPointMap);
+        geometry_msgs::PointStamped resultPointBaseFootprint;
+        resultPointBaseFootprint.header.frame_id = "/base_footprint";
+        resultPointBaseFootprint.header.stamp = depthPointsMsg->header.stamp;
+        tf.transformPoint(resultPointBaseFootprint.header.frame_id, resultPoint, resultPointBaseFootprint);
+        ROS_DEBUG("Transformed centroid to frame %s with coordinates %f %f %f", resultPointBaseFootprint.header.frame_id.c_str(), resultPointBaseFootprint.point.x, resultPointBaseFootprint.point.y, resultPointBaseFootprint.point.z);
+        objects->positions.push_back(resultPointBaseFootprint);
      }
      publish(objects);
    }

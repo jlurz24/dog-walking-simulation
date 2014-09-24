@@ -81,6 +81,8 @@ private:
 
 		const geometry_msgs::PoseStamped& dogPose = msg->pose;
 
+		ROS_INFO("Dog Position: %f %f %f", msg->pose.pose.position.x, msg->pose.pose.position.y,msg->pose.pose.position.z);
+
 		// Visualize the dog.
 		static const std_msgs::ColorRGBA BLUE = utils::createColor(0, 0, 1);
 		if (dogVizPubPerm.getNumSubscribers() > 0) {

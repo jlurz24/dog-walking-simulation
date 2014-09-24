@@ -439,16 +439,7 @@ private:
                     boost::bind(&FocusHead::pointArmCompleteCallback, this, _1, _2));
         }
         else {
-            pr2_controllers_msgs::PointHeadGoal phGoal;
-            phGoal.target = finalTarget;
-            phGoal.pointing_frame = "wide_stereo_link";
-            phGoal.pointing_axis.x = 1;
-            phGoal.pointing_axis.y = 0;
-            phGoal.pointing_axis.z = 0;
-
-            // Pointing axis defaults to the x-axis.
-            pointHeadClient.sendGoal(phGoal,
-                    boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
+            pointHeadAtTarget(finalTarget);
         }
         timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
                 true /* One shot */);
@@ -514,6 +505,14 @@ private:
             resetState();
             resetSearch();
             unsubscribeToPoints();
+
+            // Point head at the found target
+            ROS_DEBUG("Pointing at the located position of the dog");
+            PointStamped pointTarget;
+            pointTarget.header = dogPosition->header;
+            pointTarget.point = dogPosition->pose.pose.position;
+            pointHeadAtTarget(pointTarget);
+
             ROS_DEBUG("Exiting dog position callback after dog found");
         }
     }
@@ -710,6 +709,20 @@ private:
         }
 
         return true;
+    }
+
+    void pointHeadAtTarget(const geometry_msgs::PointStamped& target) {
+        pr2_controllers_msgs::PointHeadGoal phGoal;
+        phGoal.target = target;
+        phGoal.pointing_frame = "wide_stereo_link";
+        phGoal.pointing_axis.x = 1;
+        phGoal.pointing_axis.y = 0;
+        phGoal.pointing_axis.z = 0;
+        phGoal.max_velocity = 1.0;
+
+        // Pointing axis defaults to the x-axis.
+        pointHeadClient.sendGoal(phGoal,
+                boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
     }
 
 protected:

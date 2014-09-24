@@ -130,38 +130,22 @@ private:
         cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(image, sensor_msgs::image_encodings::BGR8);
 
         if(!dogPosition->unknown){
-            // TODO: Some issue is causing problems when we convert directly from the map frame to the image
-            // frame. Converting to the base frame temporarily seems to fix it.
-            geometry_msgs::PointStamped dogInBaseFrame;
-            dogInBaseFrame.header.frame_id = "/base_footprint";
-            dogInBaseFrame.header.stamp = dogPosition->header.stamp;
-            tf.waitForTransform(cameraModel.tfFrame(), "/base_footprint",
-                    dogPosition->header.stamp, ros::Duration(0.5));
-            try {
-                geometry_msgs::PointStamped position;
-                position.header = dogPosition->header;
-                position.header.frame_id = "/base_footprint";
-                position.point = dogPosition->pose.pose.position;
-                tf.transformPoint("/base_footprint", dogPosition->header.stamp, position, dogPosition->header.frame_id, dogInBaseFrame);
-            }
-            catch (tf::TransformException& e) {
-                ROS_WARN("Failed to transform from %s to %s due to: %s",
-                        "/base_footprint", cameraModel.tfFrame().c_str(), e.what());
-                return;
-            }
+            geometry_msgs::PointStamped position;
+            position.header = dogPosition->header;
+            position.point = dogPosition->pose.pose.position;
 
             // Convert the dog position to the camera frame
             geometry_msgs::PointStamped dogInCameraFrame;
             dogInCameraFrame.header.frame_id = cameraModel.tfFrame();
             dogInCameraFrame.header.stamp = dogPosition->header.stamp;
-            tf.waitForTransform(cameraModel.tfFrame(), dogInBaseFrame.header.frame_id,
+            tf.waitForTransform(cameraModel.tfFrame(), dogPosition->header.frame_id,
                     dogPosition->header.stamp, ros::Duration(0.5));
             try {
-                tf.transformPoint(cameraModel.tfFrame(), dogPosition->header.stamp, dogInBaseFrame, dogInBaseFrame.header.frame_id, dogInCameraFrame);
+                tf.transformPoint(cameraModel.tfFrame(), dogPosition->header.stamp, position, dogPosition->header.frame_id, dogInCameraFrame);
             }
             catch (tf::TransformException& e) {
                 ROS_WARN("Failed to transform from %s to %s due to: %s",
-                        dogInBaseFrame.header.frame_id.c_str(), cameraModel.tfFrame().c_str(), e.what());
+                        position.header.frame_id.c_str(), cameraModel.tfFrame().c_str(), e.what());
                 return;
             }
 
@@ -173,7 +157,7 @@ private:
             cv::circle(cvPtr->image, pixel, 10, CV_RGB(255,0,0), 5);
         }
         else {
-            ROS_INFO("Unknown dog position in detection image");
+            ROS_DEBUG("Unknown dog position in detection image");
         }
         // Output modified video stream
         detectedImagePub.publish(cvPtr->toImageMsg());

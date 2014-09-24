@@ -1,4 +1,8 @@
 <launch>
+  <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer">
+    <remap from="dog_position_in" to="/dog_position_detector/dog_position"/>
+  </node>
+
   <include file="$(find dogsim)/launch/heuristic.launch">
     <arg name="insitu" value="true"/>
   </include>

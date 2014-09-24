@@ -13,6 +13,7 @@
   <rosdep name="cgal" />
   <rosdep name="gazebo" />
   <rosdep name="pcl" />
+  <depend package="pcl_conversions"/>
   <depend package="gazebo" />
   <depend package="gazebo_msgs" />
   <depend package="actionlib_msgs" />

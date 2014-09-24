@@ -25,14 +25,15 @@ rosbuild_check_for_sse()
 
 find_package(Eigen REQUIRED)
 find_package(gazebo REQUIRED)
-find_library(CGAL_LIBRARY CGAL /usr/local/lib REQUIRED)
+find_package(CGAL PATHS ./CGAL-4.4 REQUIRED)
+find_library(CGAL_LIBRARY CGAL ./CGAL-4.4/lib /usr/local/lib REQUIRED)
 find_library(GMP_LIBRARY gmp /usr/lib REQUIRED) 
 find_library(MPFR_LIBRARY mpfr /usr/lib/x86_64-linux-gnu REQUIRED)
 set(Gperftools_DIR .)
 find_package(Gperftools REQUIRED)
 
 include_directories(${Eigen_INCLUDE_DIRS})
-
+include_directories(${CGAL_INCLUDE_DIRS})
 include_directories(${GAZEBO_INCLUDE_DIRS})
 link_directories(${GAZEBO_LIBRARY_DIRS})
 

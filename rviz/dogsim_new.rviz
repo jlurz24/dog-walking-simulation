@@ -1,6 +1,6 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 78
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
@@ -21,8 +21,11 @@ Panels:
         - /Arm Focus Target1
         - /Right Arm Camera1
         - /Base Arm Point1
+        - /Detection Image1
+        - /DogInBaseFrame1
+        - /PointStamped1
       Splitter Ratio: 0.5
-    Tree Height: 271
+    Tree Height: 193
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -720,7 +723,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_position_viz_perm
       Name: Dog Position
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -736,7 +739,7 @@ Visualization Manager:
       Marker Topic: /path/walk_goal_viz_perm
       Name: Walk Goal
       Namespaces:
-        {}
+        dogsim: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -800,24 +803,24 @@ Visualization Manager:
       Use rainbow: true
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /point_arm_camera_action/look_direction_viz
       Name: Arm Focus
       Namespaces:
-        /point_arm_camera_action: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/PointStamped
       Color: 204; 41; 204
-      Enabled: true
+      Enabled: false
       History Length: 1
       Name: Arm Focus Target
       Radius: 0.2
       Topic: /point_arm_camera_action/target_vis
-      Value: true
+      Value: false
     - Class: rviz/Image
-      Enabled: true
+      Enabled: false
       Image Topic: /r_forearm_cam/image_rect_color
       Max Value: 1
       Median window: 5
@@ -826,15 +829,44 @@ Visualization Manager:
       Normalize Range: true
       Queue Size: 2
       Transport Hint: raw
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/PointStamped
       Color: 85; 85; 255
-      Enabled: true
+      Enabled: false
       History Length: 1
       Name: Base Arm Point
       Radius: 0.2
       Topic: /point_arm_camera_action/target_vis
+      Value: false
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /detection_image
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Detection Image
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 204; 41; 204
+      Enabled: true
+      History Length: 1
+      Name: DogInBaseFrame
+      Radius: 0.2
+      Topic: /dog_in_base_frame
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 255; 170; 127
+      Enabled: true
+      History Length: 1
+      Name: PointStamped
+      Radius: 0.2
+      Topic: /dog_in_image_frame
       Value: true
   Enabled: true
   Global Options:
@@ -854,29 +886,31 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 13.099
+      Distance: 14.4445
       Focal Point:
         X: -0.103844
         Y: -0.949116
         Z: 0.5351
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.224797
+      Pitch: 0.664796
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.25858
+      Yaw: 0.705392
     Saved: ~
 Window Geometry:
+  Detection Image:
+    collapsed: false
   Displays:
     collapsed: false
   Height: 845
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a200000307fc0200000002fb000000100044006900730070006c00610079007301000000280000019e000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d00650072006101000001cc000001630000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000001050000030700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001a200000307fc0200000003fb000000100044006900730070006c006100790073010000002800000102000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000160000001070000001600fffffffb0000001e0044006500740065006300740069006f006e00200049006d0061006700650100000130000001ff0000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000001050000030700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Right Arm Camera:
     collapsed: false
   Tool Properties:
     collapsed: false
   Width: 685
-  X: 355
+  X: 338
   Y: 24
