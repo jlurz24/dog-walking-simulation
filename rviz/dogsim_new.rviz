@@ -24,6 +24,7 @@ Panels:
         - /Detection Image1
         - /DogInBaseFrame1
         - /PointStamped1
+        - /Marker1
       Splitter Ratio: 0.5
     Tree Height: 193
   - Class: rviz/Tool Properties
@@ -868,6 +869,14 @@ Visualization Manager:
       Radius: 0.2
       Topic: /dog_in_image_frame
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /dogsim/dog_goal_viz
+      Name: Marker
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -886,17 +895,17 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 14.4445
+      Distance: 24.0212
       Focal Point:
         X: -0.103844
         Y: -0.949116
         Z: 0.5351
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.664796
+      Pitch: 0.484796
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.705392
+      Yaw: 6.04858
     Saved: ~
 Window Geometry:
   Detection Image:

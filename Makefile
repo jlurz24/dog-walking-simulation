@@ -332,6 +332,19 @@ clean_test_results/fast:
 .PHONY : clean_test_results/fast
 
 #=============================================================================
+# Target rules for targets named control_dog_position_behavior
+
+# Build rule for target.
+control_dog_position_behavior: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 control_dog_position_behavior
+.PHONY : control_dog_position_behavior
+
+# fast build rule for target.
+control_dog_position_behavior/fast:
+	$(MAKE) -f CMakeFiles/control_dog_position_behavior.dir/build.make CMakeFiles/control_dog_position_behavior.dir/build
+.PHONY : control_dog_position_behavior/fast
+
+#=============================================================================
 # Target rules for targets named detection_image_publisher
 
 # Build rule for target.
@@ -989,6 +1002,30 @@ src/avoid_dog.s: src/avoid_dog.cpp.s
 src/avoid_dog.cpp.s:
 	$(MAKE) -f CMakeFiles/avoid_dog.dir/build.make CMakeFiles/avoid_dog.dir/src/avoid_dog.cpp.s
 .PHONY : src/avoid_dog.cpp.s
+
+src/control_dog_position_behavior.o: src/control_dog_position_behavior.cpp.o
+.PHONY : src/control_dog_position_behavior.o
+
+# target to build an object file
+src/control_dog_position_behavior.cpp.o:
+	$(MAKE) -f CMakeFiles/control_dog_position_behavior.dir/build.make CMakeFiles/control_dog_position_behavior.dir/src/control_dog_position_behavior.cpp.o
+.PHONY : src/control_dog_position_behavior.cpp.o
+
+src/control_dog_position_behavior.i: src/control_dog_position_behavior.cpp.i
+.PHONY : src/control_dog_position_behavior.i
+
+# target to preprocess a source file
+src/control_dog_position_behavior.cpp.i:
+	$(MAKE) -f CMakeFiles/control_dog_position_behavior.dir/build.make CMakeFiles/control_dog_position_behavior.dir/src/control_dog_position_behavior.cpp.i
+.PHONY : src/control_dog_position_behavior.cpp.i
+
+src/control_dog_position_behavior.s: src/control_dog_position_behavior.cpp.s
+.PHONY : src/control_dog_position_behavior.s
+
+# target to generate assembly for a file
+src/control_dog_position_behavior.cpp.s:
+	$(MAKE) -f CMakeFiles/control_dog_position_behavior.dir/build.make CMakeFiles/control_dog_position_behavior.dir/src/control_dog_position_behavior.cpp.s
+.PHONY : src/control_dog_position_behavior.cpp.s
 
 src/detection_image_publisher.o: src/detection_image_publisher.cpp.o
 .PHONY : src/detection_image_publisher.o
@@ -1682,6 +1719,7 @@ help:
 	@echo "... adjust_dog_position_action"
 	@echo "... avoid_dog"
 	@echo "... clean_test_results"
+	@echo "... control_dog_position_behavior"
 	@echo "... detection_image_publisher"
 	@echo "... dog_model_plugin"
 	@echo "... dog_position_detector"
@@ -1742,6 +1780,9 @@ help:
 	@echo "... src/avoid_dog.o"
 	@echo "... src/avoid_dog.i"
 	@echo "... src/avoid_dog.s"
+	@echo "... src/control_dog_position_behavior.o"
+	@echo "... src/control_dog_position_behavior.i"
+	@echo "... src/control_dog_position_behavior.s"
 	@echo "... src/detection_image_publisher.o"
 	@echo "... src/detection_image_publisher.i"
 	@echo "... src/detection_image_publisher.s"

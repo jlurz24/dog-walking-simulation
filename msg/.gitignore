@@ -47,3 +47,10 @@ MoveRobotResult.msg
 /PointArmCameraFeedback.msg
 /PointArmCameraGoal.msg
 /PointArmCameraResult.msg
+/ControlDogPositionAction.msg
+/ControlDogPositionActionFeedback.msg
+/ControlDogPositionActionGoal.msg
+/ControlDogPositionActionResult.msg
+/ControlDogPositionFeedback.msg
+/ControlDogPositionGoal.msg
+/ControlDogPositionResult.msg

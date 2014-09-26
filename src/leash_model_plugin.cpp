@@ -81,8 +81,7 @@ private:
         }
 
         common::Time currTime = this->world->GetSimTime();
-        if (currTime - this->previousTime > UPDATE_RATE) {
-
+        if (currTime.Double() - this->previousTime.Double() > UPDATE_RATE) {
             // Calculate the distance between the two.
             const math::Vector3 handPosition = robotHand->GetWorldPose().pos;
             const math::Vector3 dogPosition = dogBody->GetWorldPose().pos;

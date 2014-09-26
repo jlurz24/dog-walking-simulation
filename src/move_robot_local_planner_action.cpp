@@ -60,6 +60,7 @@ protected:
     }
 
     bool move(const dogsim::MoveRobotGoalConstPtr& goal) {
+        // TODO: Make this activate, which just starts listening for moves
         ROS_DEBUG("Received Move Robot Goal with: %lu poses", goal->poses.size());
 
         if (!as.isActive()) {
@@ -69,6 +70,7 @@ protected:
 
         assert(tp.isInitialized());
 
+        // TODO: Move all this to the planner
         if (goal->poses.size() == 0) {
             ROS_ERROR("No goal poses sent to local planner");
             as.setAborted();

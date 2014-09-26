@@ -103,3 +103,4 @@ rosbuild_add_executable(zero_height_depth_broadcaster src/zero_height_depth_broa
 rosbuild_add_executable(point_arm_camera_action src/point_arm_camera_action.cpp)
 rosbuild_add_executable(robot_path_scorer src/robot_path_scorer.cpp)
 rosbuild_add_executable(detection_image_publisher src/detection_image_publisher.cpp)
+rosbuild_add_executable(control_dog_position_behavior src/control_dog_position_behavior.cpp)

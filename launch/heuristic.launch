@@ -9,4 +9,5 @@
   </group>
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen"/>
   <node pkg="dogsim" type="adjust_dog_position_action" name="adjust_dog_position_action" />
+  <node pkg="dogsim" type="control_dog_position_behavior" name="control_dog_position_behavior" />
 </launch>

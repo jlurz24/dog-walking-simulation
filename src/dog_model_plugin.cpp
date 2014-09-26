@@ -111,6 +111,7 @@ public:
         // simulation iteration.
         this->updateConnection = event::Events::ConnectWorldUpdateBegin(
                 boost::bind(&DogModelPlugin::OnUpdate, this));
+        ROS_INFO("Completed initializing the simulated dog");
     }
 
 private:
@@ -185,7 +186,7 @@ private:
     void OnUpdate() {
         // Calculate the desired position.
         common::Time currTime = this->model->GetWorld()->GetSimTime();
-        if (currTime - this->previousTime >= UPDATE_RATE) {
+        if (currTime.Double() - this->previousTime.Double() >= UPDATE_RATE) {
             bool running, ended;
             math::Vector3 goalPosition = calcGoalPosition(currTime, running, ended);
             if(ended){

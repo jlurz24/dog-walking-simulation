@@ -1,26 +1,24 @@
 #include <ros/ros.h>
 #include <dogsim/utils.h>
 #include <visualization_msgs/Marker.h>
-#include <dogsim/DogPosition.h>
 #include <dogsim/GetEntireRobotPath.h>
 #include <dogsim/AvoidingDog.h>
-#include <dogsim/GetPath.h>
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
 #include <position_tracker/StartMeasurement.h>
 #include <position_tracker/StopMeasurement.h>
 #include <message_filters/subscriber.h>
-#include <dogsim/AdjustDogPositionAction.h>
 #include <dogsim/MoveArmToBasePositionAction.h>
 #include <dogsim/MoveRobotAction.h>
 #include <dogsim/MoveDogAwayAction.h>
 #include <actionlib/client/simple_action_client.h>
+#include <dogsim/ControlDogPositionAction.h>
 
 namespace {
 using namespace std;
 using namespace dogsim;
 
-typedef actionlib::SimpleActionClient<AdjustDogPositionAction> AdjustDogClient;
+typedef actionlib::SimpleActionClient<ControlDogPositionAction> ControlDogPositionBehavior;
 typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 
@@ -45,14 +43,8 @@ private:
     //! One shot timer that performs delayed start
     ros::Timer initTimer;
 
-    //! Dog position subscriber
-    auto_ptr<message_filters::Subscriber<DogPosition> > dogPositionSub;
-
     //! Avoiding dog listener.
     auto_ptr<message_filters::Subscriber<AvoidingDog> > avoidingDogSub;
-
-    //! Client for the arm to attempt to position the dog
-    AdjustDogClient adjustDogClient;
 
     //! Client for the movement of the robot base.
     MoveRobotClient moveRobotClient;
@@ -60,8 +52,10 @@ private:
     //! Client to adjust the arm of the robot to the start position
     MoveArmToBasePositionClient moveArmToBasePositionClient;
 
+    // Client to activate control dog position behavior
+    ControlDogPositionBehavior controlDogPositionBehaviorClient;
+
     //! Cached service client.
-    ros::ServiceClient getPathClient;
     ros::ServiceClient getEntireRobotPathClient;
 
     //! Whether the robot is operating on its own
@@ -87,20 +81,18 @@ private:
 public:
     //! ROS node initialization
     RobotDriver() :
-            pnh("~"), adjustDogClient("adjust_dog_position_action", true), moveRobotClient(
+            pnh("~"), moveRobotClient(
                     "move_robot_action", true), moveArmToBasePositionClient(
                     "move_arm_to_base_position_action", true),
+                    controlDogPositionBehaviorClient("control_dog_position_behavior", true),
                     soloMode(false), noSteeringMode(
                     false), avoidingDog(false) {
 
         ROS_INFO("Initializing the robot driver @ %f", ros::Time::now().toSec());
 
-        ros::service::waitForService("/dogsim/get_path");
         ros::service::waitForService("/dogsim/start");
         ros::service::waitForService("/dogsim/maximum_time");
         ros::service::waitForService("/dogsim/get_entire_robot_path");
-
-        getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
 
         getEntireRobotPathClient = nh.serviceClient<GetEntireRobotPath>("/dogsim/get_entire_robot_path", true /* persist */);
 
@@ -126,7 +118,7 @@ public:
         }
         else {
             ROS_INFO("Running regular mode");
-            adjustDogClient.waitForServer();
+            controlDogPositionBehaviorClient.waitForServer();
         }
 
         pnh.param<bool>("no_steering_mode", noSteeringMode, false);
@@ -143,17 +135,15 @@ public:
         MoveArmToBasePositionGoal moveArmToBasePositionGoal;
         utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 1.0 /* 10.0 */);
 
-        dogPositionSub.reset(
-                new message_filters::Subscriber<DogPosition>(nh,
-                        "/dog_position_detector/dog_position", 1));
-        dogPositionSub->registerCallback(boost::bind(&RobotDriver::dogPositionCallback, this, _1));
+        startPath(ros::Time::now());
 
         avoidingDogSub.reset(
                 new message_filters::Subscriber<AvoidingDog>(nh, "/avoid_dog/avoiding", 1));
         avoidingDogSub->registerCallback(boost::bind(&RobotDriver::avoidingDogCallback, this, _1));
 
-        startPath(ros::Time::now());
-
+        // Begin moving towards the target
+        activateMoveBaseAlongPath();
+        activateAdjustDogPosition();
 
         ROS_INFO("Delayed init complete");
     }
@@ -179,13 +169,16 @@ public:
 
         completeTimer = nh.createTimer(maxTime.response.maximumTime, &RobotDriver::walkComplete,
                 this, true /* One shot */);
-
-        // Begin moving towards the target
-        sendMoveBaseGoal();
     }
 
-    void sendMoveBaseGoal(){
-        ROS_INFO("Sending move base goal");
+    void activateAdjustDogPosition(){
+        const ControlDogPositionGoal activateGoal;
+        controlDogPositionBehaviorClient.sendGoal(activateGoal);
+    }
+
+    // TODO: Move all this to a separate path
+    void activateMoveBaseAlongPath(){
+        ROS_INFO("Activating path movement behavior");
         MoveRobotGoal goal;
         GetEntireRobotPath getPath;
         getPath.request.increment = 0.25;
@@ -200,69 +193,28 @@ public:
         ROS_DEBUG("Robot driver received avoid dog callback");
         if (avoidDogMsg->avoiding) {
             ROS_INFO("Canceling movement as the dog is obstructing the robot");
-            // Cancel all base movement. Arm movement will be cancelled
-            // by sending the command from the avoid dog client.
+            // Cancel all base movement.
             moveRobotClient.cancelGoal();
+
+            controlDogPositionBehaviorClient.cancelGoal();
         }
         else if (avoidingDog) {
             ROS_INFO("Resetting arm and initiating base movement as dog is no longer obstructing robot");
             // Reset the arm
+            // Note: This is an additional behavior
+            // TODO: This is questionable
             MoveArmToBasePositionGoal moveArmToBasePositionGoal;
             moveArmToBasePositionClient.sendGoal(moveArmToBasePositionGoal);
-            sendMoveBaseGoal();
+
+            // Reactivate the control dog behavior
+            activateAdjustDogPosition();
+            activateMoveBaseAlongPath();
         }
         // Set the flag
         avoidingDog = avoidDogMsg->avoiding;
     }
 
-    void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
-        ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
-
-        // No actions can be executed while we are avoiding the dog.
-        if (avoidingDog) {
-            return;
-        }
-
-        if (dogPosition->unknown || dogPosition->stale) {
-            ROS_DEBUG("Dog position is unknown or stale. Canceling movement of arm.");
-            adjustDogClient.cancelGoal();
-            return;
-        }
-
-        bool ended = false;
-        bool started = false;
-        const geometry_msgs::PointStamped goalCurrent = getDogGoalPosition(
-                ros::Time(ros::Time::now().toSec()), started, ended);
-
-        // Check for completion
-        if (!started || ended) {
-            return;
-        }
-
-        // Only adjust dog position if the last adjustment finished
-        if (adjustDogClient.getState() != actionlib::SimpleClientGoalState::ACTIVE) {
-	    	ROS_DEBUG("Sending new adjust dog goal");
-            AdjustDogPositionGoal adjustGoal;
-            adjustGoal.dogPose = dogPosition->pose;
-            adjustGoal.goalPosition = goalCurrent;
-            adjustDogClient.sendGoal(adjustGoal);
-        }
-        ROS_DEBUG("Completed dog position callback");
-    }
-
-    geometry_msgs::PointStamped getDogGoalPosition(const ros::Time& time, bool& started,
-            bool& ended) {
-        // Determine the goal.
-        GetPath getPath;
-        getPath.request.time = time;
-        getPathClient.call(getPath);
-        started = getPath.response.started;
-        ended = getPath.response.ended;
-        return getPath.response.point;
-    }
-
     void walkComplete(const ros::TimerEvent& event){
-        dogPositionSub->unsubscribe();
         avoidingDogSub->unsubscribe();
         // Notify clients to stop measuring.
         publishStopMeasurement();
