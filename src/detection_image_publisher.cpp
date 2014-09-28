@@ -11,10 +11,15 @@
 #include <tf/transform_listener.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <image_geometry/pinhole_camera_model.h>
-
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/synchronizer.h>
 namespace {
 using namespace std;
 using namespace dogsim;
+
+typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, DogPosition, sensor_msgs::CameraInfo> CameraDogSyncPolicy;
+typedef message_filters::Synchronizer<CameraDogSyncPolicy> CameraDogSync;
 
 class DetectionImagePublisher {
 private:
@@ -44,7 +49,11 @@ private:
     //! Subscription for the camera info
     auto_ptr<message_filters::Subscriber<sensor_msgs::CameraInfo> > cameraSub;
 
-    auto_ptr<message_filters::TimeSynchronizer<sensor_msgs::Image, DogPosition, sensor_msgs::CameraInfo> > sync;
+    auto_ptr<CameraDogSync> sync;
+
+    double dogLength;
+
+    static const double DOG_LENGTH_DEFAULT = 0.25;
 
 public:
     //! ROS node initialization
@@ -58,6 +67,8 @@ public:
 
         detectedImagePub = nh.advertise<sensor_msgs::Image>("/detection_image", 1, connectCB,
                 disconnectCB);
+
+        nh.param<double>("dog_length", dogLength, DOG_LENGTH_DEFAULT);
     }
 
 private:
@@ -109,8 +120,8 @@ private:
         if (sync.get() == NULL) {
             // Sync the two messages
             sync.reset(
-                    new message_filters::TimeSynchronizer<sensor_msgs::Image, DogPosition, sensor_msgs::CameraInfo>(
-                            *imageSub, *dogPositionSub, *cameraSub, 3));
+                    new CameraDogSync(CameraDogSyncPolicy(10),
+                            *imageSub, *dogPositionSub, *cameraSub));
 
             sync->registerCallback(boost::bind(&DetectionImagePublisher::callback, this, _1, _2, _3));
         }
@@ -153,8 +164,11 @@ private:
             const cv::Point2d pixel = cameraModel.project3dToPixel(cv::Point3d(dogInCameraFrame.point.x, dogInCameraFrame.point.y, dogInCameraFrame.point.z));
             ROS_DEBUG("Pixel coordinates: %f %f", pixel.x, pixel.y);
 
+            double pixels = dogLength * 0.5 * cameraModel.getDeltaV(dogInCameraFrame.point.y, dogInCameraFrame.point.z);
+            ROS_DEBUG("Width of the dog is %f pixels. Dog length %f.", pixels, dogLength);
+
             // Add a circle at the detected image location.
-            cv::circle(cvPtr->image, pixel, 10, CV_RGB(255,0,0), 5);
+            cv::circle(cvPtr->image, pixel, 10/* ceil(pixels) */, CV_RGB(255,0,0), 5);
         }
         else {
             ROS_DEBUG("Unknown dog position in detection image");

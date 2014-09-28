@@ -7,4 +7,6 @@
   <node pkg="dogsim" type="dog_visualizer" name="dog_visualizer">
     <remap from="dog_position_in" to="/dog_position_detector/dog_position"/>
   </node>
+  <param name="dog_height" value="0.1" />
+  <param name="dog_length" value="0.25" />
 </launch>

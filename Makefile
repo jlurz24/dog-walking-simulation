@@ -540,19 +540,6 @@ move_dog_away_action/fast:
 .PHONY : move_dog_away_action/fast
 
 #=============================================================================
-# Target rules for targets named move_robot_action
-
-# Build rule for target.
-move_robot_action: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 move_robot_action
-.PHONY : move_robot_action
-
-# fast build rule for target.
-move_robot_action/fast:
-	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/build
-.PHONY : move_robot_action/fast
-
-#=============================================================================
 # Target rules for targets named move_robot_local_planner_action
 
 # Build rule for target.
@@ -577,6 +564,19 @@ no_op_adjust_arm_position_action: cmake_check_build_system
 no_op_adjust_arm_position_action/fast:
 	$(MAKE) -f CMakeFiles/no_op_adjust_arm_position_action.dir/build.make CMakeFiles/no_op_adjust_arm_position_action.dir/build
 .PHONY : no_op_adjust_arm_position_action/fast
+
+#=============================================================================
+# Target rules for targets named path_planner
+
+# Build rule for target.
+path_planner: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 path_planner
+.PHONY : path_planner
+
+# fast build rule for target.
+path_planner/fast:
+	$(MAKE) -f CMakeFiles/path_planner.dir/build.make CMakeFiles/path_planner.dir/build
+.PHONY : path_planner/fast
 
 #=============================================================================
 # Target rules for targets named path_scorer
@@ -1363,30 +1363,6 @@ src/move_dog_away_action.cpp.s:
 	$(MAKE) -f CMakeFiles/move_dog_away_action.dir/build.make CMakeFiles/move_dog_away_action.dir/src/move_dog_away_action.cpp.s
 .PHONY : src/move_dog_away_action.cpp.s
 
-src/move_robot_action.o: src/move_robot_action.cpp.o
-.PHONY : src/move_robot_action.o
-
-# target to build an object file
-src/move_robot_action.cpp.o:
-	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/src/move_robot_action.cpp.o
-.PHONY : src/move_robot_action.cpp.o
-
-src/move_robot_action.i: src/move_robot_action.cpp.i
-.PHONY : src/move_robot_action.i
-
-# target to preprocess a source file
-src/move_robot_action.cpp.i:
-	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/src/move_robot_action.cpp.i
-.PHONY : src/move_robot_action.cpp.i
-
-src/move_robot_action.s: src/move_robot_action.cpp.s
-.PHONY : src/move_robot_action.s
-
-# target to generate assembly for a file
-src/move_robot_action.cpp.s:
-	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/src/move_robot_action.cpp.s
-.PHONY : src/move_robot_action.cpp.s
-
 src/move_robot_local_planner_action.o: src/move_robot_local_planner_action.cpp.o
 .PHONY : src/move_robot_local_planner_action.o
 
@@ -1434,6 +1410,30 @@ src/no_op_adjust_arm_position_action.s: src/no_op_adjust_arm_position_action.cpp
 src/no_op_adjust_arm_position_action.cpp.s:
 	$(MAKE) -f CMakeFiles/no_op_adjust_arm_position_action.dir/build.make CMakeFiles/no_op_adjust_arm_position_action.dir/src/no_op_adjust_arm_position_action.cpp.s
 .PHONY : src/no_op_adjust_arm_position_action.cpp.s
+
+src/path_planner.o: src/path_planner.cpp.o
+.PHONY : src/path_planner.o
+
+# target to build an object file
+src/path_planner.cpp.o:
+	$(MAKE) -f CMakeFiles/path_planner.dir/build.make CMakeFiles/path_planner.dir/src/path_planner.cpp.o
+.PHONY : src/path_planner.cpp.o
+
+src/path_planner.i: src/path_planner.cpp.i
+.PHONY : src/path_planner.i
+
+# target to preprocess a source file
+src/path_planner.cpp.i:
+	$(MAKE) -f CMakeFiles/path_planner.dir/build.make CMakeFiles/path_planner.dir/src/path_planner.cpp.i
+.PHONY : src/path_planner.cpp.i
+
+src/path_planner.s: src/path_planner.cpp.s
+.PHONY : src/path_planner.s
+
+# target to generate assembly for a file
+src/path_planner.cpp.s:
+	$(MAKE) -f CMakeFiles/path_planner.dir/build.make CMakeFiles/path_planner.dir/src/path_planner.cpp.s
+.PHONY : src/path_planner.cpp.s
 
 src/path_scorer.o: src/path_scorer.cpp.o
 .PHONY : src/path_scorer.o
@@ -1740,9 +1740,9 @@ help:
 	@echo "... map_broadcaster"
 	@echo "... move_arm_to_base_position_action"
 	@echo "... move_dog_away_action"
-	@echo "... move_robot_action"
 	@echo "... move_robot_local_planner_action"
 	@echo "... no_op_adjust_arm_position_action"
+	@echo "... path_planner"
 	@echo "... path_scorer"
 	@echo "... path_visibility_detector"
 	@echo "... path_visibility_measurer"
@@ -1825,15 +1825,15 @@ help:
 	@echo "... src/move_dog_away_action.o"
 	@echo "... src/move_dog_away_action.i"
 	@echo "... src/move_dog_away_action.s"
-	@echo "... src/move_robot_action.o"
-	@echo "... src/move_robot_action.i"
-	@echo "... src/move_robot_action.s"
 	@echo "... src/move_robot_local_planner_action.o"
 	@echo "... src/move_robot_local_planner_action.i"
 	@echo "... src/move_robot_local_planner_action.s"
 	@echo "... src/no_op_adjust_arm_position_action.o"
 	@echo "... src/no_op_adjust_arm_position_action.i"
 	@echo "... src/no_op_adjust_arm_position_action.s"
+	@echo "... src/path_planner.o"
+	@echo "... src/path_planner.i"
+	@echo "... src/path_planner.s"
 	@echo "... src/path_scorer.o"
 	@echo "... src/path_scorer.i"
 	@echo "... src/path_scorer.s"

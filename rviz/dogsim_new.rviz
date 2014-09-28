@@ -5,11 +5,13 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Status1
         - /Origin Axes1
         - /Visualization Markers1
         - /RobotModel1
         - /Transforms1
         - /Dog Position1
+        - /Dog Position1/Status1
         - /Move Goal1
         - /Walk Goal1
         - /Robot Move Start1
@@ -21,12 +23,11 @@ Panels:
         - /Arm Focus Target1
         - /Right Arm Camera1
         - /Base Arm Point1
-        - /Detection Image1
-        - /DogInBaseFrame1
-        - /PointStamped1
-        - /Marker1
+        - /Wide Stereo Detection Image1
+        - /Right Arm Detection Image1
+        - /Right Arm Detection Image1/Status1
       Splitter Ratio: 0.5
-    Tree Height: 193
+    Tree Height: 156
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -54,12 +55,12 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 1
       Name: Origin Axes
       Radius: 0.1
       Reference Frame: /r_shoulder_pan_link
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: visualization_marker
@@ -721,7 +722,7 @@ Visualization Manager:
       Value: false
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /dog_position_detector/dog_position_viz_perm
+      Marker Topic: /dog_position_detector/dog_position_viz_ephem
       Name: Dog Position
       Namespaces:
         dogsim: true
@@ -740,7 +741,7 @@ Visualization Manager:
       Marker Topic: /path/walk_goal_viz_perm
       Name: Walk Goal
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -842,45 +843,30 @@ Visualization Manager:
       Value: false
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /detection_image
+      Image Topic: /wide_stereo/left/detection_image
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Detection Image
+      Name: Wide Stereo Detection Image
       Normalize Range: true
       Queue Size: 2
       Transport Hint: raw
       Value: true
-    - Alpha: 1
-      Class: rviz/PointStamped
-      Color: 204; 41; 204
+    - Class: rviz/Image
       Enabled: true
-      History Length: 1
-      Name: DogInBaseFrame
-      Radius: 0.2
-      Topic: /dog_in_base_frame
-      Value: true
-    - Alpha: 1
-      Class: rviz/PointStamped
-      Color: 255; 170; 127
-      Enabled: true
-      History Length: 1
-      Name: PointStamped
-      Radius: 0.2
-      Topic: /dog_in_image_frame
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /dogsim/dog_goal_viz
-      Name: Marker
-      Namespaces:
-        {}
-      Queue Size: 100
+      Image Topic: /r_forearm_cam/detection_image
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Right Arm Detection Image
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
       Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
-    Fixed Frame: /map
+    Fixed Frame: /base_footprint
   Name: root
   Tools:
     - Class: rviz/MoveCamera
@@ -895,31 +881,33 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 24.0212
+      Distance: 8.80169
       Focal Point:
         X: -0.103844
         Y: -0.949116
         Z: 0.5351
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.484796
+      Pitch: 0.0202036
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.04858
+      Yaw: 5.21858
     Saved: ~
 Window Geometry:
-  Detection Image:
-    collapsed: false
   Displays:
     collapsed: false
-  Height: 845
+  Height: 876
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001a200000307fc0200000003fb000000100044006900730070006c006100790073010000002800000102000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000160000001070000001600fffffffb0000001e0044006500740065006300740069006f006e00200049006d0061006700650100000130000001ff0000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000001050000030700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000002000000000000021800000326fc0200000004fb000000100044006900730070006c0061007900730100000028000000dd000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000160000001070000001600fffffffb000000360057006900640065002000530074006500720065006f00200044006500740065006300740069006f006e00200049006d006100670065010000010b000001430000001600fffffffb0000003200520069006700680074002000410072006d00200044006500740065006300740069006f006e00200049006d0061006700650100000254000000fa0000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000003410000032600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Right Arm Camera:
+    collapsed: false
+  Right Arm Detection Image:
     collapsed: false
   Tool Properties:
     collapsed: false
-  Width: 685
-  X: 338
-  Y: 24
+  Wide Stereo Detection Image:
+    collapsed: false
+  Width: 1375
+  X: 64
+  Y: -4

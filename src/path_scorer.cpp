@@ -13,13 +13,15 @@ namespace {
     using namespace std;
     using namespace ros;
 
-    const double DOG_HEIGHT = 0.05;
+    static const double DOG_HEIGHT_DEFAULT = 0.1;
+
 class PathScorer {
   private:
     NodeHandle nh;
     NodeHandle privateHandle;
     double totalDistanceDeviation;
     double meanHeightDeviation;
+    double dogHeight;
     unsigned int n;
     Timer timer;
     Time lastTime;
@@ -44,6 +46,7 @@ class PathScorer {
                  boost::bind(&PathScorer::startMeasuring, this, _1));
          stopMeasuringSub.registerCallback(
                  boost::bind(&PathScorer::stopMeasuring, this, _1));
+         nh.param<double>("dog_height", dogHeight,  DOG_HEIGHT_DEFAULT);
     }
     
  private:
@@ -92,7 +95,7 @@ class PathScorer {
       double duration = timerEvent.current_real.toSec() - lastTime.toSec();
       totalDistanceDeviation += utils::square(currPositionDeviation) * duration;
 
-      double deltaP = modelState.response.pose.position.z - DOG_HEIGHT - meanHeightDeviation;
+      double deltaP = modelState.response.pose.position.z - dogHeight - meanHeightDeviation;
       meanHeightDeviation += deltaP / double(n);
 
       lastTime = timerEvent.current_real;

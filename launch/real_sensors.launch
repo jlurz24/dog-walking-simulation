@@ -1,5 +1,7 @@
 <launch>
 <arg name="insitu" />
+<arg name="disable_arm" />
+
 <node pkg="position_tracker" type="dynamic_object_detector" name="dynamic_object_detector">
     <param name="object_name" value="dog" />
     <param name="frame" value="/base_footprint" />
@@ -13,6 +15,7 @@
     <param name="max_filters" value="3" />
   </node>
 
+    <group unless="$(arg disable_arm)">
   <node pkg="position_tracker" type="multi_object_detector" name="r_forearm_multi_object_detector">
     <param name="output_frame" value="/base_footprint" />
     <param name="object_name" value="dog" />
@@ -41,7 +44,8 @@
     <param name="subsample_value" value="0.1"/>
     <rosparam command="load" file="$(find pr2_navigation_perception)/config/base_self_filter.yaml" />
    </node>
-
+    </group>
+    
   <node pkg="topic_tools" type="throttle" name="wide_stereo_throttle" args="messages /wide_stereo/left/points 20.0 /wide_stereo/left/points_throttled" output="screen">
      <param name="lazy" value="true"/>
   </node>
@@ -86,11 +90,13 @@
     <remap from="blobs" to="wide_stereo/blobs"/>
   </node>
   
+  <group unless="$(arg disable_arm)">
   <node name="r_forearm_cam_cmvision" pkg="cmvision" type="cmvision">
     <remap from="image" to="r_forearm_cam/image_rect_color" />
     <remap from="blobs" to="r_forearm_cam/blobs"/>
   </node>
-  	
+  </group>
+  
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector">
     <param name="stale_threshold" value="2.5" />
     <param name="leash_stretch_error" value="0.25" />
@@ -102,9 +108,18 @@
     </node>
   </group>
   
-  <node name="detection_image_publisher" pkg="dogsim" type="detection_image_publisher" output="screen">
+  <node name="wide_stereo_detection_image_publisher" pkg="dogsim" type="detection_image_publisher" output="screen">
     <remap from="/image_in" to="wide_stereo/left/image_rect_color"/>
     <remap from="/dog_position_in" to="/dog_position_detector/dog_position"/>
     <remap from="camera_info_in" to="/wide_stereo/left/camera_info"/>
+    <remap from="/detection_image" to="/wide_stereo/left/detection_image"/>
   </node>
+  
+  <node name="r_forearm_detection_image_publisher" pkg="dogsim" type="detection_image_publisher" output="screen">
+    <remap from="/image_in" to="r_forearm_cam/image_rect_color"/>
+    <remap from="/dog_position_in" to="/dog_position_detector/dog_position"/>
+    <remap from="camera_info_in" to="/r_forearm_cam/camera_info"/>
+    <remap from="/detection_image" to="/r_forearm_cam/detection_image"/>
+  </node>
+  
 </launch>

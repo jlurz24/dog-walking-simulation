@@ -35,7 +35,8 @@
   </group>
 
   <node pkg="dogsim" type="avoid_dog" name="avoid_dog"/>
-  
+ 
+  <node pkg="dogsim" type="path_planner" name="path_planner" /> 
   <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action">
     <remap from="odom" to="base_odometry/odom" />
     <remap from="cmd_vel" to="navigation/cmd_vel" />

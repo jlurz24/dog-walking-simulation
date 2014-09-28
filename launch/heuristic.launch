@@ -2,6 +2,7 @@
   <arg name="insitu" />
   <include file="$(find dogsim)/launch/base.launch">
     <arg name="insitu" value="$(arg insitu)"/>
+    <arg name="disable_arm" value="false"/>
   </include>
   
   <group unless="$(arg insitu)">

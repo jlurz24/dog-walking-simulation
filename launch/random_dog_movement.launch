@@ -1,0 +1,10 @@
+<launch>
+  <param name="add_gaussians_to_path" value="true"/>
+  <param name="solo_dog" value="true" />
+  
+  <param name="dog" textfile="$(find dogsim)/models/dog.model" />
+  <node name="spawn_dog" pkg="gazebo" type="spawn_model" args="-param dog -gazebo -model dog" respawn="false" output="screen" />
+  <node pkg="dogsim" type="get_path_server" name="get_path_server">
+      <param name="path_type" value="randomwalk"/>
+  </node>
+</launch>

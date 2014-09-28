@@ -12,6 +12,8 @@ namespace {
   using namespace std;
   using namespace geometry_msgs;
 
+  static const double DOG_HEIGHT_DEFAULT = 0.1;
+
   typedef actionlib::SimpleActionClient<pr2_controllers_msgs::SingleJointPositionAction> TorsoClient;
 
   class HighArmPositionAction {
@@ -26,7 +28,7 @@ namespace {
         as.registerPreemptCallback(boost::bind(&HighArmPositionAction::preemptCB, this));
         pnh.param<double>("torso_height", torsoHeight, 0.1);
         nh.param("leash_length", leashLength, 1.5);
-        nh.param<double>("dog_height", dogHeight, 0.1);
+        nh.param<double>("dog_height", dogHeight, DOG_HEIGHT_DEFAULT);
         torsoClient.waitForServer();
         as.start();
     }

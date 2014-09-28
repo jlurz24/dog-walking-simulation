@@ -7,6 +7,7 @@
 #include "lissajous_path_provider.h"
 #include "rectangle_path_provider.h"
 #include "block_walk_path_provider.h"
+#include "random_walk_path_provider.h"
 #include <dogsim/GetEntirePath.h>
 #include <dogsim/GetEntireRobotPath.h>
 #include <tf/transform_listener.h>
@@ -60,6 +61,8 @@ public:
 			pathProvider.reset(new RectanglePathProvider());
 		} else if (pathType == "blockwalk") {
 			pathProvider.reset(new BlockWalkPathProvider());
+		} else if (pathType == "randomwalk") {
+            pathProvider.reset(new RandomWalkPathProvider());
 		} else {
 			ROS_ERROR("Unknown path provider type: %s", pathType.c_str());
 			return;

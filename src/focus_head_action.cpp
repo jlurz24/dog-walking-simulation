@@ -16,6 +16,7 @@
 #include <pcl/features/feature.h>
 #include <Eigen/Core>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/filters/voxel_grid.h>
 
 // Generated messages
 #include <dogsim/PathViewInfo.h>
@@ -107,16 +108,19 @@ public:
         pnh.param("search_for_dog_weight", searchForDogWeight, SEARCH_FOR_DOG_WEIGHT_DEFAULT);
         pnh.param("search_cell_size", searchCellSize, SEARCH_CELL_SIZE_DEFAULT);
         pnh.param("cluster_tolerance", clusterTolerance, CLUSTER_TOLERANCE_DEFAULT);
+        pnh.param("disable_arm", disableArm, false);
 
         dogPositionSub.reset(
                 new message_filters::Subscriber<DogPosition>(nh,
                         "/dog_position_detector/dog_position", 1));
         dogPositionSub->registerCallback(boost::bind(&FocusHead::dogPositionCallback, this, _1));
+        // TODO: Unsubscribe?
 
         pathViewSub.reset(
                 new message_filters::Subscriber<PathViewInfo>(nh, "/path_visibility_detector/view",
                         1));
         pathViewSub->registerCallback(boost::bind(&FocusHead::pathViewCallback, this, _1));
+        // TODO: Unsubscribe?
 
         headSearchPointsSub.reset(
                 new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh,
@@ -359,7 +363,8 @@ private:
         }
         // Looking at path currently.
         else {
-            assert(state == ActionState::LOOKING_AT_PATH);
+            /// TODO: Figure out why this fired
+            // assert(state == ActionState::LOOKING_AT_PATH);
             resetState();
         }
     }
@@ -390,8 +395,8 @@ private:
 
                 // If the search state is last known and there is no last known,
                 // immediate increment the search.
-                if (searchState == SearchState::LAST_KNOWN && !isPositionSet) {
-                    ROS_DEBUG("Skipping last known search state because position is not set");
+                if (searchState == SearchState::LAST_KNOWN && !isPositionSet && lastKnownDogPosition.get() == NULL) {
+                    ROS_INFO("Skipping last known search state because position is not set");
                     bool proceeding = moveToNextSearchState();
                     assert(proceeding);
                 }
@@ -400,7 +405,14 @@ private:
                         SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
                 if (searchState == SearchState::LAST_KNOWN) {
                     ROS_DEBUG("Searching last known position");
-                    finalTarget = target;
+                    if(!isPositionSet){
+                        ROS_INFO("Overriding position with last known position");
+                        finalTarget.header = lastKnownDogPosition->header;
+                        finalTarget.point = lastKnownDogPosition->pose.position;
+                    }
+                    else {
+                        finalTarget = target;
+                    }
                     found = true;
                 }
                 else {
@@ -492,6 +504,9 @@ private:
             tryGoal(ActionState::LOOKING_FOR_DOG, score, position, !dogPosition->unknown);
             return;
         }
+        else {
+            lastKnownDogPosition.reset(new PoseStamped(dogPosition->pose));
+        }
 
         if (state == ActionState::LOOKING_FOR_DOG) {
             ROS_INFO(
@@ -505,13 +520,16 @@ private:
             resetState();
             resetSearch();
             unsubscribeToPoints();
+            timeout.stop();
 
             // Point head at the found target
-            ROS_DEBUG("Pointing at the located position of the dog");
+            ROS_INFO("Pointing at the located position of the dog");
             PointStamped pointTarget;
             pointTarget.header = dogPosition->header;
             pointTarget.point = dogPosition->pose.pose.position;
             pointHeadAtTarget(pointTarget);
+            timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
+                    true /* One shot */);
 
             ROS_DEBUG("Exiting dog position callback after dog found");
         }
@@ -529,6 +547,12 @@ private:
                     "Calculated score for look at path of %f based on weight %f and ratio %f and duration %f",
                     score, lookAtPathWeight, pathView->visibilityRatio,
                     ros::Time::now().toSec() - pathView->measuredTime.toSec());
+
+            // Do not attempt zero scores
+            if(score <= 0){
+                return;
+            }
+
             tryGoal(ActionState::LOOKING_AT_PATH, score, pathView->center, true);
             return;
         }
@@ -610,7 +634,7 @@ private:
     }
 
     bool moveToNextSearchState() {
-        ROS_DEBUG("Transitioning to next search state. Current state is %s.",
+        ROS_INFO("Transitioning to next search state. Current state is %s.",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
         if (searchState == SearchState::NONE) {
             // Start a new search
@@ -620,7 +644,7 @@ private:
         else if (searchState == SearchState::LAST_KNOWN) {
             searchState = SearchState::HEAD;
         }
-        else if (searchState == SearchState::HEAD) {
+        else if (searchState == SearchState::HEAD && !disableArm) {
             // Attempt to search any points again with the arm.
             searchedPoints.clear();
             searchState = SearchState::ARM;
@@ -657,9 +681,39 @@ private:
         ec.setSearchMethod(tree);
         ec.setClusterTolerance(clusterTolerance);
         ec.setMinClusterSize(1);
-        ec.setMaxClusterSize(1000);
+        ec.setMaxClusterSize(100000);
         ec.setInputCloud(searchCloud);
         ec.extract(clusterIndices);
+
+        // Subdivide any large clusters
+        vector<pcl::PointIndices> allNewIndices;
+        for (vector<pcl::PointIndices>::const_iterator cl = clusterIndices.begin(); cl != clusterIndices.end(); ++cl) {
+            if(cl->indices.size() > 1000){
+                ROS_INFO("Subdividing cluster of size %lu", cl->indices.size());
+
+                // Create the filtering object
+                pcl::VoxelGrid<pcl::PointXYZ> sor;
+                sor.setInputCloud(searchCloud);
+                pcl::PointIndicesPtr ptr = boost::make_shared<pcl::PointIndices>();
+                ptr->indices = cl->indices;
+                sor.setIndices(ptr);
+                sor.setLeafSize(0.5f, 0.5f, 0.5f);
+                sor.setSaveLeafLayout(true);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>());
+                sor.filter(*filtered);
+
+                // Determine which points to assign
+                vector<pcl::PointIndices> newIndices(filtered->size());
+                for(unsigned int j = 0; j < searchCloud->points.size(); ++j){
+                    int index = sor.getCentroidIndex(searchCloud->points[j]);
+                    assert(index < newIndices.size());
+                    newIndices[index].indices.push_back(j);
+                }
+
+                allNewIndices.insert(allNewIndices.end(), newIndices.begin(), newIndices.end());
+            }
+        }
+        clusterIndices.insert(clusterIndices.end(), allNewIndices.begin(), allNewIndices.end());
 
         // Now find the largest cluster. Sort by size (smallest to largest).
         std::sort(clusterIndices.begin(), clusterIndices.end(), ClusterSmaller());
@@ -698,16 +752,16 @@ private:
                 break;
             }
             else {
-                ROS_DEBUG("Target at %f, %f, %f was not selected because it was too close to searched point %f, %f, %f",
+                ROS_INFO("Target at %f, %f, %f was not selected because it was too close to searched point %f, %f, %f",
                         resultPoint.point.x, resultPoint.point.y, resultPoint.point.z, closest->point.x, closest->point.y, closest->point.z);
             }
         }
 
         if (it == clusterIndices.end()) {
-            ROS_DEBUG("Failed to find a cluster to search");
+            ROS_WARN("Failed to find a cluster to search. %lu possible clusters and %lu search points", clusterIndices.size(), searchCloud->size());
             return false;
         }
-
+        ROS_INFO("Selected point from cluster with %lu points", it->indices.size());
         return true;
     }
 
@@ -772,6 +826,12 @@ protected:
 
     //! Points to search
     pcl::PointCloud<pcl::PointXYZ>::Ptr searchCloud;
+
+    //! Last known dog position
+    std::auto_ptr<PoseStamped> lastKnownDogPosition;
+
+    //! Whether to disable the arm search
+    bool disableArm;
 };
 }
 

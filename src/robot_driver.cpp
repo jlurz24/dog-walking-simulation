@@ -1,7 +1,6 @@
 #include <ros/ros.h>
 #include <dogsim/utils.h>
 #include <visualization_msgs/Marker.h>
-#include <dogsim/GetEntireRobotPath.h>
 #include <dogsim/AvoidingDog.h>
 #include <dogsim/StartPath.h>
 #include <dogsim/MaximumTime.h>
@@ -55,9 +54,6 @@ private:
     // Client to activate control dog position behavior
     ControlDogPositionBehavior controlDogPositionBehaviorClient;
 
-    //! Cached service client.
-    ros::ServiceClient getEntireRobotPathClient;
-
     //! Whether the robot is operating on its own
     bool soloMode;
 
@@ -92,9 +88,6 @@ public:
 
         ros::service::waitForService("/dogsim/start");
         ros::service::waitForService("/dogsim/maximum_time");
-        ros::service::waitForService("/dogsim/get_entire_robot_path");
-
-        getEntireRobotPathClient = nh.serviceClient<GetEntireRobotPath>("/dogsim/get_entire_robot_path", true /* persist */);
 
         moveRobotClient.waitForServer();
         moveArmToBasePositionClient.waitForServer();
@@ -176,16 +169,9 @@ public:
         controlDogPositionBehaviorClient.sendGoal(activateGoal);
     }
 
-    // TODO: Move all this to a separate path
     void activateMoveBaseAlongPath(){
         ROS_INFO("Activating path movement behavior");
         MoveRobotGoal goal;
-        GetEntireRobotPath getPath;
-        getPath.request.increment = 0.25;
-        getEntireRobotPathClient.call(getPath);
-        ROS_INFO("Path has %lu poses", getPath.response.poses.size());
-        goal.poses = getPath.response.poses;
-
         moveRobotClient.sendGoal(goal);
     }
 

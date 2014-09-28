@@ -1,10 +1,13 @@
 <launch>
   <arg name="insitu" />
+  <arg name="disable_arm" />
+
   <include file="$(find dogsim)/launch/base_no_sensors.launch">
       <arg name="insitu" value="$(arg insitu)"/>
   </include>
   
   <include file="$(find dogsim)/launch/real_sensors.launch">
     <arg name="insitu" value="$(arg insitu)"/>
+    <arg name="disable_arm" value="$(arg disable_arm)"/>
   </include>
 </launch>
