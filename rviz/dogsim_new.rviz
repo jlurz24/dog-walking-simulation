@@ -11,7 +11,6 @@ Panels:
         - /RobotModel1
         - /Transforms1
         - /Dog Position1
-        - /Dog Position1/Status1
         - /Move Goal1
         - /Walk Goal1
         - /Robot Move Start1
@@ -25,9 +24,9 @@ Panels:
         - /Base Arm Point1
         - /Wide Stereo Detection Image1
         - /Right Arm Detection Image1
-        - /Right Arm Detection Image1/Status1
+        - /Wide Stereo Camera1
       Splitter Ratio: 0.5
-    Tree Height: 156
+    Tree Height: 185
   - Class: rviz/Tool Properties
     Expanded:
       - /2D Nav Goal1
@@ -725,7 +724,7 @@ Visualization Manager:
       Marker Topic: /dog_position_detector/dog_position_viz_ephem
       Name: Dog Position
       Namespaces:
-        dogsim: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -853,12 +852,23 @@ Visualization Manager:
       Transport Hint: raw
       Value: true
     - Class: rviz/Image
-      Enabled: true
+      Enabled: false
       Image Topic: /r_forearm_cam/detection_image
       Max Value: 1
       Median window: 5
       Min Value: 0
       Name: Right Arm Detection Image
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Value: false
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /wide_stereo/left/image_rect
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Wide Stereo Camera
       Normalize Range: true
       Queue Size: 2
       Transport Hint: raw
@@ -899,15 +909,17 @@ Window Geometry:
   Height: 876
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000002000000000000021800000326fc0200000004fb000000100044006900730070006c0061007900730100000028000000dd000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000160000001070000001600fffffffb000000360057006900640065002000530074006500720065006f00200044006500740065006300740069006f006e00200049006d006100670065010000010b000001430000001600fffffffb0000003200520069006700680074002000410072006d00200044006500740065006300740069006f006e00200049006d0061006700650100000254000000fa0000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000003410000032600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000002000000000000021800000326fc0200000005fb000000100044006900730070006c0061007900730100000028000000fa000000dd00fffffffb0000002000520069006700680074002000410072006d002000430061006d0065007200610000000160000001070000001600fffffffb000000360057006900640065002000530074006500720065006f00200044006500740065006300740069006f006e00200049006d00610067006501000001280000015c0000001600fffffffb0000003200520069006700680074002000410072006d00200044006500740065006300740069006f006e00200049006d0061006700650000000258000000f60000001600fffffffb000000240057006900640065002000530074006500720065006f002000430061006d006500720061010000028a000000c40000001600ffffff000000010000010000000593fc0200000001fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000041000005930000006400ffffff000003410000032600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Right Arm Camera:
     collapsed: false
   Right Arm Detection Image:
     collapsed: false
   Tool Properties:
     collapsed: false
+  Wide Stereo Camera:
+    collapsed: false
   Wide Stereo Detection Image:
     collapsed: false
   Width: 1375
-  X: 64
-  Y: -4
+  X: 65
+  Y: 24

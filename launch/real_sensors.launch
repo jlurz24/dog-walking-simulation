@@ -46,7 +46,7 @@
    </node>
     </group>
     
-  <node pkg="topic_tools" type="throttle" name="wide_stereo_throttle" args="messages /wide_stereo/left/points 20.0 /wide_stereo/left/points_throttled" output="screen">
+  <node pkg="topic_tools" type="throttle" name="wide_stereo_throttle" args="messages /wide_stereo/points2 20.0 /wide_stereo/left/points_throttled" output="screen">
      <param name="lazy" value="true"/>
   </node>
 
@@ -66,7 +66,7 @@
     <param name="min_cluster_size" value="10" />
     <param name="max_cluster_size" value="25000" />
     <remap from="blobs" to="/wide_stereo/blobs"/>
-    <remap from="points" to="/wide_stereo/left/points"/>
+    <remap from="points" to="/wide_stereo/points2"/>
   </node>
 
   <!-- cmvision global parameters -->
@@ -98,7 +98,7 @@
   </group>
   
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector">
-    <param name="stale_threshold" value="2.5" />
+    <param name="stale_threshold" value="1.0" />
     <param name="leash_stretch_error" value="0.25" />
   </node>
   

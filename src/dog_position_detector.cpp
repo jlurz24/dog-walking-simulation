@@ -15,6 +15,8 @@ using namespace geometry_msgs;
 const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
 const double STALE_THRESHOLD_DEFAULT = 1.0;
 const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
+const double DOG_HEIGHT_ERROR_DEFAULT = 0.25;
+const double DOG_HEIGHT_DEFAULT = 0.1;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
 
@@ -22,6 +24,10 @@ double distance2(const PointStamped& a, const PointStamped &b) {
     return utils::square(a.point.x - b.point.x)
             + utils::square(a.point.y - b.point.y)
             + utils::square(a.point.z - b.point.z);
+}
+
+double totalVelocity(const position_tracker::DetectedDynamicObject& obj){
+    return fabs(obj.velocity.twist.linear.x) + fabs(obj.velocity.twist.linear.y) + fabs(obj.velocity.twist.linear.z);
 }
 
 struct OutOfLeashDistance {
@@ -47,6 +53,27 @@ struct OutOfLeashDistance {
 
 };
 
+struct OverMaxDogHeight {
+
+    const double dogHeightThreshold;
+    const tf::TransformListener& tf;
+
+    OverMaxDogHeight(const double dogHeight, const double dogHeightError, const tf::TransformListener& tf):
+        dogHeightThreshold(dogHeight * (1 + dogHeightError)),
+        tf(tf){
+    }
+
+    bool operator()(const position_tracker::DetectedDynamicObject& obj) {
+        // Convert to base frame.
+        PointStamped positionInBaseFrame;
+        tf.transformPoint("base_footprint", obj.position, positionInBaseFrame);
+
+        ROS_DEBUG("Height of measurement in base frame: %f", positionInBaseFrame.point.z);
+        return positionInBaseFrame.point.z > dogHeightThreshold;
+    }
+
+};
+
 struct DistanceFromHand {
     const PointStamped& handPosition;
 
@@ -57,6 +84,19 @@ struct DistanceFromHand {
         return distance2(a.position, handPosition) < distance2(b.position, handPosition);
     }
 };
+
+struct Velocity {
+
+    Velocity(){
+    }
+
+    bool operator()(const position_tracker::DetectedDynamicObject& a, const position_tracker::DetectedDynamicObject& b){
+        // Frame is irrelevant
+        // Detection of angular velocity is not current implmented.
+        return totalVelocity(a) < totalVelocity(b);
+    }
+};
+
 
 struct MatchesID {
     unsigned int id;
@@ -95,6 +135,13 @@ private:
     //! When to consider an observation stale
     ros::Duration staleThreshold;
 
+    //! Height of the dog
+    double dogHeight;
+
+    //! Amount of error in the dog height
+    double dogHeightError;
+    static const double MIN_DETECTABLE_VELOCITY = 0.01;
+
 public:
     //! ROS node initialization
     DogPositionDetector() :
@@ -113,6 +160,9 @@ public:
         // Use a fairly large error here as the arm may be currently moving
         // which will impact this distance
         pnh.param("leash_stretch_error", leashStretchError, LEASH_STRETCH_ERROR_DEFAULT);
+
+        nh.param<double>("dog_height", dogHeight, DOG_HEIGHT_DEFAULT);
+        pnh.param("dog_height_error", dogHeightError, DOG_HEIGHT_ERROR_DEFAULT);
 
         double staleThresholdD;
         pnh.param("stale_threshold", staleThresholdD, STALE_THRESHOLD_DEFAULT);
@@ -188,7 +238,14 @@ private:
                     std::remove_if(possiblePositions.begin(), possiblePositions.end(),
                             OutOfLeashDistance(leashLength, leashStretchError, handInBaseFrame, tf)), possiblePositions.end());
 
-            ROS_DEBUG("%lu possible dog positions at end of filtering", possiblePositions.size());
+            ROS_DEBUG("%lu possible dog positions at end of distance filtering", possiblePositions.size());
+
+            possiblePositions.erase(
+                    std::remove_if(possiblePositions.begin(), possiblePositions.end(),
+                            OverMaxDogHeight(dogHeight, dogHeightError, tf)), possiblePositions.end());
+
+            ROS_DEBUG("%lu possible dog positions at end of dog height filtering", possiblePositions.size());
+
 
             // Apply preference filters. These filters distinguish between feasible
             // points.
@@ -207,10 +264,14 @@ private:
                     match = std::find_if(possiblePositions.begin(), possiblePositions.end(), MatchesID(lastId));
 
                     if(match == possiblePositions.end()){
-                        ROS_WARN("No possible position matching the last id found. Applying closest position filter");
-                        // Select the closest observation.
-                        // TODO: Evaluate most recent
-                        match = std::min_element(possiblePositions.begin(), possiblePositions.end(), DistanceFromHand(handInBaseFrame));
+                        ROS_WARN("No possible position matching the last id found. Applying velocity filter");
+                        match = std::max_element(possiblePositions.begin(), possiblePositions.end(), Velocity());
+
+                        if (totalVelocity(*match) < MIN_DETECTABLE_VELOCITY) {
+                            ROS_WARN("No moving objects found. Applying closest position filter");
+                            // Select the closest
+                            match = std::min_element(possiblePositions.begin(), possiblePositions.end(), DistanceFromHand(handInBaseFrame));
+                        }
                     }
                 }
                 lastId = (*match).id;

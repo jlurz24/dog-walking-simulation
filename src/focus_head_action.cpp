@@ -506,6 +506,19 @@ private:
         }
         else {
             lastKnownDogPosition.reset(new PoseStamped(dogPosition->pose));
+
+            if(state == ActionState::IDLE){
+                // Point head at the dog
+                ROS_INFO("Pointing at the located position of the dog");
+                PointStamped pointTarget;
+                pointTarget.header = dogPosition->header;
+                pointTarget.point = dogPosition->pose.pose.position;
+                pointHeadAtTarget(pointTarget);
+
+                // TODO: This might be cleaner with a watch dog thread
+                timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
+                        true /* One shot */);
+            }
         }
 
         if (state == ActionState::LOOKING_FOR_DOG) {
@@ -521,15 +534,6 @@ private:
             resetSearch();
             unsubscribeToPoints();
             timeout.stop();
-
-            // Point head at the found target
-            ROS_INFO("Pointing at the located position of the dog");
-            PointStamped pointTarget;
-            pointTarget.header = dogPosition->header;
-            pointTarget.point = dogPosition->pose.pose.position;
-            pointHeadAtTarget(pointTarget);
-            timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
-                    true /* One shot */);
 
             ROS_DEBUG("Exiting dog position callback after dog found");
         }
@@ -706,8 +710,8 @@ private:
                 vector<pcl::PointIndices> newIndices(filtered->size());
                 for(unsigned int j = 0; j < searchCloud->points.size(); ++j){
                     int index = sor.getCentroidIndex(searchCloud->points[j]);
-                    assert(index < newIndices.size());
-                    newIndices[index].indices.push_back(j);
+                    assert((unsigned int)index < newIndices.size() && index >= 0);
+                    newIndices[(unsigned int)index].indices.push_back(j);
                 }
 
                 allNewIndices.insert(allNewIndices.end(), newIndices.begin(), newIndices.end());
