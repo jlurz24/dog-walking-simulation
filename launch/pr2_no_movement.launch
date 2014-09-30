@@ -4,7 +4,7 @@
     <arg name="disable_arm" value="true"/>
   </include>
   
-  <param name="dog_height" value="0.25" />
+  <param name="dog_height" value="0.3" />
   <param name="dog_length" value="0.5" />
   <param name="leash_length" value="2"/>
   <param name="focus_head_action/disable_arm" value="true"/>

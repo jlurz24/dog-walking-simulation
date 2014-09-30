@@ -21,7 +21,7 @@
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="1.0" />
     <param name="voxel_leaf_size" value="0.01" />
-    <param name="min_cluster_size" value="5" />
+    <param name="min_cluster_size" value="75" />
     <param name="max_cluster_size" value="25000" />
     <param name="stereo_camera_mode" value="false" />
     <remap from="blobs" to="/r_forearm_cam/blobs"/>
@@ -63,7 +63,7 @@
     <param name="object_name" value="dog" />
     <param name="cluster_distance_tolerance" value="1.0" />
     <param name="voxel_leaf_size" value="0.01" />
-    <param name="min_cluster_size" value="10" />
+    <param name="min_cluster_size" value="75" />
     <param name="max_cluster_size" value="25000" />
     <remap from="blobs" to="/wide_stereo/blobs"/>
     <remap from="points" to="/wide_stereo/points2"/>
@@ -98,7 +98,7 @@
   </group>
   
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector">
-    <param name="stale_threshold" value="1.0" />
+    <param name="stale_threshold" value="3.0" />
     <param name="leash_stretch_error" value="0.25" />
   </node>
   

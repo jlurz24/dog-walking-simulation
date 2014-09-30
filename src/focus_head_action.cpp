@@ -31,15 +31,18 @@ typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> Poi
 typedef actionlib::SimpleActionClient<dogsim::PointArmCameraAction> PointArmClient;
 typedef vector<geometry_msgs::PointStamped> PointStampedVector;
 
-static const ros::Duration FOCUS_TIMEOUT(1.0);
+static const ros::Duration FOCUS_TIMEOUT(7.5);
+static const ros::Duration PAUSE_TIMEOUT(0.5);
+
 static const double PATH_VIS_THRESHOLD_DEFAULT = 0.99;
 static const double LOOK_AT_PATH_WEIGHT_DEFAULT = 2;
 static const double SEARCH_FOR_DOG_WEIGHT_DEFAULT = 1;
 static const string STATE_NAMES[] = { "Idle", "Looking_At_Path", "Looking_for_Dog" };
 static const string SEARCH_STATE_NAMES[] = { "None", "Last Known", "Head", "Arm", "Done" };
 static const double SEARCH_CELL_SIZE_DEFAULT = 0.25;
-static const double BASE_RADIUS = 0.668 / 2.0;
+static const double BASE_RADIUS = 0.668 / 2.0 + 0.25; // TODO: Smarter here, but you can't point right behind the robot.
 static const double CLUSTER_TOLERANCE_DEFAULT = 0.2;
+static const double MIN_ACTION_SCORE = 10;
 
 static Eigen::Vector3f operator-(const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs) {
     return Eigen::Vector3f(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
@@ -114,13 +117,11 @@ public:
                 new message_filters::Subscriber<DogPosition>(nh,
                         "/dog_position_detector/dog_position", 1));
         dogPositionSub->registerCallback(boost::bind(&FocusHead::dogPositionCallback, this, _1));
-        // TODO: Unsubscribe?
 
         pathViewSub.reset(
                 new message_filters::Subscriber<PathViewInfo>(nh, "/path_visibility_detector/view",
                         1));
         pathViewSub->registerCallback(boost::bind(&FocusHead::pathViewCallback, this, _1));
-        // TODO: Unsubscribe?
 
         headSearchPointsSub.reset(
                 new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh,
@@ -141,12 +142,15 @@ public:
 
         searchCloudPub = nh.advertise<sensor_msgs::PointCloud2>("/focus_head_action/search_cloud",
                 1);
+
+        pointingAtLast = false;
     }
 
 private:
 
     void timeoutCallback(const ros::TimerEvent& e) {
         ROS_INFO("Point head action timed out");
+        pointingAtLast = false;
 
         // Ignore any timeouts after completion.
         if (state == ActionState::IDLE) {
@@ -155,6 +159,7 @@ private:
         }
 
         if (state == ActionState::LOOKING_FOR_DOG) {
+            // pointHeadClient.cancelGoal();
             ROS_DEBUG("Continuing search after timeout");
             executeNext(PointStamped(), ActionState::LOOKING_FOR_DOG, false);
             return;
@@ -162,7 +167,6 @@ private:
 
         assert(state == ActionState::LOOKING_AT_PATH);
         pointHeadClient.cancelGoal();
-        pointArmClient.cancelGoal();
         resetState();
     }
 
@@ -180,6 +184,11 @@ private:
 
         if (score < currentActionScore) {
             ROS_DEBUG("Score for new action does not exceed current action");
+            return false;
+        }
+
+        if(score < MIN_ACTION_SCORE){
+            ROS_DEBUG("Score does not meet minimum action threshold");
             return false;
         }
 
@@ -232,6 +241,7 @@ private:
     void resetState() {
         state = ActionState::IDLE;
         currentActionScore = 0;
+        pointingAtLast = false;
     }
 
     void resetSearchMap() {
@@ -269,11 +279,11 @@ private:
                 // TODO: These checks do not account for partially covered cells.
                 // Check if the point is inside the base
                 if (fabs(x) < BASE_RADIUS && fabs(y) < BASE_RADIUS) {
-                    ROS_DEBUG("Skipping point inside base @ %f %f", x, y);
+                    // Ignore
                 }
                 // Check if the point is outside the radius of the leash
                 else if (pcl::geometry::squaredDistance(p, planarHand) > sqPlanarLeashLength) {
-                    ROS_DEBUG("Skipping point outside circle");
+                   // Ignore
                 }
                 else {
                     searchCloud->points.push_back(p);
@@ -341,7 +351,9 @@ private:
 
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result) {
-        ROS_DEBUG("Received point head complete callback");
+        ROS_INFO("Received point head complete callback");
+        pointingAtLast = false;
+
         if (searchState != SearchState::HEAD) {
             ROS_DEBUG("Spurious point head complete callback received");
             return;
@@ -359,7 +371,9 @@ private:
 
         timeout.stop();
         if (state == ActionState::LOOKING_FOR_DOG) {
-            executeNext(PointStamped(), ActionState::LOOKING_FOR_DOG, false);
+            pauseTimeout = nh.createTimer(PAUSE_TIMEOUT, &FocusHead::pauseCallback, this,
+                    true /* One shot */);
+
         }
         // Looking at path currently.
         else {
@@ -367,6 +381,10 @@ private:
             // assert(state == ActionState::LOOKING_AT_PATH);
             resetState();
         }
+    }
+
+    void pauseCallback(const ros::TimerEvent& e){
+        executeNext(PointStamped(), ActionState::LOOKING_FOR_DOG, false);
     }
 
     void executeNext(const PointStamped& target, const ActionState targetType,
@@ -413,7 +431,12 @@ private:
                     else {
                         finalTarget = target;
                     }
+
                     found = true;
+                    ROS_INFO("Pointing at the last known position of the dog @ %f %f %f in frame %s", finalTarget.point.x, finalTarget.point.y, finalTarget.point.z, finalTarget.header.frame_id.c_str());
+                    // Only do this once.
+                    bool proceeding = moveToNextSearchState();
+                    assert(proceeding);
                 }
                 else {
                     found = nextBestSearch(finalTarget);
@@ -430,7 +453,7 @@ private:
             } while (!found);
         }
         else if (targetType == ActionState::LOOKING_AT_PATH) {
-            ROS_DEBUG("Focusing head on path target in frame %s, %f %f %f",
+            ROS_INFO("Focusing head on path target in frame %s, %f %f %f",
                     target.header.frame_id.c_str(), target.point.x, target.point.y, target.point.z);
             assert(isPositionSet && "is position not set for path action");
             finalTarget = target;
@@ -451,6 +474,7 @@ private:
                     boost::bind(&FocusHead::pointArmCompleteCallback, this, _1, _2));
         }
         else {
+            ROS_INFO("Pointing head at possible dog position %f %f %f", finalTarget.point.x, finalTarget.point.y, finalTarget.point.z);
             pointHeadAtTarget(finalTarget);
         }
         timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
@@ -488,6 +512,11 @@ private:
                 dogPosition->measuredTime.toSec(), STATE_NAMES[static_cast<int>(state)].c_str());
 
         if (dogPosition->unknown || dogPosition->stale) {
+            if(pointingAtLast){
+                ROS_INFO("Skipping starting a new search until pointing at last completes");
+                return;
+            }
+
             // Calculate the score
             double score = searchForDogWeight
                     * (ros::Time::now().toSec() - dogPosition->measuredTime.toSec());
@@ -506,15 +535,15 @@ private:
         }
         else {
             lastKnownDogPosition.reset(new PoseStamped(dogPosition->pose));
-
-            if(state == ActionState::IDLE){
+            ROS_INFO("Updating last known position. State is %s and pointing at last is %u", STATE_NAMES[static_cast<int>(state)].c_str(), pointingAtLast);
+            if(state == ActionState::IDLE && !pointingAtLast){
                 // Point head at the dog
-                ROS_INFO("Pointing at the located position of the dog");
                 PointStamped pointTarget;
                 pointTarget.header = dogPosition->header;
                 pointTarget.point = dogPosition->pose.pose.position;
+                ROS_INFO("Pointing at the located position of the dog @ %f %f %f in frame %s", pointTarget.point.x, pointTarget.point.y, pointTarget.point.z, pointTarget.header.frame_id.c_str());
                 pointHeadAtTarget(pointTarget);
-
+                pointingAtLast = true;
                 // TODO: This might be cleaner with a watch dog thread
                 timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
                         true /* One shot */);
@@ -689,35 +718,23 @@ private:
         ec.setInputCloud(searchCloud);
         ec.extract(clusterIndices);
 
-        // Subdivide any large clusters
-        vector<pcl::PointIndices> allNewIndices;
-        for (vector<pcl::PointIndices>::const_iterator cl = clusterIndices.begin(); cl != clusterIndices.end(); ++cl) {
-            if(cl->indices.size() > 1000){
-                ROS_INFO("Subdividing cluster of size %lu", cl->indices.size());
+        // Perform a secondary clustering using voxel grids
+        // Create the filtering object
+        pcl::VoxelGrid<pcl::PointXYZ> sor;
+        sor.setInputCloud(searchCloud);
+        sor.setLeafSize(0.75f, 0.75f, 0.75f);
+        sor.setSaveLeafLayout(true);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>());
+        sor.filter(*filtered);
 
-                // Create the filtering object
-                pcl::VoxelGrid<pcl::PointXYZ> sor;
-                sor.setInputCloud(searchCloud);
-                pcl::PointIndicesPtr ptr = boost::make_shared<pcl::PointIndices>();
-                ptr->indices = cl->indices;
-                sor.setIndices(ptr);
-                sor.setLeafSize(0.5f, 0.5f, 0.5f);
-                sor.setSaveLeafLayout(true);
-                pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>());
-                sor.filter(*filtered);
-
-                // Determine which points to assign
-                vector<pcl::PointIndices> newIndices(filtered->size());
-                for(unsigned int j = 0; j < searchCloud->points.size(); ++j){
-                    int index = sor.getCentroidIndex(searchCloud->points[j]);
-                    assert((unsigned int)index < newIndices.size() && index >= 0);
-                    newIndices[(unsigned int)index].indices.push_back(j);
-                }
-
-                allNewIndices.insert(allNewIndices.end(), newIndices.begin(), newIndices.end());
-            }
+        // Determine which points to assign
+        vector<pcl::PointIndices> newIndices(filtered->size());
+        for(unsigned int j = 0; j < searchCloud->points.size(); ++j){
+            int index = sor.getCentroidIndex(searchCloud->points[j]);
+            assert((unsigned int)index < newIndices.size() && index >= 0);
+            newIndices[(unsigned int)index].indices.push_back(j);
         }
-        clusterIndices.insert(clusterIndices.end(), allNewIndices.begin(), allNewIndices.end());
+        clusterIndices.insert(clusterIndices.end(), newIndices.begin(), newIndices.end());
 
         // Now find the largest cluster. Sort by size (smallest to largest).
         std::sort(clusterIndices.begin(), clusterIndices.end(), ClusterSmaller());
@@ -729,7 +746,7 @@ private:
         Eigen::Vector4f centroid;
         vector<pcl::PointIndices>::const_iterator it;
         for (it = clusterIndices.begin(); it != clusterIndices.end(); ++it) {
-            ROS_DEBUG("Selected a next best search cluster with size %lu", it->indices.size());
+            ROS_DEBUG("Testing a next best search cluster with size %lu", it->indices.size());
 
             // Now find the centroid
             pcl::compute3DCentroid(*searchCloud, it->indices, centroid);
@@ -750,7 +767,7 @@ private:
                 ROS_DEBUG("No searched points to check for closeness.");
                 break;
             }
-            if (utils::pointToPointXYDistance(closest->point, resultPoint.point) > 0.01) {
+            if (utils::pointToPointXYDistance(closest->point, resultPoint.point) > 0.5) {
                 ROS_DEBUG("Selected a point that was %f distance away from the closest point",
                         utils::pointToPointXYDistance(closest->point, resultPoint.point));
                 break;
@@ -770,17 +787,23 @@ private:
     }
 
     void pointHeadAtTarget(const geometry_msgs::PointStamped& target) {
+        ROS_DEBUG("Pointing head at target");
         pr2_controllers_msgs::PointHeadGoal phGoal;
-        phGoal.target = target;
         phGoal.pointing_frame = "wide_stereo_link";
         phGoal.pointing_axis.x = 1;
         phGoal.pointing_axis.y = 0;
         phGoal.pointing_axis.z = 0;
-        phGoal.max_velocity = 1.0;
+        phGoal.max_velocity = 0.5;
+
+        // Transform to torso_lift_link since that is what the robot wants
+        // for pointing the head
+        tf.transformPoint("/torso_lift_link", ros::Time(0), target,
+                            target.header.frame_id, phGoal.target);
 
         // Pointing axis defaults to the x-axis.
         pointHeadClient.sendGoal(phGoal,
                 boost::bind(&FocusHead::pointHeadCompleteCallback, this, _1, _2));
+        ROS_DEBUG("Point head at target complete");
     }
 
 protected:
@@ -795,6 +818,7 @@ protected:
     ActionState state;
     SearchState searchState;
     ros::Timer timeout;
+    ros::Timer pauseTimeout;
     double leashLength;
     double pathVisibilityThreshold;
     double lookAtPathWeight;
@@ -836,6 +860,9 @@ protected:
 
     //! Whether to disable the arm search
     bool disableArm;
+
+    //! Whether we are currently pointing at the last position
+    bool pointingAtLast;
 };
 }
 

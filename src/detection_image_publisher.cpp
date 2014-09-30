@@ -120,7 +120,7 @@ private:
         if (sync.get() == NULL) {
             // Sync the two messages
             sync.reset(
-                    new CameraDogSync(CameraDogSyncPolicy(10),
+                    new CameraDogSync(CameraDogSyncPolicy(30),
                             *imageSub, *dogPositionSub, *cameraSub));
 
             sync->registerCallback(boost::bind(&DetectionImagePublisher::callback, this, _1, _2, _3));

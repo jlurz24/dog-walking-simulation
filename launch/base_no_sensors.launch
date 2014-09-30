@@ -37,33 +37,35 @@
       -->
   </group>
 
-  <node pkg="dogsim" type="avoid_dog" name="avoid_dog"/>
- 
-  <node pkg="dogsim" type="path_planner" name="path_planner" /> 
-  <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action">
-    <remap from="odom" to="base_odometry/odom" />
-    <remap from="cmd_vel" to="navigation/cmd_vel" />
-    
-    <rosparam file="$(find dogsim)/config/dwa_local_planner.yaml" command="load" />
-    <rosparam file="$(find dogsim)/config/local_costmap_params.yaml" command="load" />
-  </node>
-
-  <node pkg="dogsim" type="move_dog_away_action" name="move_dog_away_action" />
-
   <!-- TODO: Reenable -->
-  <!-- TODO: Add feature to increase score of path visibility detection based on velocity and maximum acceleration -->
   <group unless="$(arg insitu)">
-    <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
+    <node pkg="dogsim" type="avoid_dog" name="avoid_dog"/>
+    <node pkg="dogsim" type="path_planner" name="path_planner" output="screen"/> 
+    <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action">
+      <remap from="odom" to="base_odometry/odom" />
+      <remap from="cmd_vel" to="navigation/cmd_vel" />
+    
+      <rosparam file="$(find dogsim)/config/dwa_local_planner.yaml" command="load" />
+      <rosparam file="$(find dogsim)/config/local_costmap_params.yaml" command="load" />
+    </node>
+
+    <node pkg="dogsim" type="move_dog_away_action" name="move_dog_away_action" />
   </group>
+  
+  <node pkg="dogsim" type="path_visualizer" name="path_visualizer" />
   
   <node pkg="topic_tools" type="throttle" name="wide_stereo_camera_info_throttle" args="messages /wide_stereo/left/camera_info 10.0 /wide_stereo/left/camera_info_throttled">
      <param name="lazy" value="true"/>
   </node>
 
-  <node pkg="dogsim" type="path_visibility_detector" name="path_visibility_detector">
-    <remap to="/wide_stereo/left/camera_info_throttled" from="camera_info_in"/>
-  </node>
-
+  <!-- TODO: Reenable -->
+  <!-- TODO: Add feature to increase score of path visibility detection based on velocity and maximum acceleration -->
+  <group unless="$(arg insitu)">
+    <node pkg="dogsim" type="path_visibility_detector" name="path_visibility_detector">
+      <remap to="/wide_stereo/left/camera_info_throttled" from="camera_info_in"/>
+    </node>
+  </group>
+  
    <node pkg="dogsim" type="move_arm_to_base_position_action" name="move_arm_to_base_position_action"/>
    
   <node pkg="dogsim" type="focus_head_action" name="focus_head_action">

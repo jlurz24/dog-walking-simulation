@@ -13,9 +13,9 @@ using namespace dogsim;
 using namespace geometry_msgs;
 
 const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
-const double STALE_THRESHOLD_DEFAULT = 1.0;
+const double STALE_THRESHOLD_DEFAULT = 3.0;
 const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
-const double DOG_HEIGHT_ERROR_DEFAULT = 0.25;
+const double DOG_HEIGHT_ERROR_DEFAULT = 0.5;
 const double DOG_HEIGHT_DEFAULT = 0.1;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
@@ -53,6 +53,26 @@ struct OutOfLeashDistance {
 
 };
 
+struct InsideAreaOfRobot {
+
+    const double baseRadius;
+    const tf::TransformListener& tf;
+
+    InsideAreaOfRobot(const double baseRadius, const tf::TransformListener& tf):
+        baseRadius(baseRadius),
+        tf(tf){
+    }
+
+    bool operator()(const position_tracker::DetectedDynamicObject& obj) {
+        // Convert to base frame.
+        PointStamped positionInBaseFrame;
+        tf.transformPoint("base_footprint", obj.position, positionInBaseFrame);
+        ROS_DEBUG("Position in base frame: %f %f %f", obj.position.point.x, obj.position.point.y, baseRadius);
+        return fabs(obj.position.point.x) < baseRadius && fabs(obj.position.point.y) < baseRadius;
+    }
+
+};
+
 struct OverMaxDogHeight {
 
     const double dogHeightThreshold;
@@ -69,7 +89,7 @@ struct OverMaxDogHeight {
         tf.transformPoint("base_footprint", obj.position, positionInBaseFrame);
 
         ROS_DEBUG("Height of measurement in base frame: %f", positionInBaseFrame.point.z);
-        return positionInBaseFrame.point.z > dogHeightThreshold;
+        return positionInBaseFrame.point.z > dogHeightThreshold || positionInBaseFrame.point.z <= 0.0f;
     }
 
 };
@@ -85,6 +105,7 @@ struct DistanceFromHand {
     }
 };
 
+
 struct Velocity {
 
     Velocity(){
@@ -92,7 +113,7 @@ struct Velocity {
 
     bool operator()(const position_tracker::DetectedDynamicObject& a, const position_tracker::DetectedDynamicObject& b){
         // Frame is irrelevant
-        // Detection of angular velocity is not current implmented.
+        // Detection of angular velocity is not current implemented.
         return totalVelocity(a) < totalVelocity(b);
     }
 };
@@ -141,6 +162,7 @@ private:
     //! Amount of error in the dog height
     double dogHeightError;
     static const double MIN_DETECTABLE_VELOCITY = 0.01;
+    static const double BASE_RADIUS = 0.35;
 
 public:
     //! ROS node initialization
@@ -241,10 +263,16 @@ private:
             ROS_DEBUG("%lu possible dog positions at end of distance filtering", possiblePositions.size());
 
             possiblePositions.erase(
+                                std::remove_if(possiblePositions.begin(), possiblePositions.end(),
+                            InsideAreaOfRobot(BASE_RADIUS, tf)), possiblePositions.end());
+
+            ROS_DEBUG("%lu possible dog positions at end of base radius distance filtering", possiblePositions.size());
+
+            possiblePositions.erase(
                     std::remove_if(possiblePositions.begin(), possiblePositions.end(),
                             OverMaxDogHeight(dogHeight, dogHeightError, tf)), possiblePositions.end());
 
-            ROS_DEBUG("%lu possible dog positions at end of dog height filtering", possiblePositions.size());
+            ROS_DEBUG("%lu possible dog positions at end of dog height filtering. Dog height: %f", possiblePositions.size(), dogHeight * (1 + dogHeightError));
 
 
             // Apply preference filters. These filters distinguish between feasible

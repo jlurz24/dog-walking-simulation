@@ -37,6 +37,8 @@ private:
      */
     dwa_local_planner::DWAPlannerROS tp;
 
+    bool running;
+
     //! Cached service client.
     ros::ServiceClient getEntireRobotPathClient;
 
@@ -48,26 +50,31 @@ public:
 
         getEntireRobotPathClient = nh.serviceClient<GetEntireRobotPath>("/dogsim/get_entire_robot_path", true /* persist */);
 
-        costmap.start();
-        tp.initialize("local_planner", &tf, &costmap);
-
         ros::SubscriberStatusCallback connectCB = boost::bind(&PathPlanner::startListening,
                 this);
         ros::SubscriberStatusCallback disconnectCB = boost::bind(
                 &PathPlanner::stopListening, this);
 		planPublisher = nh.advertise<NextGoal>("/robot_path/next_goal", 1, connectCB, disconnectCB);
+
+		running = false;
 	}
 
     void stopListening() {
         if (planPublisher.getNumSubscribers() == 0) {
             ROS_DEBUG("Stopping path planner");
+            costmap.stop();
+            running = false;
         }
     }
 
     void startListening() {
         if (planPublisher.getNumSubscribers() == 1) {
             ROS_INFO("Starting path planner");
-            // TODO: Fix this threading
+
+            costmap.start();
+            tp.initialize("local_planner", &tf, &costmap);
+
+            running = true;
             publishCurrentPlan();
         }
     }
@@ -102,7 +109,7 @@ public:
         // frame after each move.
         ros::Rate updateRate(10);
 
-        while (ros::ok()) {
+        while (ros::ok() && running) {
             tf::Stamped<tf::Pose> globalPose;
             if (!costmap.getRobotPose(globalPose)) {
                 ROS_ERROR(
@@ -140,7 +147,7 @@ public:
                 continue;
             }
 
-            while (ros::ok() && !tp.isGoalReached() && ros::Time::now() < nextUpdateTime) {
+            while (running && ros::ok() && !tp.isGoalReached() && ros::Time::now() < nextUpdateTime) {
 
                 geometry_msgs::Twist baseCmd;
                 if (!tp.computeVelocityCommands(baseCmd)) {
@@ -158,7 +165,11 @@ public:
                     goal.twist.linear.x = baseCmd.linear.x;
                     goal.twist.linear.y = baseCmd.linear.y;
                     goal.twist.angular.z = baseCmd.angular.z;
+                    planPublisher.publish(goal);
                 }
+
+                // Process any callbacks
+                ros::spinOnce();
                 updateRate.sleep();
             }
 
@@ -179,7 +190,6 @@ public:
         }
 
         // Stop movement
-        // TODO: This should continuously send
         ROS_INFO("Stopping movement as movement plan is complete");
         NextGoal goal;
         goal.twist.linear.x = 0.0;
