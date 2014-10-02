@@ -149,7 +149,7 @@ public:
 private:
 
     void timeoutCallback(const ros::TimerEvent& e) {
-        ROS_INFO("Point head action timed out");
+        ROS_DEBUG("Point head action timed out");
         pointingAtLast = false;
 
         // Ignore any timeouts after completion.
@@ -351,7 +351,7 @@ private:
 
     void pointHeadCompleteCallback(const actionlib::SimpleClientGoalState& goalState,
             const pr2_controllers_msgs::PointHeadResultConstPtr result) {
-        ROS_INFO("Received point head complete callback");
+        ROS_DEBUG("Received point head complete callback");
         pointingAtLast = false;
 
         if (searchState != SearchState::HEAD) {
@@ -414,7 +414,7 @@ private:
                 // If the search state is last known and there is no last known,
                 // immediate increment the search.
                 if (searchState == SearchState::LAST_KNOWN && !isPositionSet && lastKnownDogPosition.get() == NULL) {
-                    ROS_INFO("Skipping last known search state because position is not set");
+                    ROS_DEBUG("Skipping last known search state because position is not set");
                     bool proceeding = moveToNextSearchState();
                     assert(proceeding);
                 }
@@ -424,7 +424,7 @@ private:
                 if (searchState == SearchState::LAST_KNOWN) {
                     ROS_DEBUG("Searching last known position");
                     if(!isPositionSet){
-                        ROS_INFO("Overriding position with last known position");
+                        ROS_DEBUG("Overriding position with last known position");
                         finalTarget.header = lastKnownDogPosition->header;
                         finalTarget.point = lastKnownDogPosition->pose.position;
                     }
@@ -433,7 +433,7 @@ private:
                     }
 
                     found = true;
-                    ROS_INFO("Pointing at the last known position of the dog @ %f %f %f in frame %s", finalTarget.point.x, finalTarget.point.y, finalTarget.point.z, finalTarget.header.frame_id.c_str());
+                    ROS_DEBUG("Pointing at the last known position of the dog @ %f %f %f in frame %s", finalTarget.point.x, finalTarget.point.y, finalTarget.point.z, finalTarget.header.frame_id.c_str());
                     // Only do this once.
                     bool proceeding = moveToNextSearchState();
                     assert(proceeding);
@@ -453,7 +453,7 @@ private:
             } while (!found);
         }
         else if (targetType == ActionState::LOOKING_AT_PATH) {
-            ROS_INFO("Focusing head on path target in frame %s, %f %f %f",
+            ROS_DEBUG("Focusing head on path target in frame %s, %f %f %f",
                     target.header.frame_id.c_str(), target.point.x, target.point.y, target.point.z);
             assert(isPositionSet && "is position not set for path action");
             finalTarget = target;
@@ -474,7 +474,7 @@ private:
                     boost::bind(&FocusHead::pointArmCompleteCallback, this, _1, _2));
         }
         else {
-            ROS_INFO("Pointing head at possible dog position %f %f %f", finalTarget.point.x, finalTarget.point.y, finalTarget.point.z);
+            ROS_DEBUG("Pointing head at possible dog position %f %f %f", finalTarget.point.x, finalTarget.point.y, finalTarget.point.z);
             pointHeadAtTarget(finalTarget);
         }
         timeout = nh.createTimer(FOCUS_TIMEOUT, &FocusHead::timeoutCallback, this,
@@ -513,7 +513,7 @@ private:
 
         if (dogPosition->unknown || dogPosition->stale) {
             if(pointingAtLast){
-                ROS_INFO("Skipping starting a new search until pointing at last completes");
+                ROS_DEBUG("Skipping starting a new search until pointing at last completes");
                 return;
             }
 
@@ -535,13 +535,13 @@ private:
         }
         else {
             lastKnownDogPosition.reset(new PoseStamped(dogPosition->pose));
-            ROS_INFO("Updating last known position. State is %s and pointing at last is %u", STATE_NAMES[static_cast<int>(state)].c_str(), pointingAtLast);
+            ROS_DEBUG("Updating last known position. State is %s and pointing at last is %u", STATE_NAMES[static_cast<int>(state)].c_str(), pointingAtLast);
             if(state == ActionState::IDLE && !pointingAtLast){
                 // Point head at the dog
                 PointStamped pointTarget;
                 pointTarget.header = dogPosition->header;
                 pointTarget.point = dogPosition->pose.pose.position;
-                ROS_INFO("Pointing at the located position of the dog @ %f %f %f in frame %s", pointTarget.point.x, pointTarget.point.y, pointTarget.point.z, pointTarget.header.frame_id.c_str());
+                ROS_DEBUG("Pointing at the located position of the dog @ %f %f %f in frame %s", pointTarget.point.x, pointTarget.point.y, pointTarget.point.z, pointTarget.header.frame_id.c_str());
                 pointHeadAtTarget(pointTarget);
                 pointingAtLast = true;
                 // TODO: This might be cleaner with a watch dog thread
@@ -551,7 +551,7 @@ private:
         }
 
         if (state == ActionState::LOOKING_FOR_DOG) {
-            ROS_INFO(
+            ROS_DEBUG(
                     "Search for dog located the dog. Unknown is %u and stale is %u and stamp is %f and measured time is %f. State is %s",
                     dogPosition->unknown, dogPosition->stale, dogPosition->header.stamp.toSec(),
                     dogPosition->measuredTime.toSec(),
@@ -591,7 +591,7 @@ private:
         }
 
         if (state == ActionState::LOOKING_AT_PATH) {
-            ROS_INFO("Look at path completed. Ratio is %f and stamp is %f and State is %s",
+            ROS_DEBUG("Look at path completed. Ratio is %f and stamp is %f and State is %s",
                     pathView->visibilityRatio, pathView->header.stamp.toSec(),
                     STATE_NAMES[static_cast<int>(state)].c_str());
 
@@ -667,7 +667,7 @@ private:
     }
 
     bool moveToNextSearchState() {
-        ROS_INFO("Transitioning to next search state. Current state is %s.",
+        ROS_DEBUG("Transitioning to next search state. Current state is %s.",
                 SEARCH_STATE_NAMES[static_cast<int>(searchState)].c_str());
         if (searchState == SearchState::NONE) {
             // Start a new search
@@ -773,7 +773,7 @@ private:
                 break;
             }
             else {
-                ROS_INFO("Target at %f, %f, %f was not selected because it was too close to searched point %f, %f, %f",
+                ROS_DEBUG("Target at %f, %f, %f was not selected because it was too close to searched point %f, %f, %f",
                         resultPoint.point.x, resultPoint.point.y, resultPoint.point.z, closest->point.x, closest->point.y, closest->point.z);
             }
         }
@@ -782,7 +782,7 @@ private:
             ROS_WARN("Failed to find a cluster to search. %lu possible clusters and %lu search points", clusterIndices.size(), searchCloud->size());
             return false;
         }
-        ROS_INFO("Selected point from cluster with %lu points", it->indices.size());
+        ROS_DEBUG("Selected point from cluster with %lu points", it->indices.size());
         return true;
     }
 
@@ -795,10 +795,19 @@ private:
         phGoal.pointing_axis.z = 0;
         phGoal.max_velocity = 0.5;
 
-        // Transform to torso_lift_link since that is what the robot wants
-        // for pointing the head
-        tf.transformPoint("/torso_lift_link", ros::Time(0), target,
-                            target.header.frame_id, phGoal.target);
+        tf.waitForTransform("/torso_lift_link", target.header.frame_id,
+                ros::Time(0), ros::Duration(30.0));
+
+        try {
+            // Transform to torso_lift_link since that is what the robot wants
+            // for pointing the head
+            tf.transformPoint("/torso_lift_link", ros::Time(0), target,
+                                target.header.frame_id, phGoal.target);
+        }
+        catch (tf::TransformException& ex) {
+            ROS_WARN("Failed to look target to /torso_lift_link");
+            throw ex;
+        }
 
         // Pointing axis defaults to the x-axis.
         pointHeadClient.sendGoal(phGoal,

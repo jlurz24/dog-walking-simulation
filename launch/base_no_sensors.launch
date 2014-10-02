@@ -40,13 +40,16 @@
   <!-- TODO: Reenable -->
   <group unless="$(arg insitu)">
     <node pkg="dogsim" type="avoid_dog" name="avoid_dog"/>
-    <node pkg="dogsim" type="path_planner" name="path_planner" output="screen"/> 
-    <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action">
-      <remap from="odom" to="base_odometry/odom" />
-      <remap from="cmd_vel" to="navigation/cmd_vel" />
     
+    <node pkg="dogsim" type="path_planner" name="path_planner">
+      <remap from="cmd_vel" to="navigation/cmd_vel" />
+      <remap from="odom" to="base_odometry/odom" />
       <rosparam file="$(find dogsim)/config/dwa_local_planner.yaml" command="load" />
       <rosparam file="$(find dogsim)/config/local_costmap_params.yaml" command="load" />
+    </node> 
+    
+    <node pkg="dogsim" type="move_robot_local_planner_action" name="move_robot_action">
+      <remap from="cmd_vel" to="navigation/cmd_vel" />
     </node>
 
     <node pkg="dogsim" type="move_dog_away_action" name="move_dog_away_action" />

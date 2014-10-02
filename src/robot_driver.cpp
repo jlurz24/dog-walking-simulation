@@ -22,7 +22,7 @@ typedef actionlib::SimpleActionClient<MoveRobotAction> MoveRobotClient;
 typedef actionlib::SimpleActionClient<MoveArmToBasePositionAction> MoveArmToBasePositionClient;
 
 //! Amount of time before starting walk. This provides time for the robot to finish
-//  tucking its arms and move to the starting position.
+//  tucking its arms.
 const double DELAY_TIME_DEFAULT = 10.0;
 
 //! Interval to update the move_robot_action
@@ -115,15 +115,10 @@ public:
         }
 
         pnh.param<bool>("no_steering_mode", noSteeringMode, false);
-
-        initTimer = nh.createTimer(delayTime, &RobotDriver::init, this,
-                true /* One shot */);
-
-        ROS_INFO("Robot driver initialization complete @ %f. Waiting for %f(s) to start.", ros::Time::now().toSec(), delayTime.toSec());
+        init();
     }
 
-    void init(const ros::TimerEvent& event) {
-        ROS_INFO("Entering delayed init");
+    void init() {
 
         MoveArmToBasePositionGoal moveArmToBasePositionGoal;
         utils::sendGoal(&moveArmToBasePositionClient, moveArmToBasePositionGoal, nh, 1.0 /* 10.0 */);
@@ -138,7 +133,7 @@ public:
         activateMoveBaseAlongPath();
         activateAdjustDogPosition();
 
-        ROS_INFO("Delayed init complete");
+        ROS_INFO("Initialization complete");
     }
 
     void startPath(const ros::Time& currentTime) {

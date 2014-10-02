@@ -6,6 +6,7 @@
   <node pkg="dogsim" type="robot_driver" name="robot_driver" output="screen">
     <param name="solo_mode" value="true"/>
   </node>
+  
   <node pkg="dogsim" type="set_max_update_rate" name="set_max_update_rate" output="screen">
     <param name="max_update_rate" value="250"/>
   </node>

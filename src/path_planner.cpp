@@ -44,7 +44,7 @@ private:
 
 public:
 	PathPlanner() :
-		pnh("~"), tf(ros::Duration(10)), costmap("local_costmap", tf) {
+		pnh("~"), tf(ros::Duration(10), true), costmap("local_costmap", tf) {
 
         ros::service::waitForService("/dogsim/get_entire_robot_path");
 
@@ -55,14 +55,16 @@ public:
         ros::SubscriberStatusCallback disconnectCB = boost::bind(
                 &PathPlanner::stopListening, this);
 		planPublisher = nh.advertise<NextGoal>("/robot_path/next_goal", 1, connectCB, disconnectCB);
-
+		costmap.start();
+        tp.initialize("local_planner", &tf, &costmap);
+        costmap.pause();
 		running = false;
 	}
 
     void stopListening() {
         if (planPublisher.getNumSubscribers() == 0) {
             ROS_DEBUG("Stopping path planner");
-            costmap.stop();
+            costmap.pause();
             running = false;
         }
     }
@@ -70,10 +72,7 @@ public:
     void startListening() {
         if (planPublisher.getNumSubscribers() == 1) {
             ROS_INFO("Starting path planner");
-
-            costmap.start();
-            tp.initialize("local_planner", &tf, &costmap);
-
+            costmap.resume();
             running = true;
             publishCurrentPlan();
         }

@@ -89,7 +89,7 @@ private:
     }
 
     void sendCommandLoop() {
-        static const boost::posix_time::seconds CYCLE_TIME = boost::posix_time::seconds(1.0 / 50.0);
+        static const boost::posix_time::seconds CYCLE_TIME = boost::posix_time::seconds(1.0 / 25.0);
         while (true) {
             // Publish the command to the base
             geometry_msgs::Twist baseCmdTemp;

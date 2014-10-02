@@ -99,7 +99,7 @@
   
   <node pkg="dogsim" type="dog_position_detector" name="dog_position_detector">
     <param name="stale_threshold" value="3.0" />
-    <param name="leash_stretch_error" value="0.25" />
+    <param name="leash_stretch_error" value="0.5" />
   </node>
   
   <group unless="$(arg insitu)">

@@ -176,19 +176,6 @@ ROSBUILD_genmsg_cpp/fast:
 .PHONY : ROSBUILD_genmsg_cpp/fast
 
 #=============================================================================
-# Target rules for targets named ROSBUILD_genmsg_lisp
-
-# Build rule for target.
-ROSBUILD_genmsg_lisp: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 ROSBUILD_genmsg_lisp
-.PHONY : ROSBUILD_genmsg_lisp
-
-# fast build rule for target.
-ROSBUILD_genmsg_lisp/fast:
-	$(MAKE) -f CMakeFiles/ROSBUILD_genmsg_lisp.dir/build.make CMakeFiles/ROSBUILD_genmsg_lisp.dir/build
-.PHONY : ROSBUILD_genmsg_lisp/fast
-
-#=============================================================================
 # Target rules for targets named ROSBUILD_genmsg_py
 
 # Build rule for target.
@@ -213,19 +200,6 @@ ROSBUILD_gensrv_cpp: cmake_check_build_system
 ROSBUILD_gensrv_cpp/fast:
 	$(MAKE) -f CMakeFiles/ROSBUILD_gensrv_cpp.dir/build.make CMakeFiles/ROSBUILD_gensrv_cpp.dir/build
 .PHONY : ROSBUILD_gensrv_cpp/fast
-
-#=============================================================================
-# Target rules for targets named ROSBUILD_gensrv_lisp
-
-# Build rule for target.
-ROSBUILD_gensrv_lisp: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 ROSBUILD_gensrv_lisp
-.PHONY : ROSBUILD_gensrv_lisp
-
-# fast build rule for target.
-ROSBUILD_gensrv_lisp/fast:
-	$(MAKE) -f CMakeFiles/ROSBUILD_gensrv_lisp.dir/build.make CMakeFiles/ROSBUILD_gensrv_lisp.dir/build
-.PHONY : ROSBUILD_gensrv_lisp/fast
 
 #=============================================================================
 # Target rules for targets named ROSBUILD_gensrv_py
@@ -538,6 +512,19 @@ move_dog_away_action: cmake_check_build_system
 move_dog_away_action/fast:
 	$(MAKE) -f CMakeFiles/move_dog_away_action.dir/build.make CMakeFiles/move_dog_away_action.dir/build
 .PHONY : move_dog_away_action/fast
+
+#=============================================================================
+# Target rules for targets named move_robot_action
+
+# Build rule for target.
+move_robot_action: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 move_robot_action
+.PHONY : move_robot_action
+
+# fast build rule for target.
+move_robot_action/fast:
+	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/build
+.PHONY : move_robot_action/fast
 
 #=============================================================================
 # Target rules for targets named move_robot_local_planner_action
@@ -1363,6 +1350,30 @@ src/move_dog_away_action.cpp.s:
 	$(MAKE) -f CMakeFiles/move_dog_away_action.dir/build.make CMakeFiles/move_dog_away_action.dir/src/move_dog_away_action.cpp.s
 .PHONY : src/move_dog_away_action.cpp.s
 
+src/move_robot_action.o: src/move_robot_action.cpp.o
+.PHONY : src/move_robot_action.o
+
+# target to build an object file
+src/move_robot_action.cpp.o:
+	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/src/move_robot_action.cpp.o
+.PHONY : src/move_robot_action.cpp.o
+
+src/move_robot_action.i: src/move_robot_action.cpp.i
+.PHONY : src/move_robot_action.i
+
+# target to preprocess a source file
+src/move_robot_action.cpp.i:
+	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/src/move_robot_action.cpp.i
+.PHONY : src/move_robot_action.cpp.i
+
+src/move_robot_action.s: src/move_robot_action.cpp.s
+.PHONY : src/move_robot_action.s
+
+# target to generate assembly for a file
+src/move_robot_action.cpp.s:
+	$(MAKE) -f CMakeFiles/move_robot_action.dir/build.make CMakeFiles/move_robot_action.dir/src/move_robot_action.cpp.s
+.PHONY : src/move_robot_action.cpp.s
+
 src/move_robot_local_planner_action.o: src/move_robot_local_planner_action.cpp.o
 .PHONY : src/move_robot_local_planner_action.o
 
@@ -1707,10 +1718,8 @@ help:
 	@echo "... depend"
 	@echo "... ROSBUILD_genaction_msgs"
 	@echo "... ROSBUILD_genmsg_cpp"
-	@echo "... ROSBUILD_genmsg_lisp"
 	@echo "... ROSBUILD_genmsg_py"
 	@echo "... ROSBUILD_gensrv_cpp"
-	@echo "... ROSBUILD_gensrv_lisp"
 	@echo "... ROSBUILD_gensrv_py"
 	@echo "... _catkin_empty_exported_target"
 	@echo "... actionlib_msgs_generate_messages_cpp"
@@ -1740,6 +1749,7 @@ help:
 	@echo "... map_broadcaster"
 	@echo "... move_arm_to_base_position_action"
 	@echo "... move_dog_away_action"
+	@echo "... move_robot_action"
 	@echo "... move_robot_local_planner_action"
 	@echo "... no_op_adjust_arm_position_action"
 	@echo "... path_planner"
@@ -1825,6 +1835,9 @@ help:
 	@echo "... src/move_dog_away_action.o"
 	@echo "... src/move_dog_away_action.i"
 	@echo "... src/move_dog_away_action.s"
+	@echo "... src/move_robot_action.o"
+	@echo "... src/move_robot_action.i"
+	@echo "... src/move_robot_action.s"
 	@echo "... src/move_robot_local_planner_action.o"
 	@echo "... src/move_robot_local_planner_action.i"
 	@echo "... src/move_robot_local_planner_action.s"

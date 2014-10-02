@@ -15,7 +15,7 @@ using namespace geometry_msgs;
 const unsigned int UNKNOWN_ID = std::numeric_limits<unsigned int>::max();
 const double STALE_THRESHOLD_DEFAULT = 3.0;
 const double LEASH_STRETCH_ERROR_DEFAULT = 0.25;
-const double DOG_HEIGHT_ERROR_DEFAULT = 0.5;
+const double DOG_HEIGHT_ERROR_DEFAULT = 1.0;
 const double DOG_HEIGHT_DEFAULT = 0.1;
 
 typedef vector<position_tracker::DetectedDynamicObject> DetectedDynamicObjectsList;
@@ -68,7 +68,7 @@ struct InsideAreaOfRobot {
         PointStamped positionInBaseFrame;
         tf.transformPoint("base_footprint", obj.position, positionInBaseFrame);
         ROS_DEBUG("Position in base frame: %f %f %f", obj.position.point.x, obj.position.point.y, baseRadius);
-        return fabs(obj.position.point.x) < baseRadius && fabs(obj.position.point.y) < baseRadius;
+        return fabs(obj.position.point.x) < baseRadius && fabs(obj.position.point.y) < baseRadius / 1.1; // TODO: Convert to error parameter
     }
 
 };
@@ -89,7 +89,7 @@ struct OverMaxDogHeight {
         tf.transformPoint("base_footprint", obj.position, positionInBaseFrame);
 
         ROS_DEBUG("Height of measurement in base frame: %f", positionInBaseFrame.point.z);
-        return positionInBaseFrame.point.z > dogHeightThreshold || positionInBaseFrame.point.z <= 0.0f;
+        return positionInBaseFrame.point.z > dogHeightThreshold || positionInBaseFrame.point.z <= -0.1f;
     }
 
 };

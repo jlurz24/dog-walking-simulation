@@ -225,6 +225,7 @@ private:
             const math::Vector3 worldPose = this->model->GetWorldPose().pos;
             const double errorX = calcError(worldPose.x, goalPosition.x);
             const double errorY = calcError(worldPose.y, goalPosition.y);
+            ROS_DEBUG("Current error X %f and Y %f", errorX, errorY);
 
             const common::Time deltat = currTime - this->previousTime;
 
@@ -278,7 +279,7 @@ private:
                     math::Vector3 diff = (this->model->GetWorldPose().pos - basePosition).Normalize();
                     avoidanceForceX = avoidanceForce * diff.x;
                     avoidanceForceY = avoidanceForce * diff.y;
-                    // ROS_INFO("distance %f BX %f BY %f AX %f AY %f", distance, this->forceX, this->forceY, avoidanceForceX, avoidanceForceY);
+                    ROS_DEBUG("distance %f BX %f BY %f AX %f AY %f", distance, this->forceX, this->forceY, avoidanceForceX, avoidanceForceY);
                 }
             }
 
@@ -293,13 +294,16 @@ private:
                 this->appliedForceY = copysign(AVOIDANCE_FORCE_MULT * MAXIMUM_FORCE,
                         this->appliedForceY);
             }
+            ROS_DEBUG("Applied force X: %f, Applied force Y: %f", this->appliedForceX, this->appliedForceY);
         }
 
         // Ensure the dog didn't get lifted. Can't apply force if it did. Apply a smoothing function
         // such that there is 100% traction at 0.05 height and 0% traction at 0.2 height.
-        double liftFactor = min(log(10 * this->model->GetWorldPose().pos.z) / log(10 * 0.05),
+        // TODO: This is altered by changing the height of the dog.
+        double liftFactor = min(log(10 * (this->model->GetWorldPose().pos.z)) / log(10 * 0.05),
                 1.0);
 
+        ROS_DEBUG("Current lift factor: %f", liftFactor);
         body->AddForce(math::Vector3(this->appliedForceX * liftFactor, this->appliedForceY * liftFactor, 0.0));
 
         // Calculate the torque

@@ -30,6 +30,8 @@ namespace {
 
             //! Cached service client.
             ros::ServiceClient getPathClient;
+
+            bool active;
         public:
             ControlDogPositionBehavior(const string& name):as(nh, name, boost::bind(&ControlDogPositionBehavior::activate, this), false),
                                     actionName(name),
@@ -43,6 +45,7 @@ namespace {
             adjustDogClient.waitForServer();
             getPathClient = nh.serviceClient<GetPath>("/dogsim/get_path", true /* persist */);
             ros::service::waitForService("/dogsim/get_path");
+            active = false;
             as.start();
         }
 
@@ -53,17 +56,19 @@ namespace {
                 ROS_DEBUG("Deactivating the ControlDogPositionBehavior prior to start");
                 return;
             }
-
+            active = false;
             dogPositionSub->unsubscribe();
             adjustDogClient.cancelGoal();
             as.setPreempted();
         }
         
         void activate(){
+            ROS_DEBUG("Activating the ControlDogPositionBehavior");
             if(!as.isActive()){
-                ROS_INFO("Move dog away action cancelled prior to start");
+                ROS_INFO("ControlDogPositionBehavior cancelled prior to start");
                 return;
             }
+            active = true;
             dogPositionSub->subscribe();
             as.setSucceeded();
         }
@@ -71,9 +76,9 @@ namespace {
         void dogPositionCallback(const DogPositionConstPtr& dogPosition) {
 
             ROS_DEBUG("Received a dog position callback @ %f", ros::Time::now().toSec());
-            if(!as.isActive()){
-                ROS_DEBUG("Received a dog position callback while not active");
-                return;
+
+            if(!active){
+                "Received a dog position message while inactive";
             }
 
             if (dogPosition->unknown || dogPosition->stale) {
